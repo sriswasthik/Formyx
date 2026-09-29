@@ -1,0 +1,300 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Interaction variants. Besides the real pseudo-class, each also matches
+ * [data-force-state~='…'] so the styleguide can render hover/focus/active
+ * states statically for review.
+ */
+@custom-variant hover {
+  @media (hover: hover) {
+    &:hover {
+      @slot;
+    }
+  }
+  &[data-force-state~='hover'] {
+    @slot;
+  }
+}
+@custom-variant focus-visible {
+  &:focus-visible {
+    @slot;
+  }
+  &[data-force-state~='focus'] {
+    @slot;
+  }
+}
+@custom-variant active {
+  &:active {
+    @slot;
+  }
+  &[data-force-state~='active'] {
+    @slot;
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* Design tokens                                                             */
+/* ------------------------------------------------------------------------ */
+
+:root,
+.light {
+  color-scheme: light;
+
+  --background: #ffffff;
+  --foreground: #09090b; /* zinc-950 */
+  --surface: #fafafa; /* zinc-50: sidebar and subtle panels */
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  --muted: #f4f4f5; /* zinc-100: static fills (skeletons, badges) */
+  --muted-foreground: #71717a; /* zinc-500 */
+  --hover: rgb(24 24 27 / 0.05); /* interactive fills work on any surface */
+  --pressed: rgb(24 24 27 / 0.09);
+
+  --border: #e4e4e7; /* zinc-200 */
+  --border-strong: #d4d4d8; /* zinc-300 */
+  --input: #d4d4d8; /* zinc-300 */
+  --control: #a1a1aa; /* zinc-400: checkbox and radio outlines */
+
+  --primary: #18181b; /* zinc-900 */
+  --primary-hover: #27272a; /* zinc-800 */
+  --primary-active: #3f3f46; /* zinc-700 */
+  --primary-foreground: #fafafa;
+
+  --accent: #2e5aac;
+  --accent-foreground: #ffffff;
+  --accent-subtle: rgb(46 90 172 / 0.1);
+  --ring: #2e5aac;
+
+  /* Semantic colours. The *-text variants are tuned for AA contrast on text. */
+  --success: #16a34a; /* green-600 */
+  --success-text: #15803d; /* green-700 */
+  --warning: #d97706; /* amber-600 */
+  --warning-text: #b45309; /* amber-700 */
+  --danger: #dc2626; /* red-600 */
+  --danger-text: #dc2626;
+
+  --destructive: #dc2626; /* red-600 */
+  --destructive-hover: #b91c1c;
+  --destructive-active: #991b1b;
+  --destructive-foreground: #ffffff;
+
+  --tooltip: #18181b;
+  --tooltip-foreground: #fafafa;
+  --overlay: rgb(9 9 11 / 0.4);
+
+  --popover-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(0 0 0 / 0.12);
+  --dialog-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 16px 40px -12px rgb(0 0 0 / 0.18);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #09090b; /* zinc-950 */
+  --foreground: #fafafa; /* zinc-50 */
+  --surface: #0f0f11;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #111113;
+  --popover-foreground: #fafafa;
+
+  --muted: #18181b; /* zinc-900 */
+  --muted-foreground: #a1a1aa; /* zinc-400 */
+  --hover: rgb(250 250 250 / 0.06);
+  --pressed: rgb(250 250 250 / 0.1);
+
+  --border: #27272a; /* zinc-800 */
+  --border-strong: #3f3f46; /* zinc-700 */
+  --input: #3f3f46; /* zinc-700 */
+  --control: #71717a; /* zinc-500 */
+
+  --primary: #fafafa;
+  --primary-hover: #e4e4e7; /* zinc-200 */
+  --primary-active: #d4d4d8; /* zinc-300 */
+  --primary-foreground: #18181b;
+
+  /* Same hue as #2E5AAC, lightened to keep AA contrast on dark surfaces. */
+  --accent: #5b85d1;
+  --accent-foreground: #09090b;
+  --accent-subtle: rgb(91 133 209 / 0.16);
+  --ring: #5b85d1;
+
+  --success: #22c55e; /* green-500 */
+  --success-text: #4ade80; /* green-400 */
+  --warning: #f59e0b; /* amber-500 */
+  --warning-text: #fbbf24; /* amber-400 */
+  --danger: #ef4444; /* red-500 */
+  --danger-text: #f87171; /* red-400 */
+
+  --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
+  --destructive-active: #991b1b;
+  --destructive-foreground: #ffffff;
+
+  --tooltip: #27272a;
+  --tooltip-foreground: #fafafa;
+  --overlay: rgb(0 0 0 / 0.6);
+
+  --popover-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --dialog-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Only token colours exist as utilities; the default palette is removed on purpose. */
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Type scale from CLAUDE.md: text-12 … text-40. */
+  --text-*: initial;
+  --text-12: 0.75rem;
+  --text-12--line-height: 1rem;
+  --text-13: 0.8125rem;
+  --text-13--line-height: 1.25rem;
+  --text-14: 0.875rem;
+  --text-14--line-height: 1.3125rem;
+  --text-16: 1rem;
+  --text-16--line-height: 1.5rem;
+  --text-20: 1.25rem;
+  --text-20--line-height: 1.75rem;
+  --text-24: 1.5rem;
+  --text-24--line-height: 2rem;
+  --text-32: 2rem;
+  --text-32--line-height: 2.5rem;
+  --text-40: 2.5rem;
+  --text-40--line-height: 3rem;
+
+  --tracking-tight: -0.011em;
+  --tracking-tighter: -0.022em;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-hover: var(--hover);
+  --color-pressed: var(--pressed);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-control: var(--control);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-text: var(--danger-text);
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-active: var(--destructive-active);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-tooltip: var(--tooltip);
+  --color-tooltip-foreground: var(--tooltip-foreground);
+  --color-overlay: var(--overlay);
+
+  --shadow-popover: var(--popover-shadow);
+  --shadow-dialog: var(--dialog-shadow);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Base                                                                      */
+/* ------------------------------------------------------------------------ */
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-14);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* One focus ring for everything: 2px accent, 2px offset. */
+  :focus-visible,
+  [data-force-state~='focus'] {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: not-allowed;
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+  }
+}
+
+/* Suppresses transitions for one frame while the theme switches. */
+.theme-switching,
+.theme-switching * {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
