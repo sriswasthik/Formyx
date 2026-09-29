@@ -33,8 +33,19 @@ export default defineConfig(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' },
       ],
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      // `value || fallback` is the intended way to treat empty strings as unset.
+      '@typescript-eslint/prefer-nullish-coalescing': [
+        'error',
+        { ignorePrimitives: { string: true } },
+      ],
       'no-console': 'error',
     },
+  },
+
+  // Tests stub browser APIs with no-op methods.
+  {
+    files: ['**/*.test.{ts,tsx}', '**/src/test/**'],
+    rules: { '@typescript-eslint/no-empty-function': 'off' },
   },
 
   // Plain JS config files are not part of any tsconfig.
