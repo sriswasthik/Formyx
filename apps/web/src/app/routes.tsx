@@ -5,6 +5,19 @@ import { RootLayout, RouteFallback } from './root-layout';
 import type { RouteHandle } from './route-handle';
 import { RouteErrorPage } from './route-error-page';
 
+const devOnlyRoutes: RouteObject[] = import.meta.env.DEV
+  ? [
+      {
+        path: 'styleguide',
+        handle: { title: 'Styleguide' } satisfies RouteHandle,
+        lazy: async () => {
+          const { StyleguidePage } = await import('@/features/styleguide/styleguide-page');
+          return { Component: StyleguidePage };
+        },
+      },
+    ]
+  : [];
+
 export const routes: RouteObject[] = [
   {
     element: <RootLayout />,
@@ -38,6 +51,7 @@ export const routes: RouteObject[] = [
           },
         ],
       },
+      ...devOnlyRoutes,
       {
         path: '*',
         element: <NotFoundPage />,
