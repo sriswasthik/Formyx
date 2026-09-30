@@ -2,14 +2,13 @@ import {
   createDefaultTheme,
   createEmptyForm,
   createField,
-  type Answers,
   type Field,
   type FormSchema,
 } from '@formyx/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { FormView } from './form-view';
+import { FormView, type SubmitOutcome } from './form-view';
 
 const contact = createField('single_choice');
 const [yes, no] = contact.options;
@@ -31,11 +30,26 @@ const schema: FormSchema = {
   },
 };
 
-function renderForm(onSubmit?: (answers: Answers) => void) {
+type Props = Partial<React.ComponentProps<typeof FormView>>;
+
+function renderForm(onSubmit?: Props['onSubmit'], props: Props = {}) {
   render(
-    <FormView title="Feedback" schema={schema} theme={createDefaultTheme()} onSubmit={onSubmit} />,
+    <FormView
+      title="Feedback"
+      schema={schema}
+      theme={createDefaultTheme()}
+      onSubmit={onSubmit}
+      {...props}
+    />,
   );
   return userEvent.setup();
+}
+
+const accepted = (): SubmitOutcome => ({ ok: true });
+
+async function fillIn(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByRole('textbox', { name: /Name/ }), 'Ada');
+  await user.click(screen.getByRole('radio', { name: no?.label ?? '' }));
 }
 
 describe('FormView', () => {
@@ -60,7 +74,7 @@ describe('FormView', () => {
   });
 
   it('checks answers on submit, focuses the first problem and clears errors as they are fixed', async () => {
-    const onSubmit = vi.fn();
+    const onSubmit = vi.fn(accepted);
     const user = renderForm(onSubmit);
 
     await user.click(screen.getByRole('button', { name: 'Send' }));
@@ -76,7 +90,7 @@ describe('FormView', () => {
   });
 
   it('submits the answers to visible questions and thanks the respondent', async () => {
-    const onSubmit = vi.fn();
+    const onSubmit = vi.fn(accepted);
     const user = renderForm(onSubmit);
 
     await user.type(screen.getByRole('textbox', { name: /Name/ }), 'Ada');
@@ -91,5 +105,59 @@ describe('FormView', () => {
 
     await user.click(screen.getByRole('button', { name: 'Submit another response' }));
     expect(screen.getByRole('textbox', { name: /Name/ })).toHaveValue('');
+  });
+
+  it('shows the description under the title', () => {
+    renderForm(undefined, { schema: { ...schema, description: 'Two minutes, tops.' } });
+    expect(screen.getByText('Two minutes, tops.')).toBeInTheDocument();
+  });
+
+  it('shows problems the server found under their questions, and keeps the answers', async () => {
+    const onSubmit = vi.fn((): SubmitOutcome => ({
+      ok: false,
+      fieldErrors: { [name.id]: 'Use a real name' },
+      message: 'Some answers need your attention.',
+    }));
+    const user = renderForm(onSubmit);
+    await fillIn(user);
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    const nameInput = await screen.findByRole('textbox', { name: /Name/ });
+    expect(nameInput).toHaveValue('Ada');
+    expect(nameInput).toHaveAccessibleDescription('Use a real name');
+    expect(nameInput).toHaveFocus();
+    expect(screen.getByRole('alert')).toHaveTextContent('Some answers need your attention.');
+  });
+
+  it('says so when the answers could not be sent, and lets the respondent try again', async () => {
+    const onSubmit = vi
+      .fn<() => Promise<SubmitOutcome>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ok: true });
+    const user = renderForm(onSubmit);
+    await fillIn(user);
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be sent/);
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('Thanks, we got it.')).toBeInTheDocument();
+  });
+
+  it('can leave out "Submit another response", and adds hidden inputs to the form', async () => {
+    const user = renderForm(vi.fn(accepted), {
+      allowAnotherResponse: false,
+      hiddenFields: <input aria-label="Hidden extra" />,
+    });
+    expect(screen.getByRole('textbox', { name: 'Hidden extra' }).closest('form')).not.toBeNull();
+    await fillIn(user);
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('Thanks, we got it.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Submit another response' }),
+    ).not.toBeInTheDocument();
   });
 });

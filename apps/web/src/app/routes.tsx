@@ -104,6 +104,15 @@ export const routes: RouteObject[] = [
           },
         ],
       },
+      // Published forms, for anyone with the link. Split out, and free of editor and app code.
+      {
+        path: 'f/:slug',
+        handle: { title: 'Form' } satisfies RouteHandle,
+        lazy: async () => {
+          const { PublicFormPage } = await import('@/features/public-form/public-form-page');
+          return { Component: PublicFormPage };
+        },
+      },
       ...devOnlyRoutes,
       {
         path: '*',

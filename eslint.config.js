@@ -73,6 +73,33 @@ export default defineConfig(
     languageOptions: { globals: globals.browser },
   },
   {
+    // The public form is what respondents download: keep the editor, dashboard and signed-in
+    // app out of its bundle. The renderer it shares with the editor follows the same rule.
+    files: [
+      'apps/web/src/features/public-form/**/*.{ts,tsx}',
+      'apps/web/src/features/form-renderer/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@/features/form-editor/*',
+                '@/features/forms/*',
+                '@/features/auth/*',
+                '@/features/shell/*',
+              ],
+              message: 'Public form code must not pull in editor or signed-in app code.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // shadcn-style primitives export variant helpers alongside components.
     files: ['apps/web/src/components/ui/**/*.tsx'],
     rules: { 'react-refresh/only-export-components': 'off' },

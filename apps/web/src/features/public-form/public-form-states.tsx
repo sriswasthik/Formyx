@@ -1,0 +1,90 @@
+import { createDefaultTheme } from '@formyx/shared';
+import type { LucideIcon } from 'lucide-react';
+import type * as React from 'react';
+import { Link } from 'react-router';
+import { FormThemeScope } from '@/features/form-renderer/form-theme';
+import { cn } from '@/lib/utils';
+
+/** A quiet credit under every public page. Uses the form's colours when inside one. */
+export function MadeWithFormyx() {
+  return (
+    <footer className="px-6 pb-8 text-center">
+      <Link
+        to="/"
+        className="rounded-sm text-12 text-(--form-muted,var(--muted-foreground)) underline-offset-4 transition-colors duration-150 ease-standard hover:text-(--form-fg,var(--foreground)) hover:underline"
+      >
+        Made with Formyx
+      </Link>
+    </footer>
+  );
+}
+
+interface PublicFormMessageProps {
+  icon: LucideIcon;
+  /** Small line above the heading, such as the form's title. */
+  eyebrow?: string | undefined;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}
+
+/** A full page explaining why there is no form to fill in. */
+export function PublicFormMessage({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+  action,
+}: PublicFormMessageProps) {
+  return (
+    <div className="flex min-h-dvh flex-col bg-background">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <span className="flex size-10 items-center justify-center rounded-full border bg-surface text-muted-foreground">
+          <Icon aria-hidden />
+        </span>
+        {eyebrow && (
+          <p className="mt-5 max-w-sm truncate text-13 text-muted-foreground">{eyebrow}</p>
+        )}
+        <h1 className={cn(eyebrow ? 'mt-1' : 'mt-5', 'text-24 font-semibold tracking-tight')}>
+          {title}
+        </h1>
+        <p className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</p>
+        {action && <div className="mt-6">{action}</div>}
+      </main>
+      <MadeWithFormyx />
+    </div>
+  );
+}
+
+function Bar({ className }: { className: string }) {
+  return (
+    <div
+      className={cn(
+        'rounded-(--form-radius) bg-(--form-hover) motion-safe:animate-pulse',
+        className,
+      )}
+    />
+  );
+}
+
+/** Stands in for the form while it loads, on the default form background. */
+export function PublicFormSkeleton() {
+  return (
+    <FormThemeScope theme={createDefaultTheme()} className="min-h-dvh">
+      <div
+        role="status"
+        aria-label="Loading the form"
+        className="mx-auto flex w-full max-w-[640px] flex-col gap-8 px-6 py-10 sm:py-14"
+      >
+        <Bar className="h-9 w-2/3" />
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="flex flex-col gap-3">
+            <Bar className="h-5 w-1/2" />
+            <Bar className="h-11 w-full" />
+          </div>
+        ))}
+        <Bar className="h-11 w-28" />
+      </div>
+    </FormThemeScope>
+  );
+}
