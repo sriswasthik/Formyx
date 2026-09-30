@@ -68,24 +68,69 @@ function conditionValueProblem(source: Field, { operator, value }: Condition): s
   }
 }
 
-/**
- * Rules that span fields: unique ids, and conditions that only look back at earlier,
- * answerable questions with an operator and value that suit them. Looking back only
- * rules out cycles.
- */
-function checkIntegrity(form: { fields: Field[] }, ctx: z.RefinementCtx): void {
+export interface ConditionProblem {
+  key: keyof Condition;
+  message: string;
+}
+
+/** First index of every field id; later duplicates are reported separately. */
+function indexFieldIds(fields: readonly Field[]): Map<string, number> {
   const indexById = new Map<string, number>();
+  fields.forEach((field, index) => {
+    if (!indexById.has(field.id)) indexById.set(field.id, index);
+  });
+  return indexById;
+}
+
+/**
+ * Why a condition on `fields[fieldIndex]` is broken, or `null` if it is sound. Conditions
+ * may only look back at earlier, answerable questions, with an operator and value that
+ * suit them. Looking back only rules out cycles.
+ */
+function findConditionProblem(
+  fields: readonly Field[],
+  indexById: ReadonlyMap<string, number>,
+  fieldIndex: number,
+  condition: Condition,
+): ConditionProblem | null {
+  const sourceIndex = indexById.get(condition.sourceFieldId);
+  const source = sourceIndex === undefined ? undefined : fields[sourceIndex];
+  if (sourceIndex === undefined || !source) {
+    return { key: 'sourceFieldId', message: 'Refers to a question that does not exist' };
+  }
+  if (sourceIndex === fieldIndex) {
+    return { key: 'sourceFieldId', message: 'A question cannot depend on itself' };
+  }
+  if (sourceIndex > fieldIndex) {
+    return { key: 'sourceFieldId', message: 'Can only depend on an earlier question' };
+  }
+  if (!isAnswerableFieldType(source.type)) {
+    return { key: 'sourceFieldId', message: 'Statements have no answer to check' };
+  }
+  if (!OPERATORS_BY_FIELD_TYPE[source.type].includes(condition.operator)) {
+    const type = FIELD_TYPE_LABELS[source.type].toLowerCase();
+    return {
+      key: 'operator',
+      message: `"${CONDITION_OPERATOR_LABELS[condition.operator]}" does not apply to ${type} questions`,
+    };
+  }
+  const valueProblem = conditionValueProblem(source, condition);
+  return valueProblem ? { key: 'value', message: valueProblem } : null;
+}
+
+/** Rules that span fields: unique question and option ids, and sound conditions. */
+function checkIntegrity(form: { fields: Field[] }, ctx: z.RefinementCtx): void {
+  const seenIds = new Set<string>();
 
   form.fields.forEach((field, index) => {
-    if (indexById.has(field.id)) {
+    if (seenIds.has(field.id)) {
       ctx.addIssue({
         code: 'custom',
         path: ['fields', index, 'id'],
         message: 'Another question already uses this id',
       });
-    } else {
-      indexById.set(field.id, index);
     }
+    seenIds.add(field.id);
 
     if ('options' in field) {
       const seen = new Set<string>();
@@ -102,41 +147,17 @@ function checkIntegrity(form: { fields: Field[] }, ctx: z.RefinementCtx): void {
     }
   });
 
+  const indexById = indexFieldIds(form.fields);
   form.fields.forEach((field, index) => {
     field.conditions?.forEach((condition, conditionIndex) => {
-      const path = ['fields', index, 'conditions', conditionIndex];
-      const issue = (key: keyof Condition, message: string) => {
-        ctx.addIssue({ code: 'custom', path: [...path, key], message });
-      };
-
-      const sourceIndex = indexById.get(condition.sourceFieldId);
-      const source = sourceIndex === undefined ? undefined : form.fields[sourceIndex];
-      if (sourceIndex === undefined || !source) {
-        issue('sourceFieldId', 'Refers to a question that does not exist');
-        return;
+      const problem = findConditionProblem(form.fields, indexById, index, condition);
+      if (problem) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fields', index, 'conditions', conditionIndex, problem.key],
+          message: problem.message,
+        });
       }
-      if (sourceIndex === index) {
-        issue('sourceFieldId', 'A question cannot depend on itself');
-        return;
-      }
-      if (sourceIndex > index) {
-        issue('sourceFieldId', 'Can only depend on an earlier question');
-        return;
-      }
-      if (!isAnswerableFieldType(source.type)) {
-        issue('sourceFieldId', 'Statements have no answer to check');
-        return;
-      }
-      if (!OPERATORS_BY_FIELD_TYPE[source.type].includes(condition.operator)) {
-        const type = FIELD_TYPE_LABELS[source.type].toLowerCase();
-        issue(
-          'operator',
-          `"${CONDITION_OPERATOR_LABELS[condition.operator]}" does not apply to ${type} questions`,
-        );
-        return;
-      }
-      const valueProblem = conditionValueProblem(source, condition);
-      if (valueProblem) issue('value', valueProblem);
     });
   });
 }
@@ -154,3 +175,30 @@ export const formSchema = z
   })
   .superRefine(checkIntegrity);
 export type FormSchema = z.infer<typeof formSchema>;
+
+/**
+ * Drops conditions that no longer hold together, e.g. after a question was moved above the
+ * one it depends on, or an option it checks for was deleted. Editors run this after
+ * structural changes, so drafts always stay valid. Returns the same object if nothing changed.
+ */
+export function removeBrokenConditions(form: FormSchema): { form: FormSchema; removed: number } {
+  const indexById = indexFieldIds(form.fields);
+  let removed = 0;
+
+  const fields = form.fields.map((field, index) => {
+    if (!field.conditions?.length) return field;
+    const kept = field.conditions.filter(
+      (condition) => !findConditionProblem(form.fields, indexById, index, condition),
+    );
+    if (kept.length === field.conditions.length) return field;
+
+    removed += field.conditions.length - kept.length;
+    const { conditions: _conditions, conditionMatch: _match, ...rest } = field;
+    return kept.length > 0
+      ? { ...field, conditions: kept }
+      : // Nothing left to match, so the match mode goes too.
+        (rest);
+  });
+
+  return removed === 0 ? { form, removed } : { form: { ...form, fields }, removed };
+}
