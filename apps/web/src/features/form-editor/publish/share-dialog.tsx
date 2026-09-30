@@ -1,6 +1,6 @@
 import { Check, Copy, Download, ExternalLink } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +19,7 @@ import { useQrCode } from './use-qr-code';
 
 const COPIED_FOR_MS = 2000;
 
-function CopyLink({ url }: { url: string }) {
+function CopyLink({ url, buttonRef }: { url: string; buttonRef: RefObject<HTMLButtonElement> }) {
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +55,12 @@ function CopyLink({ url }: { url: string }) {
           event.currentTarget.select();
         }}
       />
-      <Button variant="secondary" className="w-28 shrink-0" onClick={() => void copy()}>
+      <Button
+        ref={buttonRef}
+        variant="secondary"
+        className="w-28 shrink-0"
+        onClick={() => void copy()}
+      >
         <AnimatePresence initial={false} mode="wait">
           <motion.span
             key={copied ? 'copied' : 'copy'}
@@ -129,10 +134,18 @@ interface ShareDialogProps {
 /** The public link to copy or open, and a QR code for it. */
 export function ShareDialog({ open, onOpenChange, slug, closed, justPublished }: ShareDialogProps) {
   const url = publicFormUrl(slug);
+  const copyButton = useRef<HTMLButtonElement>(null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent
+        className="sm:max-w-lg"
+        // Start on "Copy link": copying is what people come for, and Enter does it.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          copyButton.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{justPublished ? 'Your form is live' : 'Share your form'}</DialogTitle>
           <DialogDescription>
@@ -141,7 +154,7 @@ export function ShareDialog({ open, onOpenChange, slug, closed, justPublished }:
               : 'Anyone with the link can respond. No account needed.'}
           </DialogDescription>
         </DialogHeader>
-        <CopyLink url={url} />
+        <CopyLink url={url} buttonRef={copyButton} />
         <QrCode key={url} url={url} slug={slug} />
         <DialogFooter>
           <Button asChild variant="secondary">

@@ -33,6 +33,7 @@ describe('publishing from the editor', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Your form is live' });
     expect(server.actions).toEqual(['publish:1']);
     expect(within(dialog).getByRole('textbox', { name: 'Public link' })).toHaveValue(publicLink);
+    expect(within(dialog).getByRole('button', { name: 'Copy link' })).toHaveFocus();
     expect(within(dialog).getByRole('link', { name: 'Open in new tab' })).toHaveAttribute(
       'href',
       publicLink,
