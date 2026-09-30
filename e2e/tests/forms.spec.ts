@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { trackConsoleProblems } from './helpers.js';
+import { formIdFrom, trackConsoleProblems } from './helpers.js';
 
 // Runs signed in as the shared test user. Desktop and mobile run in parallel against the same
 // workspace, so every test works with forms it created itself, found by id or unique title.
@@ -9,7 +9,7 @@ function formItem(page: Page, formId: string) {
   return page
     .getByRole('list', { name: 'Forms' })
     .getByRole('listitem')
-    .filter({ has: page.locator(`a[href="/app/forms/${formId}"]`) });
+    .filter({ has: page.locator(`a[href="/app/forms/${formId}/edit"]`) });
 }
 
 async function createFromTemplate(page: Page, template: RegExp): Promise<string> {
@@ -19,8 +19,9 @@ async function createFromTemplate(page: Page, template: RegExp): Promise<string>
   await dialog.getByRole('radio', { name: template }).check();
   await dialog.getByRole('button', { name: 'Create form' }).click();
 
-  await expect(page).toHaveURL(/\/app\/forms\/[a-z0-9]+$/);
-  return page.url().split('/').pop() ?? '';
+  // A new form opens in the editor.
+  await expect(page).toHaveURL(/\/app\/forms\/[a-z0-9]+\/edit$/);
+  return formIdFrom(page.url());
 }
 
 async function deleteForm(page: Page, formId: string) {
@@ -39,10 +40,10 @@ test('creates a form from a template, then renames, duplicates and deletes it', 
   const title = `Survey ${testInfo.project.name} ${Date.now().toString(36)}`;
 
   const formId = await createFromTemplate(page, /Feedback survey/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Feedback survey' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Form title' })).toHaveValue('Feedback survey');
   await expect(page.getByRole('list', { name: 'Questions' }).getByRole('listitem')).toHaveCount(7);
 
-  await page.getByRole('link', { name: 'All forms' }).click();
+  await page.getByRole('link', { name: 'Back to all forms' }).click();
   const item = formItem(page, formId);
   await expect(item).toContainText('Draft');
   await expect(item).toContainText('No responses');
@@ -61,7 +62,7 @@ test('creates a form from a template, then renames, duplicates and deletes it', 
   await page.getByRole('menuitem', { name: 'Duplicate' }).click();
   const copy = page.getByRole('link', { name: `${title} (copy)` });
   await expect(copy).toBeVisible();
-  const copyId = (await copy.getAttribute('href'))?.split('/').pop() ?? '';
+  const copyId = formIdFrom(await copy.getAttribute('href'));
 
   await page.getByRole('searchbox', { name: 'Search forms' }).fill(title);
   await expect(page).toHaveURL(/\?q=/);

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { Locator, Page, TestInfo } from '@playwright/test';
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 /** Browser state (cookies and localStorage) of the user signed up by `auth.setup.ts`. */
 export const AUTH_STATE_PATH = join(import.meta.dirname, '..', 'playwright', '.auth', 'user.json');
@@ -44,4 +44,27 @@ export async function fillLogIn(page: Page, email: string, password = E2E_PASSWO
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Log in' }).click();
+}
+
+/** The form id in an `/app/forms/:id` or `/app/forms/:id/edit` path or URL. */
+export function formIdFrom(path: string | null): string {
+  return /\/app\/forms\/([^/?#]+)/.exec(path ?? '')?.[1] ?? '';
+}
+
+/** Creates a form from a template through the API, in the user's first workspace. */
+export async function createFormViaApi(
+  page: Page,
+  templateId: 'blank' | 'event_registration' | 'feedback_survey',
+): Promise<string> {
+  const me = await page.request.get('/api/auth/me');
+  expect(me.ok()).toBe(true);
+  const { workspaces } = (await me.json()) as { workspaces: { id: string }[] };
+  const workspaceId = workspaces[0]?.id ?? '';
+
+  const created = await page.request.post(`/api/workspaces/${workspaceId}/forms`, {
+    data: { templateId },
+  });
+  expect(created.ok()).toBe(true);
+  const { id } = (await created.json()) as { id: string };
+  return id;
 }
