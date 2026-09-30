@@ -76,6 +76,17 @@ A form's questions and settings are a JSON document (`FormSchema`) defined with 
 
 Every update increments `version`. A `PATCH` whose `version` is no longer current gets `409 CONFLICT` with `details.currentVersion`, so concurrent editors never overwrite each other silently.
 
+## Editor
+
+Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app/forms/:formId`). The code lives in `apps/web/src/features/form-editor`:
+
+- **Store.** A Zustand + immer store per editor holds the title and draft schema, with up to 100 undo steps. Typing in one input within a second counts as one step. After a question is removed or moved, or its options or rating scale change, conditions that no longer make sense are removed, and a toast offers to undo that.
+- **Drag and drop** uses dnd-kit. Drag question types from the palette to a position, or reorder questions with the mouse, touch (by the handle) or keyboard (focus the handle, then Space, the arrow keys and Space). Clicking a question type adds it at the end.
+- **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and, from the next sprint, the public form page. Form colours come from the form's theme as `--form-*` CSS variables, so a form looks the same in the app's light and dark modes.
+- **Autosave.** Saves one second after the last change, one request at a time, with the `version` the edit started from. Drafts are checked with the shared schema first; failed saves retry with backoff. A `409` pauses saving and offers to load the latest version. Leaving the editor saves pending changes first, and asks before discarding any that could not be saved.
+- **Shortcuts.** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z (or Ctrl+Y) redo, Ctrl/⌘+D duplicate, Delete or Backspace remove, Escape deselect. These apply outside text inputs; tooltips show them.
+- **Small screens.** Below 1024px the editor has Build, Settings and Preview tabs, and the question types open in a bottom sheet.
+
 ## Scripts
 
 Run from the repository root:
