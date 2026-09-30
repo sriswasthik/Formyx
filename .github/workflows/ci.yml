@@ -17,6 +17,23 @@ jobs:
     name: Lint, typecheck, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      # API tests run against a real database; its name must end in _test.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: formyx
+          POSTGRES_PASSWORD: formyx
+          POSTGRES_DB: formyx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U formyx -d formyx_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://formyx:formyx@localhost:5432/formyx_test
     steps:
       - uses: actions/checkout@v7
 
@@ -49,6 +66,24 @@ jobs:
     name: End-to-end (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: formyx
+          POSTGRES_PASSWORD: formyx
+          POSTGRES_DB: formyx
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U formyx -d formyx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://formyx:formyx@localhost:5432/formyx
+      # Only signs sessions for this throwaway CI database.
+      JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else
     steps:
       - uses: actions/checkout@v7
 
@@ -61,6 +96,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:deploy
 
       - name: Install Playwright browser
         run: pnpm --filter @formyx/e2e exec playwright install --with-deps chromium
