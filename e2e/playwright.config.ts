@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { AUTH_STATE_PATH } from './tests/helpers.js';
 
 const isCI = Boolean(process.env.CI);
 
@@ -13,13 +14,26 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
+    // Signs up one user and saves their session for the signed-in tests.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: AUTH_STATE_PATH,
+      },
+      dependencies: ['setup'],
     },
     {
       name: 'mobile',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 }, hasTouch: true },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 812 },
+        hasTouch: true,
+        storageState: AUTH_STATE_PATH,
+      },
+      dependencies: ['setup'],
     },
   ],
   webServer: [
@@ -28,6 +42,8 @@ export default defineConfig({
       url: 'http://localhost:4000/api/health',
       reuseExistingServer: !isCI,
       timeout: 60_000,
+      // Every run signs up new users; keep the per-IP sign-up limit out of the way.
+      env: { AUTH_RATE_LIMIT_MAX: '1000' },
     },
     {
       command: 'pnpm --filter @formyx/web dev',
