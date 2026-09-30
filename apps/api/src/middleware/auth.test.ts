@@ -9,7 +9,7 @@ import { resetDatabase, testPrisma as prisma } from '../test/database.js';
 import { createAuthGuards, getAuth, getMembership } from './auth.js';
 import { errorHandler } from './error-handler.js';
 
-const { requireAuth, requireWorkspaceRole } = createAuthGuards({
+const { requireAuth, requireWorkspaceRole, requireFormRole } = createAuthGuards({
   env: { JWT_SECRET: TEST_JWT_SECRET },
   prisma,
 });
@@ -28,6 +28,9 @@ for (const minRole of ROLES) {
       res.json(getMembership(req));
     },
   );
+  app.get(`/forms/:formId/${minRole}`, requireAuth, requireFormRole(minRole), (req, res) => {
+    res.json(getMembership(req));
+  });
 }
 app.use(errorHandler);
 
@@ -47,45 +50,63 @@ describe('requireAuth', () => {
   });
 });
 
-describe('requireWorkspaceRole', () => {
-  const userIds = {} as Record<Role | 'OUTSIDER', string>;
-  let workspaceId = '';
+type Person = Role | 'OUTSIDER';
 
-  beforeEach(async () => {
-    await resetDatabase();
-    const workspace = await prisma.workspace.create({ data: { name: 'Team', slug: 'team' } });
-    workspaceId = workspace.id;
+const userIds = {} as Record<Person, string>;
+let workspaceId = '';
+let formId = '';
 
-    for (const kind of ['OWNER', 'EDITOR', 'VIEWER', 'OUTSIDER'] as const) {
-      const user = await prisma.user.create({
-        data: { name: kind, email: `${kind.toLowerCase()}@example.com`, passwordHash: 'x' },
-      });
-      userIds[kind] = user.id;
-      if (kind !== 'OUTSIDER') {
-        await prisma.membership.create({ data: { userId: user.id, workspaceId, role: kind } });
-      }
-    }
+beforeEach(async () => {
+  await resetDatabase();
+  const workspace = await prisma.workspace.create({ data: { name: 'Team', slug: 'team' } });
+  workspaceId = workspace.id;
+  const form = await prisma.form.create({
+    data: { workspaceId, title: 'Survey', slug: 'survey-abc', draftSchema: {}, theme: {} },
   });
+  formId = form.id;
 
-  function visit(user: Role | 'OUTSIDER', minRole: Role, id = workspaceId) {
-    return request(app).get(`/workspaces/${id}/${minRole}`).set('Cookie', cookieFor(userIds[user]));
+  for (const kind of ['OWNER', 'EDITOR', 'VIEWER', 'OUTSIDER'] as const) {
+    const user = await prisma.user.create({
+      data: { name: kind, email: `${kind.toLowerCase()}@example.com`, passwordHash: 'x' },
+    });
+    userIds[kind] = user.id;
+    if (kind !== 'OUTSIDER') {
+      await prisma.membership.create({ data: { userId: user.id, workspaceId, role: kind } });
+    }
+  }
+});
+
+const ACCESS_TABLE: [Role, Role, number][] = [
+  ['OWNER', 'OWNER', 200],
+  ['OWNER', 'EDITOR', 200],
+  ['OWNER', 'VIEWER', 200],
+  ['EDITOR', 'OWNER', 403],
+  ['EDITOR', 'EDITOR', 200],
+  ['EDITOR', 'VIEWER', 200],
+  ['VIEWER', 'OWNER', 403],
+  ['VIEWER', 'EDITOR', 403],
+  ['VIEWER', 'VIEWER', 200],
+];
+
+const NOT_A_MEMBER = {
+  error: { code: 'FORBIDDEN', message: 'You are not a member of this workspace' },
+};
+
+describe.each([
+  ['requireWorkspaceRole', 'workspaces', () => workspaceId],
+  ['requireFormRole', 'forms', () => formId],
+] as const)('%s', (_name, resource, resourceId) => {
+  function visit(person: Person, minRole: Role, id = resourceId()) {
+    return request(app)
+      .get(`/${resource}/${id}/${minRole}`)
+      .set('Cookie', cookieFor(userIds[person]));
   }
 
-  it.each<[Role, Role, number]>([
-    ['OWNER', 'OWNER', 200],
-    ['OWNER', 'EDITOR', 200],
-    ['OWNER', 'VIEWER', 200],
-    ['EDITOR', 'OWNER', 403],
-    ['EDITOR', 'EDITOR', 200],
-    ['EDITOR', 'VIEWER', 200],
-    ['VIEWER', 'OWNER', 403],
-    ['VIEWER', 'EDITOR', 403],
-    ['VIEWER', 'VIEWER', 200],
-  ])('%s needing %s gets %i', async (role, minRole, status) => {
+  it.each(ACCESS_TABLE)('%s needing %s gets %i', async (role, minRole, status) => {
     await visit(role, minRole).expect(status);
   });
 
-  it('exposes the membership to later handlers', async () => {
+  it("exposes the caller's membership of the workspace to later handlers", async () => {
     const res = await visit('EDITOR', 'VIEWER').expect(200);
     expect(res.body).toEqual({ workspaceId, role: 'EDITOR' });
   });
@@ -97,17 +118,30 @@ describe('requireWorkspaceRole', () => {
     });
   });
 
-  it('answers non-members as if the workspace did not exist', async () => {
-    const outsider = await visit('OUTSIDER', 'VIEWER').expect(404);
-    const missing = await visit('OWNER', 'VIEWER', 'no-such-workspace').expect(404);
-
-    expect(outsider.body).toEqual({
-      error: { code: 'NOT_FOUND', message: 'Workspace not found' },
-    });
-    expect(missing.body).toEqual(outsider.body);
+  it('rejects non-members with 403', async () => {
+    const res = await visit('OUTSIDER', 'VIEWER').expect(403);
+    expect(res.body).toEqual(NOT_A_MEMBER);
   });
 
   it('requires a session', async () => {
-    await request(app).get(`/workspaces/${workspaceId}/VIEWER`).expect(401);
+    await request(app).get(`/${resource}/${resourceId()}/VIEWER`).expect(401);
+  });
+});
+
+describe('unknown resources', () => {
+  it('answers an unknown workspace like one the caller is not a member of', async () => {
+    const res = await request(app)
+      .get('/workspaces/no-such-workspace/VIEWER')
+      .set('Cookie', cookieFor(userIds.OWNER))
+      .expect(403);
+    expect(res.body).toEqual(NOT_A_MEMBER);
+  });
+
+  it('answers an unknown form with 404', async () => {
+    const res = await request(app)
+      .get('/forms/no-such-form/VIEWER')
+      .set('Cookie', cookieFor(userIds.OWNER))
+      .expect(404);
+    expect(res.body).toEqual({ error: { code: 'NOT_FOUND', message: 'Form not found' } });
   });
 });

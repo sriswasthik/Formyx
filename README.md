@@ -59,7 +59,7 @@ After changing `apps/api/prisma/schema.prisma`, run `pnpm db:migrate` to create 
 - Sessions are 7-day JWTs in an httpOnly, `SameSite=Lax` cookie, marked `Secure` in production. In development the web app proxies `/api`, so the cookie is first-party. In production, serve the web app and API from the same site (for example `formyx.app` and `api.formyx.app`).
 - Passwords are hashed with bcrypt (`BCRYPT_COST`, default 12). Log-in failures always say "Invalid email or password".
 - Sign-ups and failed log-ins are rate limited per IP (`AUTH_RATE_LIMIT_MAX` per 15 minutes). Behind a load balancer, set `TRUST_PROXY` (usually `1`) so the limit applies to real client IPs.
-- `requireAuth` protects routes; `requireWorkspaceRole('EDITOR')` additionally checks the caller's role in the `:workspaceId` route param (OWNER > EDITOR > VIEWER).
+- `requireAuth` protects routes. `requireWorkspaceRole('EDITOR')` and `requireFormRole('EDITOR')` also check the caller's role in the workspace of the `:workspaceId` or `:formId` route param (OWNER > EDITOR > VIEWER); non-members and members with too little access get 403.
 
 ## Scripts
 
