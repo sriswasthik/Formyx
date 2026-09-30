@@ -16,7 +16,7 @@ export function Sidebar({ id, onNavigate }: SidebarProps) {
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center px-4">
         <Link
-          to="/forms"
+          to="/app/forms"
           onClick={onNavigate}
           className="-m-1 rounded-md p-1"
           aria-label="Formyx, go to forms"

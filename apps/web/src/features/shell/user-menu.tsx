@@ -1,5 +1,6 @@
 import { ChevronsUpDown, LogOut, Settings, SunMoon } from 'lucide-react';
 import { Link } from 'react-router';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,13 +11,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useSession } from '@/features/auth/session-context';
+import { useLogOut } from '@/features/auth/use-session';
 import { ThemeRadioItems } from '@/features/theme/theme-toggle';
-
-/** Stand-in identity until authentication lands. */
-const PLACEHOLDER_USER = { name: 'Demo User', email: 'demo@formyx.app', initials: 'DU' };
+import { getInitials } from './initials';
 
 export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
-  const user = PLACEHOLDER_USER;
+  const { user } = useSession();
+  const logOut = useLogOut();
 
   return (
     <DropdownMenu>
@@ -30,7 +32,7 @@ export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
             aria-hidden
             className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-background text-12 font-medium"
           >
-            {user.initials}
+            {getInitials(user.name)}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-13 font-medium">{user.name}</span>
@@ -45,7 +47,7 @@ export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
         className="w-(--radix-dropdown-menu-trigger-width) min-w-52"
       >
         <DropdownMenuItem asChild onSelect={onNavigate}>
-          <Link to="/settings">
+          <Link to="/app/settings">
             <Settings aria-hidden />
             Settings
           </Link>
@@ -60,7 +62,18 @@ export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem
+          disabled={logOut.isPending}
+          onSelect={() => {
+            logOut.mutate(undefined, {
+              onError: () => {
+                toast.error('Could not log out', {
+                  description: 'Check your connection and try again.',
+                });
+              },
+            });
+          }}
+        >
           <LogOut aria-hidden />
           Log out
         </DropdownMenuItem>

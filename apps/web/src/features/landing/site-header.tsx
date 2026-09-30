@@ -12,10 +12,10 @@ export function SiteHeader() {
       <nav aria-label="Account" className="flex items-center gap-1 sm:gap-2">
         <ThemeToggle />
         <Button asChild variant="ghost" size="sm">
-          <Link to="/forms">Log in</Link>
+          <Link to="/login">Log in</Link>
         </Button>
         <Button asChild size="sm">
-          <Link to="/forms">Get started</Link>
+          <Link to="/signup">Get started</Link>
         </Button>
       </nav>
     </header>

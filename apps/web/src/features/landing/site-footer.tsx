@@ -16,7 +16,7 @@ export function SiteFooter() {
           <a href="#features" className={linkClass}>
             Features
           </a>
-          <Link to="/forms" className={linkClass}>
+          <Link to="/login" className={linkClass}>
             Log in
           </Link>
         </nav>
