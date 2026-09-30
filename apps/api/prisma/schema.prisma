@@ -1,0 +1,60 @@
+// Formyx database schema. After editing, run `pnpm db:migrate` to create a migration.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// What a member may do in a workspace. Ordered from most to least access.
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+
+  @@map("role")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  /// Stored trimmed and lowercased, so the unique index is effectively case-insensitive.
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  memberships  Membership[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  memberships Membership[]
+
+  @@map("workspaces")
+}
+
+model Membership {
+  userId      String    @map("user_id")
+  workspaceId String    @map("workspace_id")
+  role        Role
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // One membership per user per workspace; the primary key also serves lookups by user.
+  @@id([userId, workspaceId])
+  @@index([workspaceId])
+  @@map("memberships")
+}

@@ -1,24 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import { EnvError, parseEnv } from './env.js';
 
+const REQUIRED = {
+  DATABASE_URL: 'postgresql://formyx:formyx@localhost:5432/formyx',
+  JWT_SECRET: 'a-development-secret-of-at-least-32-chars',
+};
+
 describe('parseEnv', () => {
   it('applies development defaults', () => {
-    expect(parseEnv({})).toEqual({
+    expect(parseEnv(REQUIRED)).toEqual({
+      ...REQUIRED,
       NODE_ENV: 'development',
       PORT: 4000,
       CORS_ORIGIN: ['http://localhost:5173'],
       LOG_LEVEL: 'info',
+      TRUST_PROXY: false,
+      BCRYPT_COST: 12,
+      AUTH_RATE_LIMIT_MAX: 10,
     });
   });
 
   it('coerces PORT and parses a comma-separated, normalised origin list', () => {
     const env = parseEnv({
+      ...REQUIRED,
       PORT: '8080',
       CORS_ORIGIN: 'https://formyx.app/, https://www.formyx.app ,',
     });
 
     expect(env.PORT).toBe(8080);
     expect(env.CORS_ORIGIN).toEqual(['https://formyx.app', 'https://www.formyx.app']);
+  });
+
+  it.each([
+    ['false', false],
+    ['true', true],
+    ['1', 1],
+    ['loopback, 10.0.0.0/8', 'loopback, 10.0.0.0/8'],
+  ])('parses TRUST_PROXY=%j', (value, expected) => {
+    expect(parseEnv({ ...REQUIRED, TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+  });
+
+  it('accepts postgres:// and Neon-style URLs with query parameters', () => {
+    const url =
+      'postgres://user:pass@ep-calm-sun-123.eu-central-1.aws.neon.tech/formyx?sslmode=require';
+    expect(parseEnv({ ...REQUIRED, DATABASE_URL: url }).DATABASE_URL).toBe(url);
   });
 
   it.each([
@@ -29,7 +54,14 @@ describe('parseEnv', () => {
     [{ CORS_ORIGIN: 'not a url' }, 'CORS_ORIGIN'],
     [{ CORS_ORIGIN: 'ftp://files.example' }, 'CORS_ORIGIN'],
     [{ CORS_ORIGIN: ' , ' }, 'CORS_ORIGIN'],
-  ])('rejects %j and names the variable', (source, variable) => {
+    [{ DATABASE_URL: undefined }, 'DATABASE_URL'],
+    [{ DATABASE_URL: 'mysql://localhost/formyx' }, 'DATABASE_URL'],
+    [{ JWT_SECRET: undefined }, 'JWT_SECRET'],
+    [{ JWT_SECRET: 'too-short' }, 'JWT_SECRET'],
+    [{ BCRYPT_COST: '3' }, 'BCRYPT_COST'],
+    [{ AUTH_RATE_LIMIT_MAX: '0' }, 'AUTH_RATE_LIMIT_MAX'],
+  ])('rejects %j and names the variable', (overrides, variable) => {
+    const source = { ...REQUIRED, ...overrides };
     expect(() => parseEnv(source)).toThrow(EnvError);
     expect(() => parseEnv(source)).toThrow(variable);
   });
