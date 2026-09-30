@@ -57,6 +57,7 @@ function toDetail(form: FormSummary): FormDetail {
     ...form,
     draftSchema: createEmptyForm(),
     publishedSchema: null,
+    publishedTitle: null,
     theme: createDefaultTheme(),
   };
 }

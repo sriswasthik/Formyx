@@ -79,11 +79,14 @@ model Form {
   status          FormStatus   @default(DRAFT)
   /// The schema being edited. Every write is validated with the shared `formSchema`.
   draftSchema     Json         @map("draft_schema")
-  /// What respondents see; set when the form is published.
+  /// What respondents see: a snapshot of the draft, taken each time the form is published.
   publishedSchema Json?        @map("published_schema")
+  /// The title as last published, so renames go live with the next publish.
+  publishedTitle  String?      @map("published_title")
   theme           Json
-  /// Incremented on every update. Writers send the version they started from (optimistic concurrency).
+  /// Incremented on every draft update. Writers send the version they started from (optimistic concurrency).
   version         Int          @default(1)
+  /// When the form was last published.
   publishedAt     DateTime?    @map("published_at")
   /// Null once the creator's account is deleted; the form stays with its workspace.
   createdById     String?      @map("created_by_id")
@@ -92,6 +95,7 @@ model Form {
   workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy       User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
   submissions     Submission[]
+  views           FormView[]
 
   // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
   @@index([workspaceId, updatedAt(sort: Desc)])
@@ -101,16 +105,30 @@ model Form {
 }
 
 model Submission {
-  id        String   @id @default(cuid())
-  formId    String   @map("form_id")
-  /// Answers keyed by field id.
-  answers   Json
-  /// Context such as the schema version answered and client details.
-  metadata  Json
-  createdAt DateTime @default(now()) @map("created_at")
-  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  formId           String   @map("form_id")
+  /// Answers keyed by field id, validated and normalised with the published schema.
+  answers          Json
+  /// Milliseconds from opening the form to submitting it, as measured by the browser.
+  completionTimeMs Int?     @map("completion_time_ms")
+  /// Client details: user agent and referrer. IP addresses are never stored.
+  metadata         Json
+  createdAt        DateTime @default(now()) @map("created_at")
+  form             Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
 
   // Responses are counted per form and listed newest first.
   @@index([formId, createdAt(sort: Desc)])
   @@map("submissions")
+}
+
+/// One visit to a published form, recorded once per browser session. Rows rather than a
+/// counter, so views can be charted over time and compared with submissions.
+model FormView {
+  id        String   @id @default(cuid())
+  formId    String   @map("form_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+  @@map("form_views")
 }

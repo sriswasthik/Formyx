@@ -1,4 +1,5 @@
-import { rateLimit } from 'express-rate-limit';
+import type { Request } from 'express';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import type { Env } from '../config/env.js';
 import { AppError } from '../lib/app-error.js';
 
@@ -27,5 +28,37 @@ export function createAuthRateLimiters(env: Pick<Env, 'AUTH_RATE_LIMIT_MAX'>) {
     register: authLimiter(env.AUTH_RATE_LIMIT_MAX, false),
     /** Only failed log-ins count: slows password guessing without locking out a shared office IP. */
     login: authLimiter(env.AUTH_RATE_LIMIT_MAX, true),
+  };
+}
+
+/** Views are cheap and recorded once per browser session, so their limit is generous. */
+const VIEW_LIMIT = 100;
+
+/** Each client IP counts separately for each form, so one busy form cannot block another. */
+function perFormKey(req: Request): string {
+  return `${ipKeyGenerator(req.ip ?? '')}:${String(req.params.slug)}`;
+}
+
+function publicLimiter(limit: number, message: string) {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit,
+    keyGenerator: perFormKey,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new AppError(429, 'RATE_LIMITED', message));
+    },
+  });
+}
+
+/** Per-IP, per-form limits for the public form endpoints, which need no account. */
+export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_MAX'>) {
+  return {
+    submit: publicLimiter(
+      env.SUBMISSION_RATE_LIMIT_MAX,
+      'Too many responses from your network. Try again in a few minutes.',
+    ),
+    view: publicLimiter(VIEW_LIMIT, 'Too many requests. Try again in a few minutes.'),
   };
 }

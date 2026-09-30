@@ -32,6 +32,7 @@ export function makeFormDetail(
     publishedAt: null,
     draftSchema,
     publishedSchema: null,
+    publishedTitle: null,
     theme: createDefaultTheme(),
     ...overrides,
   };

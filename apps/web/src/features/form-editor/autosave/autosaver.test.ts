@@ -24,6 +24,7 @@ function detail(input: UpdateFormInput, version: number): FormDetail {
     publishedAt: null,
     draftSchema: input.draftSchema ?? createEmptyForm(),
     publishedSchema: null,
+    publishedTitle: null,
     theme: createDefaultTheme(),
   };
 }

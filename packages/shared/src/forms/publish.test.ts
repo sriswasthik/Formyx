@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyForm, createField, createOption } from './factories.js';
 import type { Field } from './fields.js';
 import type { FormSchema } from './form-schema.js';
-import { findPublishIssues, isSameFormSchema } from './publish.js';
+import { findPublishIssues, isSameFormSchema, responseLimitReached } from './publish.js';
 import { getFormTemplate } from './templates.js';
 
 function form(...fields: Field[]): FormSchema {
@@ -101,5 +101,26 @@ describe('isSameFormSchema', () => {
   it('treats a missing snapshot as different from any schema', () => {
     expect(isSameFormSchema(schema, null)).toBe(false);
     expect(isSameFormSchema(null, null)).toBe(true);
+  });
+});
+
+describe('responseLimitReached', () => {
+  const settings = createEmptyForm().settings;
+  const now = new Date('2026-09-30T12:00:00Z');
+
+  it('never closes a form without limits', () => {
+    expect(responseLimitReached(settings, 1_000_000, now)).toBeNull();
+  });
+
+  it('closes once the response limit is reached', () => {
+    const limited = { ...settings, closeAfterResponses: 100 };
+    expect(responseLimitReached(limited, 99, now)).toBeNull();
+    expect(responseLimitReached(limited, 100, now)).toBe('response_limit');
+  });
+
+  it('closes at the closing time, whatever the time zone it was written in', () => {
+    const dated = { ...settings, closeAt: '2026-09-30T14:00:00+02:00' };
+    expect(responseLimitReached(dated, 0, new Date('2026-09-30T11:59:59Z'))).toBeNull();
+    expect(responseLimitReached(dated, 0, now)).toBe('close_date');
   });
 });

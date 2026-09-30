@@ -90,6 +90,8 @@ export const formDetailSchema = formSummarySchema.extend({
   draftSchema: formSchema,
   /** The snapshot respondents see, taken when the form was last published. */
   publishedSchema: formSchema.nullable(),
+  /** The title as it was last published; renames go live with the next publish. */
+  publishedTitle: z.string().nullable(),
   theme: formThemeSchema,
 });
 export type FormDetail = z.infer<typeof formDetailSchema>;

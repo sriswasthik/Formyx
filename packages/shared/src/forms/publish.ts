@@ -1,7 +1,7 @@
 import type { ValidationIssue } from '../errors.js';
 import { operatorNeedsValue } from './conditions.js';
 import { isAnswerableFieldType } from './field-types.js';
-import type { FormSchema } from './form-schema.js';
+import type { FormSchema, FormSettings } from './form-schema.js';
 
 /**
  * What stands between a draft and publishing it. Drafts may be unfinished; a published form
@@ -67,4 +67,24 @@ function canonicalJson(value: unknown): string {
 export function isSameFormSchema(a: FormSchema | null, b: FormSchema | null): boolean {
   if (a === null || b === null) return a === b;
   return canonicalJson(a) === canonicalJson(b);
+}
+
+/** Why a published form no longer takes responses under its own settings, if it doesn't. */
+export type ResponseLimitReached = 'response_limit' | 'close_date';
+
+/**
+ * Checks a published form's `closeAfterResponses` and `closeAt` settings. Manual closing is
+ * the form's status and is checked separately.
+ */
+export function responseLimitReached(
+  settings: FormSettings,
+  responseCount: number,
+  now: Date = new Date(),
+): ResponseLimitReached | null {
+  const { closeAfterResponses, closeAt } = settings;
+  if (closeAfterResponses !== undefined && responseCount >= closeAfterResponses) {
+    return 'response_limit';
+  }
+  if (closeAt !== undefined && now.getTime() >= new Date(closeAt).getTime()) return 'close_date';
+  return null;
 }
