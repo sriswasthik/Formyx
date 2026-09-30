@@ -1,72 +1,9 @@
-import { createField, type FormDetail, type MeResponse } from '@formyx/shared';
+import { createField, type MeResponse } from '@formyx/shared';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it } from 'vitest';
-import { ProtectedRoute } from '@/features/auth/protected-route';
-import {
-  ADA,
-  createTestQueryClient,
-  jsonResponse,
-  renderWithProviders,
-  stubFetch,
-} from '@/test/session';
-import { EditorPage } from './editor-page';
-import { makeFormDetail, setScreen } from './test-utils';
-
-interface FakeServer {
-  form: FormDetail;
-  patches: unknown[];
-  /** The next PATCH answers 409, as if someone else saved first. */
-  conflictNext: boolean;
-}
-
-function installFakeServer(form: FormDetail): FakeServer {
-  const server: FakeServer = { form, patches: [], conflictNext: false };
-  stubFetch((url, init) => {
-    if (init.method === 'PATCH') {
-      const body = JSON.parse(typeof init.body === 'string' ? init.body : '{}') as {
-        title: string;
-        draftSchema: FormDetail['draftSchema'];
-      };
-      server.patches.push(body);
-      if (server.conflictNext) {
-        server.conflictNext = false;
-        return jsonResponse({ error: { code: 'CONFLICT', message: 'Changed elsewhere' } }, 409);
-      }
-      server.form = {
-        ...server.form,
-        title: body.title,
-        draftSchema: body.draftSchema,
-        version: server.form.version + 1,
-      };
-      return jsonResponse(server.form);
-    }
-    if (url.startsWith('/api/forms/')) return jsonResponse(server.form);
-    return jsonResponse({ forms: [] });
-  });
-  return server;
-}
-
-function renderEditorPage(me: MeResponse = ADA) {
-  setScreen('desktop');
-  const router = createMemoryRouter(
-    [
-      {
-        path: 'app',
-        element: <ProtectedRoute />,
-        children: [
-          { path: 'forms', element: <p>All forms page</p> },
-          { path: 'forms/:formId', element: <p>Read-only form page</p> },
-          { path: 'forms/:formId/edit', element: <EditorPage /> },
-        ],
-      },
-    ],
-    { initialEntries: ['/app/forms/form_1/edit'] },
-  );
-  renderWithProviders(<RouterProvider router={router} />, createTestQueryClient(me));
-  return { router, user: userEvent.setup() };
-}
+import { ADA, jsonResponse, stubFetch } from '@/test/session';
+import { installFakeServer, renderEditorPage } from './test-server';
+import { makeFormDetail } from './test-utils';
 
 describe('EditorPage', () => {
   it('autosaves a moment after changes stop, then shows Saved', async () => {

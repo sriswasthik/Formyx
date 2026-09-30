@@ -1,7 +1,7 @@
 import { hasRole, type FormDetail } from '@formyx/shared';
 import { FileQuestion, Lock, RotateCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { useStore } from 'zustand';
@@ -24,6 +24,11 @@ import { findDraftIssues, firstFieldWithIssue } from './draft-issues';
 import { EditorLayout } from './editor-layout';
 import { createEditorStore } from './editor-store';
 import { EditorStoreContext } from './editor-store-context';
+import { PublishControls } from './publish/publish-controls';
+import { findDraftPublishIssues, PublishIssuesContext } from './publish/publish-issues';
+import { PublishIssuesDialog } from './publish/publish-issues-dialog';
+import { ShareDialog } from './publish/share-dialog';
+import { usePublishing } from './publish/use-publishing';
 
 function EditorSkeleton() {
   return (
@@ -95,6 +100,47 @@ function FormEditor({ form }: { form: FormDetail }) {
   const [reloading, setReloading] = useState(false);
   usePageTitle(useStore(store, (state) => state.title) || 'Untitled form');
 
+  // After a refused publish, what still needs doing is pointed out until it goes live.
+  const [pointOutIssues, setPointOutIssues] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const [share, setShare] = useState({ open: false, justPublished: false });
+  const schema = useStore(store, (state) => state.schema);
+  const publishIssues = useMemo(
+    () => (pointOutIssues ? findDraftPublishIssues(schema) : []),
+    [pointOutIssues, schema],
+  );
+  const publishing = usePublishing({
+    form,
+    store,
+    autosaver,
+    onIncomplete: () => {
+      setPointOutIssues(true);
+      setIssuesOpen(true);
+    },
+  });
+
+  const publish = async () => {
+    const firstTime = form.publishedSchema === null;
+    if ((await publishing.publish()) !== 'published') return;
+    setPointOutIssues(false);
+    if (firstTime) {
+      setShare({ open: true, justPublished: true });
+    } else {
+      toast.success('Changes published', {
+        description: 'Respondents now see the latest version.',
+      });
+    }
+  };
+
+  const showQuestion = (index: number) => {
+    setIssuesOpen(false);
+    const field = store.getState().schema.fields[index];
+    if (field) {
+      store.getState().selectField(field.id);
+      focusQuestion(field.id);
+    }
+  };
+
   const reloadLatest = async () => {
     setReloading(true);
     try {
@@ -130,29 +176,58 @@ function FormEditor({ form }: { form: FormDetail }) {
 
   return (
     <EditorStoreContext.Provider value={store}>
-      <h1 className="sr-only">Edit form</h1>
-      <EditorLayout
-        form={form}
-        status={
-          <SaveStatus
-            state={saveState}
-            onRetry={() => {
-              autosaver.retryNow();
-            }}
-            onReload={() => void reloadLatest()}
-            onShowIssues={showIssues}
-          />
-        }
-      />
-      <ConflictDialog
-        open={saveState.kind === 'conflict' && !conflictDismissed}
-        onOpenChange={(open) => {
-          if (!open) setConflictDismissed(true);
-        }}
-        onReload={() => void reloadLatest()}
-        reloading={reloading}
-      />
-      <LeaveGuard autosaver={autosaver} />
+      <PublishIssuesContext.Provider value={publishIssues}>
+        <h1 className="sr-only">Edit form</h1>
+        <EditorLayout
+          form={form}
+          actions={
+            <PublishControls
+              form={form}
+              pending={publishing.pending}
+              onPublish={() => void publish()}
+              onShare={() => {
+                setShare({ open: true, justPublished: false });
+              }}
+              onClose={() => void publishing.close()}
+              onReopen={() => void publishing.reopen()}
+            />
+          }
+          status={
+            <SaveStatus
+              state={saveState}
+              onRetry={() => {
+                autosaver.retryNow();
+              }}
+              onReload={() => void reloadLatest()}
+              onShowIssues={showIssues}
+            />
+          }
+        />
+        <ConflictDialog
+          open={saveState.kind === 'conflict' && !conflictDismissed}
+          onOpenChange={(open) => {
+            if (!open) setConflictDismissed(true);
+          }}
+          onReload={() => void reloadLatest()}
+          reloading={reloading}
+        />
+        <PublishIssuesDialog
+          open={issuesOpen}
+          onOpenChange={setIssuesOpen}
+          issues={publishIssues}
+          onShow={showQuestion}
+        />
+        <ShareDialog
+          open={share.open}
+          onOpenChange={(open) => {
+            setShare((current) => ({ ...current, open }));
+          }}
+          slug={form.slug}
+          closed={form.status === 'CLOSED'}
+          justPublished={share.justPublished}
+        />
+        <LeaveGuard autosaver={autosaver} />
+      </PublishIssuesContext.Provider>
     </EditorStoreContext.Provider>
   );
 }

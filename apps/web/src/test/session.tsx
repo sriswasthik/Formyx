@@ -4,6 +4,7 @@ import { render } from '@testing-library/react';
 import type * as React from 'react';
 import { vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
 import { meQueryKey } from '@/features/auth/session-cache';
 
 export const ADA: MeResponse = {
@@ -35,7 +36,10 @@ export function createTestQueryClient(me?: MeResponse | null): QueryClient {
 export function renderWithProviders(ui: React.ReactElement, queryClient: QueryClient) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>{ui}</TooltipProvider>
+      <TooltipProvider>
+        {ui}
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }

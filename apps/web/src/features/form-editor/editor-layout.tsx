@@ -26,6 +26,8 @@ export const DESKTOP_EDITOR_QUERY = '(min-width: 1024px)';
 interface EditorLayoutProps {
   form: FormDetail;
   status: ReactNode;
+  /** Publishing controls for the top bar. */
+  actions?: ReactNode;
 }
 
 /** Adds a question at the end, then focuses it on the canvas. */
@@ -37,14 +39,14 @@ function useAddField() {
 }
 
 /** Palette, canvas and settings side by side, or the preview. */
-function DesktopEditor({ form, status }: EditorLayoutProps) {
+function DesktopEditor({ form, status, actions }: EditorLayoutProps) {
   const [view, setView] = useState<EditorView>('build');
   const add = useAddField();
   useEditorShortcuts(view === 'build');
 
   return (
     <div className="flex h-dvh flex-col bg-surface">
-      <EditorTopBar status={status} view={view} onViewChange={setView} />
+      <EditorTopBar status={status} actions={actions} view={view} onViewChange={setView} />
 
       {view === 'preview' ? (
         <main aria-label="Preview" className="min-h-0 flex-1 overflow-y-auto">
@@ -79,7 +81,7 @@ function DesktopEditor({ form, status }: EditorLayoutProps) {
 type MobileTab = 'build' | 'settings' | 'preview';
 
 /** Phones and tablets: Build / Settings / Preview tabs, and the palette in a bottom sheet. */
-function MobileEditor({ form, status }: EditorLayoutProps) {
+function MobileEditor({ form, status, actions }: EditorLayoutProps) {
   const [tab, setTab] = useState<MobileTab>('build');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const add = useAddField();
@@ -87,7 +89,7 @@ function MobileEditor({ form, status }: EditorLayoutProps) {
 
   return (
     <div className="flex h-dvh flex-col bg-surface">
-      <EditorTopBar status={status} />
+      <EditorTopBar status={status} actions={actions} />
       <Tabs
         value={tab}
         onValueChange={(value) => {
