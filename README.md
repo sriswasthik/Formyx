@@ -61,6 +61,21 @@ After changing `apps/api/prisma/schema.prisma`, run `pnpm db:migrate` to create 
 - Sign-ups and failed log-ins are rate limited per IP (`AUTH_RATE_LIMIT_MAX` per 15 minutes). Behind a load balancer, set `TRUST_PROXY` (usually `1`) so the limit applies to real client IPs.
 - `requireAuth` protects routes. `requireWorkspaceRole('EDITOR')` and `requireFormRole('EDITOR')` also check the caller's role in the workspace of the `:workspaceId` or `:formId` route param (OWNER > EDITOR > VIEWER); non-members and members with too little access get 403.
 
+## Forms
+
+A form's questions and settings are a JSON document (`FormSchema`) defined with Zod in `packages/shared/src/forms`, together with `createField`, `createEmptyForm` and the templates. The same schema validates drafts in the API and in the web app. It checks structure only, so unfinished drafts still save; conditions may only depend on earlier questions, which rules out cycles.
+
+| Endpoint                                  | Who     | Does                                                                |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------- |
+| `GET /api/workspaces/:workspaceId/forms`  | Members | Summaries with response counts; `?search=` (title) and `?status=`   |
+| `POST /api/workspaces/:workspaceId/forms` | Editors | Creates a form, blank or from `templateId`                          |
+| `GET /api/forms/:formId`                  | Members | The full form: draft and published schema, theme, version           |
+| `PATCH /api/forms/:formId`                | Editors | Updates `title` and/or `draftSchema`; send the `version` you edited |
+| `POST /api/forms/:formId/duplicate`       | Editors | Copies the draft into a new form                                    |
+| `DELETE /api/forms/:formId`               | Editors | Deletes the form and its responses                                  |
+
+Every update increments `version`. A `PATCH` whose `version` is no longer current gets `409 CONFLICT` with `details.currentVersion`, so concurrent editors never overwrite each other silently.
+
 ## Scripts
 
 Run from the repository root:
