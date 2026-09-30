@@ -30,6 +30,7 @@ model User {
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
   memberships  Membership[]
+  forms        Form[]
 
   @@map("users")
 }
@@ -41,6 +42,7 @@ model Workspace {
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
   memberships Membership[]
+  forms       Form[]
 
   @@map("workspaces")
 }
@@ -57,4 +59,58 @@ model Membership {
   @@id([userId, workspaceId])
   @@index([workspaceId])
   @@map("memberships")
+}
+
+/// Where a form is in its life. Only PUBLISHED forms accept responses.
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+
+  @@map("form_status")
+}
+
+model Form {
+  id              String       @id @default(cuid())
+  workspaceId     String       @map("workspace_id")
+  title           String
+  /// Identifies the form's public link. Never changes, so shared links keep working.
+  slug            String       @unique
+  status          FormStatus   @default(DRAFT)
+  /// The schema being edited. Every write is validated with the shared `formSchema`.
+  draftSchema     Json         @map("draft_schema")
+  /// What respondents see; set when the form is published.
+  publishedSchema Json?        @map("published_schema")
+  theme           Json
+  /// Incremented on every update. Writers send the version they started from (optimistic concurrency).
+  version         Int          @default(1)
+  publishedAt     DateTime?    @map("published_at")
+  /// Null once the creator's account is deleted; the form stays with its workspace.
+  createdById     String?      @map("created_by_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy       User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  submissions     Submission[]
+
+  // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
+  @@index([workspaceId, updatedAt(sort: Desc)])
+  @@index([workspaceId, status])
+  @@index([createdById])
+  @@map("forms")
+}
+
+model Submission {
+  id        String   @id @default(cuid())
+  formId    String   @map("form_id")
+  /// Answers keyed by field id.
+  answers   Json
+  /// Context such as the schema version answered and client details.
+  metadata  Json
+  createdAt DateTime @default(now()) @map("created_at")
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  // Responses are counted per form and listed newest first.
+  @@index([formId, createdAt(sort: Desc)])
+  @@map("submissions")
 }

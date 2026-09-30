@@ -1,8 +1,8 @@
 import { Menu } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { Outlet, useLocation, useMatches } from 'react-router';
-import { getRouteTitle } from '@/app/route-handle';
+import { Outlet, useLocation } from 'react-router';
+import { useCurrentTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/features/theme/theme-toggle';
@@ -13,7 +13,7 @@ import { Sidebar } from './sidebar';
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
   const { pathname } = useLocation();
-  const title = getRouteTitle(useMatches());
+  const title = useCurrentTitle();
 
   const closeNav = () => {
     setNavOpen(false);

@@ -75,6 +75,15 @@ export const routes: RouteObject[] = [
                 },
               },
               {
+                path: 'forms/:formId',
+                // Replaced by the form's own title once it loads.
+                handle: { title: 'Form' } satisfies RouteHandle,
+                lazy: async () => {
+                  const { FormDetailPage } = await import('@/features/forms/form-detail-page');
+                  return { Component: FormDetailPage };
+                },
+              },
+              {
                 path: 'settings',
                 handle: { title: 'Settings' } satisfies RouteHandle,
                 lazy: async () => {
@@ -83,6 +92,15 @@ export const routes: RouteObject[] = [
                 },
               },
             ],
+          },
+          // The editor takes the whole screen, outside the app shell.
+          {
+            path: 'forms/:formId/edit',
+            handle: { title: 'Edit form' } satisfies RouteHandle,
+            lazy: async () => {
+              const { EditorPage } = await import('@/features/form-editor/editor-page');
+              return { Component: EditorPage };
+            },
           },
         ],
       },

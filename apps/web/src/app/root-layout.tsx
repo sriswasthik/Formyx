@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { Outlet, ScrollRestoration, useMatches } from 'react-router';
-import { formatDocumentTitle, getRouteTitle } from './route-handle';
+import { Outlet, ScrollRestoration } from 'react-router';
+import { useCurrentTitle } from './page-title';
+import { formatDocumentTitle } from './route-handle';
 
 export function RootLayout() {
-  const title = getRouteTitle(useMatches());
+  const title = useCurrentTitle();
 
   useEffect(() => {
     document.title = formatDocumentTitle(title);

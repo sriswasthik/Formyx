@@ -25,7 +25,12 @@ export function createApp(deps: AppDependencies): Express {
   app.use(requestLogger(logger));
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
-  app.use(express.json({ limit: '100kb' }));
+  // Form updates carry whole schemas; everything else stays small.
+  const parseJson = express.json({ limit: '100kb' });
+  const parseFormJson = express.json({ limit: '1mb' });
+  app.use((req, res, next) => {
+    (req.path.startsWith('/api/forms/') ? parseFormJson : parseJson)(req, res, next);
+  });
   app.use(cookieParser());
 
   app.use('/api', createApiRouter(deps));
