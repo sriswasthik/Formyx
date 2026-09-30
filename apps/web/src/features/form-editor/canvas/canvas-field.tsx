@@ -4,7 +4,8 @@ import {
   type AnimateLayoutChanges,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { describeConditions } from '@formyx/shared';
+import { GripVertical, Split } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { memo, useEffect, useRef } from 'react';
 import type * as React from 'react';
@@ -41,6 +42,12 @@ export const CanvasField = memo(function CanvasField({
 }: CanvasFieldProps) {
   const field = useEditorStore((state) => state.schema.fields.find((item) => item.id === id));
   const selected = useEditorStore((state) => state.selectedFieldId === id);
+  // A string, so the question only re-renders when the summary itself changes.
+  const logic = useEditorStore((state) => {
+    const current = state.schema.fields.find((item) => item.id === id);
+    if (!current?.conditions?.length) return null;
+    return describeConditions(current, state.schema.fields) ?? 'Its condition is not finished yet';
+  });
   const selectField = useEditorStore((state) => state.selectField);
   const reduceMotion = useReducedMotion() ?? false;
   const nodeRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +110,7 @@ export const CanvasField = memo(function CanvasField({
           data-question-id={id}
           aria-label={`Question ${index + 1}: ${label}, ${fieldTypeLabel(field.type)}`}
           aria-current={selected || undefined}
+          aria-describedby={logic ? `logic-${id}` : undefined}
           className="absolute inset-0 cursor-pointer rounded-lg"
           onPointerDown={(event) => {
             // On touch screens a swipe over a question scrolls; dragging starts at the handle.
@@ -113,6 +121,18 @@ export const CanvasField = memo(function CanvasField({
           }}
         />
         <div className="pointer-events-none relative px-3 py-4 sm:px-4">
+          {logic && (
+            <p
+              id={`logic-${id}`}
+              className="mb-2 flex min-w-0 items-center gap-2 text-12 text-(--form-muted)"
+            >
+              <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-(--form-accent-subtle) px-1.5 font-medium text-(--form-accent) [&_svg]:size-3">
+                <Split aria-hidden />
+                Logic<span className="sr-only">:</span>
+              </span>{' '}
+              <span className="truncate">{logic}</span>
+            </p>
+          )}
           <FieldRenderer field={field} mode="editor" idPrefix="canvas" />
         </div>
       </div>

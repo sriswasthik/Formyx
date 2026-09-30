@@ -334,7 +334,25 @@ describe('updateSettings and setTitle', () => {
     const { store, state } = setup();
     store.getState().setTitle('Survey');
     store.getState().updateSettings({ submitButtonText: 'Submit' });
+    store.getState().setDescription('');
     expect(state().past).toHaveLength(0);
+  });
+});
+
+describe('setDescription', () => {
+  it('sets the description, merges typing and removes it when emptied', () => {
+    const { store, state } = setup();
+
+    store.getState().setDescription('W', { mergeKey: 'description' });
+    store.getState().setDescription('Welcome', { mergeKey: 'description' });
+    expect(state().schema.description).toBe('Welcome');
+    expect(state().past).toHaveLength(1);
+
+    store.getState().setDescription('');
+    expect(state().schema).not.toHaveProperty('description');
+
+    store.getState().undo();
+    expect(state().schema.description).toBe('Welcome');
   });
 });
 

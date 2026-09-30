@@ -8,6 +8,7 @@ import { issuesUnder, useDraftIssues } from '../draft-issues';
 import type { FieldPatch } from '../editor-store';
 import { useEditorStore } from '../editor-store-context';
 import { FIELD_TYPE_ICONS, fieldTypeLabel } from '../field-type-meta';
+import { LogicSettings } from '../logic/logic-settings';
 import { SettingsSection } from './settings-section';
 import { TypeSettings } from './type-settings';
 
@@ -29,8 +30,9 @@ export function FieldSettings({ id }: { id: string }) {
   const index = useEditorStore((state) =>
     state.schema.fields.findIndex((field) => field.id === id),
   );
-  const field = useEditorStore((state) => state.schema.fields[index]);
-  const total = useEditorStore((state) => state.schema.fields.length);
+  const fields = useEditorStore((state) => state.schema.fields);
+  const field = fields[index];
+  const total = fields.length;
   const updateField = useEditorStore((state) => state.updateField);
   const issues = issuesUnder(useDraftIssues(), `draftSchema.fields.${index}`);
 
@@ -125,6 +127,7 @@ export function FieldSettings({ id }: { id: string }) {
       </SettingsSection>
 
       <TypeSettings field={field} issues={issues} update={update} />
+      <LogicSettings field={field} index={index} fields={fields} issues={issues} update={update} />
     </div>
   );
 }

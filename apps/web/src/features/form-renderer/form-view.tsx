@@ -109,9 +109,16 @@ export function FormView({
           </motion.div>
         ) : (
           <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-8">
-            <Title className="text-24 font-semibold tracking-tight break-words sm:text-32">
-              {title}
-            </Title>
+            <header className="flex flex-col gap-3">
+              <Title className="text-24 font-semibold tracking-tight break-words sm:text-32">
+                {title}
+              </Title>
+              {schema.description && (
+                <p className="text-16 break-words whitespace-pre-wrap text-(--form-muted)">
+                  {schema.description}
+                </p>
+              )}
+            </header>
             <AnimatePresence initial={false}>
               {schema.fields
                 .filter((field) => visibleIds.has(field.id))
