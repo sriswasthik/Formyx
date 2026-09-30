@@ -38,7 +38,7 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
       variants={container}
       initial="hidden"
       animate="visible"
-      className={cn(isGrid ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3' : 'divide-y')}
+      className={cn(isGrid ? 'grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3' : 'divide-y')}
     >
       <AnimatePresence mode="popLayout">
         {forms.map((form) => (
@@ -64,7 +64,7 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
         aria-hidden
         className={cn(
           LIST_COLUMNS,
-          'hidden border-b bg-surface px-4 py-2 text-12 font-medium text-muted-foreground sm:grid',
+          'hidden border-b bg-surface px-4 py-2 text-12 font-medium text-muted-foreground @2xl:grid',
         )}
       >
         <span>Name</span>

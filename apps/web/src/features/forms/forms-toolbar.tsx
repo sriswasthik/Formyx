@@ -40,8 +40,8 @@ export function FormsToolbar({
   onNewForm,
 }: FormsToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative sm:w-72">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 @2xl:flex @2xl:items-center">
+      <div className="relative @2xl:w-72">
         <Search
           className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
           aria-hidden
@@ -78,7 +78,7 @@ export function FormsToolbar({
         )}
       </div>
 
-      <div className="flex items-center gap-2 sm:contents">
+      <div className="col-span-2 row-start-2 flex items-center gap-2 @2xl:contents">
         <Select
           value={status ?? ALL_STATUSES}
           onValueChange={(value) => {
@@ -115,14 +115,15 @@ export function FormsToolbar({
             <List aria-hidden />
           </ToggleGroupItem>
         </ToggleGroup>
-
-        {onNewForm && (
-          <Button className="ml-auto" onClick={onNewForm}>
-            <Plus aria-hidden />
-            New form
-          </Button>
-        )}
       </div>
+
+      {onNewForm && (
+        // Beside the search box when the toolbar wraps, at the far right when it does not.
+        <Button className="col-start-2 row-start-1 @2xl:ml-auto" onClick={onNewForm}>
+          <Plus aria-hidden />
+          New form
+        </Button>
+      )}
     </div>
   );
 }

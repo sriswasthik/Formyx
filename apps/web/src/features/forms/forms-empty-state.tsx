@@ -31,7 +31,7 @@ export function FormsEmptyState({ canCreate, onCreate, pendingTemplate }: FormsE
       </p>
 
       {canCreate && (
-        <ul className="mx-auto mt-8 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
+        <ul className="mx-auto mt-8 grid max-w-3xl gap-3 text-left @2xl:grid-cols-3">
           {TEMPLATE_OPTIONS.map(({ id, name, description, icon: Icon, questionCount }) => {
             const pending = pendingTemplate === id;
             return (

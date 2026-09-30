@@ -184,7 +184,8 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    // Layouts respond to the space next to the sidebar, not the viewport.
+    <div className="@container flex flex-col gap-6">
       <FormsToolbar
         search={searchInput}
         onSearchChange={setSearchInput}

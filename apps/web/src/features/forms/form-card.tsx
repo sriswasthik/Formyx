@@ -64,11 +64,13 @@ export function FormCard({ form, now, canEdit, onAction }: FormItemProps) {
           />
         )}
       </div>
-      <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-6 text-13 text-muted-foreground">
+      {/* Wraps onto two lines in narrow cards, so it uses spacing rather than separators. */}
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-6 text-13 text-muted-foreground">
         <FormStatusBadge status={form.status} />
         <span className="tabular-nums">{responseCountLabel(form.responseCount)}</span>
-        <span aria-hidden>·</span>
-        <EditedAt updatedAt={form.updatedAt} now={now} />
+        <span className="ml-auto">
+          <EditedAt updatedAt={form.updatedAt} now={now} />
+        </span>
       </div>
     </article>
   );
@@ -76,7 +78,7 @@ export function FormCard({ form, now, canEdit, onAction }: FormItemProps) {
 
 /** Column layout shared by list rows and the list header. */
 export const LIST_COLUMNS =
-  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_6rem_8rem_8rem_2rem]';
+  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 @2xl:grid-cols-[minmax(0,1fr)_6rem_8rem_8rem_2rem]';
 
 export function FormRow({ form, now, canEdit, onAction }: FormItemProps) {
   const pending = isPendingForm(form);
@@ -96,20 +98,20 @@ export function FormRow({ form, now, canEdit, onAction }: FormItemProps) {
         <p className="truncate text-14 font-medium">
           <FormTitle form={form} />
         </p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-13 text-muted-foreground sm:hidden">
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-13 text-muted-foreground @2xl:hidden">
           <FormStatusBadge status={form.status} />
           <span className="tabular-nums">{responseCountLabel(form.responseCount)}</span>
           <span aria-hidden>·</span>
           <EditedAt updatedAt={form.updatedAt} now={now} />
         </p>
       </div>
-      <div className="hidden sm:block">
+      <div className="hidden @2xl:block">
         <FormStatusBadge status={form.status} />
       </div>
-      <div className="hidden text-13 text-muted-foreground tabular-nums sm:block">
+      <div className="hidden text-13 text-muted-foreground tabular-nums @2xl:block">
         {responseCountLabel(form.responseCount)}
       </div>
-      <div className="hidden truncate text-13 text-muted-foreground sm:block">
+      <div className="hidden truncate text-13 text-muted-foreground @2xl:block">
         <EditedAt updatedAt={form.updatedAt} now={now} />
       </div>
       <div className="flex justify-end">
