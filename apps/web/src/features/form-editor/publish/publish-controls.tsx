@@ -1,5 +1,6 @@
 import type { FormDetail } from '@formyx/shared';
 import { ChevronDown, CirclePause, CirclePlay, LoaderCircle, Send, Share2 } from 'lucide-react';
+import { useState, type Ref } from 'react';
 import { ActionTooltip } from '@/components/action-tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,8 @@ import { useHasUnpublishedChanges } from './use-unpublished-changes';
 interface PublishControlsProps {
   form: FormDetail;
   pending: PublishAction | null;
+  /** The main button, so dialogs opened from it can give focus back. */
+  primaryRef?: Ref<HTMLButtonElement>;
   onPublish: () => void;
   onShare: () => void;
   onClose: () => void;
@@ -25,12 +28,14 @@ interface PublishControlsProps {
 export function PublishControls({
   form,
   pending,
+  primaryRef,
   onPublish,
   onShare,
   onClose,
   onReopen,
 }: PublishControlsProps) {
   const changed = useHasUnpublishedChanges(form);
+  const [menuOpen, setMenuOpen] = useState(false);
   const live = form.publishedSchema !== null;
   const closed = form.status === 'CLOSED';
   const busy = pending !== null;
@@ -56,11 +61,15 @@ export function PublishControls({
       )}
 
       <div className="flex items-center">
+        {/* aria-disabled rather than disabled while busy, so keyboard focus stays put. */}
         <Button
+          ref={primaryRef}
           size="sm"
           className={live ? 'relative rounded-r-none' : 'relative'}
-          disabled={busy}
-          onClick={primary.onClick}
+          aria-disabled={busy || undefined}
+          onClick={() => {
+            if (!busy) primary.onClick();
+          }}
         >
           <Icon aria-hidden className={pending === 'publish' ? 'motion-safe:animate-spin' : ''} />
           <span className="sr-only sm:not-sr-only">{primary.label}</span>
@@ -73,14 +82,19 @@ export function PublishControls({
           )}
         </Button>
         {live && (
-          <DropdownMenu>
+          <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(open) => {
+              setMenuOpen(open && !busy);
+            }}
+          >
             <ActionTooltip label="More publishing options">
               <DropdownMenuTrigger asChild>
                 <Button
                   size="sm"
                   className="rounded-l-none border-l border-l-primary-foreground/20 px-2"
                   aria-label="More publishing options"
-                  disabled={busy}
+                  aria-disabled={busy || undefined}
                 >
                   <ChevronDown aria-hidden />
                 </Button>

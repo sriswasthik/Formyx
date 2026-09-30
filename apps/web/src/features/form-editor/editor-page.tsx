@@ -1,7 +1,7 @@
 import { hasRole, type FormDetail } from '@formyx/shared';
 import { FileQuestion, Lock, RotateCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { useStore } from 'zustand';
@@ -104,6 +104,7 @@ function FormEditor({ form }: { form: FormDetail }) {
   const [pointOutIssues, setPointOutIssues] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [share, setShare] = useState({ open: false, justPublished: false });
+  const publishButton = useRef<HTMLButtonElement>(null);
   const schema = useStore(store, (state) => state.schema);
   const publishIssues = useMemo(
     () => (pointOutIssues ? findDraftPublishIssues(schema) : []),
@@ -184,6 +185,7 @@ function FormEditor({ form }: { form: FormDetail }) {
             <PublishControls
               form={form}
               pending={publishing.pending}
+              primaryRef={publishButton}
               onPublish={() => void publish()}
               onShare={() => {
                 setShare({ open: true, justPublished: false });
@@ -225,6 +227,7 @@ function FormEditor({ form }: { form: FormDetail }) {
           slug={form.slug}
           closed={form.status === 'CLOSED'}
           justPublished={share.justPublished}
+          returnFocusTo={publishButton}
         />
         <LeaveGuard autosaver={autosaver} />
       </PublishIssuesContext.Provider>

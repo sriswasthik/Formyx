@@ -50,8 +50,11 @@ describe('publishing from the editor', () => {
     expect(within(dialog).getByRole('status')).toHaveTextContent('Link copied');
 
     await user.click(within(dialog).getByRole('button', { name: 'Done' }));
-    // Nothing left to publish, so the button shares instead.
-    expect(await screen.findByRole('button', { name: 'Share' })).toBeInTheDocument();
+    // Nothing left to publish, so the button shares instead, and focus is back on it.
+    const shareButton = await screen.findByRole('button', { name: 'Share' });
+    await waitFor(() => {
+      expect(shareButton).toHaveFocus();
+    });
   });
 
   it('saves the latest edits before publishing them', async () => {

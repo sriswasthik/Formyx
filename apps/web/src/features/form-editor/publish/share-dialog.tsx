@@ -129,10 +129,19 @@ interface ShareDialogProps {
   closed: boolean;
   /** Straight after the first publish, the dialog celebrates a little. */
   justPublished: boolean;
+  /** Where focus goes when the dialog closes; it may open without a trigger. */
+  returnFocusTo?: RefObject<HTMLElement>;
 }
 
 /** The public link to copy or open, and a QR code for it. */
-export function ShareDialog({ open, onOpenChange, slug, closed, justPublished }: ShareDialogProps) {
+export function ShareDialog({
+  open,
+  onOpenChange,
+  slug,
+  closed,
+  justPublished,
+  returnFocusTo,
+}: ShareDialogProps) {
   const url = publicFormUrl(slug);
   const copyButton = useRef<HTMLButtonElement>(null);
 
@@ -144,6 +153,11 @@ export function ShareDialog({ open, onOpenChange, slug, closed, justPublished }:
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           copyButton.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!returnFocusTo?.current) return;
+          event.preventDefault();
+          returnFocusTo.current.focus();
         }}
       >
         <DialogHeader>
