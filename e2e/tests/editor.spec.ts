@@ -52,7 +52,8 @@ async function expectSaved(page: Page) {
 async function openEditor(page: Page, templateId: 'blank' | 'feedback_survey') {
   const formId = await createFormViaApi(page, templateId);
   await page.goto(`/app/forms/${formId}/edit`);
-  await expect(page.getByRole('textbox', { name: 'Form title' })).toBeVisible();
+  // The first load can be slow while the dev server compiles the editor for parallel tests.
+  await expect(page.getByRole('textbox', { name: 'Form title' })).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe('on large screens', () => {
