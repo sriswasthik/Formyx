@@ -15,6 +15,13 @@ export const FORM_STATUS_LABELS: Record<FormStatus, string> = {
 
 export const FORM_TITLE_MAX_LENGTH = 120;
 
+const COPY_SUFFIX = ' (copy)';
+
+/** Title of a duplicated form: "Survey" -> "Survey (copy)", shortened so it still fits. */
+export function copyFormTitle(title: string): string {
+  return `${title.slice(0, FORM_TITLE_MAX_LENGTH - COPY_SUFFIX.length).trimEnd()}${COPY_SUFFIX}`;
+}
+
 export const formTitleSchema = z
   .string({ error: 'Enter a title' })
   .trim()

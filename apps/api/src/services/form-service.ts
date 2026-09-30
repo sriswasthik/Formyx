@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
+  copyFormTitle,
   createDefaultTheme,
-  FORM_TITLE_MAX_LENGTH,
   formSchema,
   formThemeSchema,
   getFormTemplate,
@@ -22,7 +22,6 @@ import type { Database } from '../lib/prisma.js';
 const SLUG_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const SLUG_SUFFIX_LENGTH = 8;
 const MAX_SLUG_ATTEMPTS = 3;
-const COPY_SUFFIX = ' (copy)';
 
 const summarySelect = {
   id: true,
@@ -93,11 +92,6 @@ export function formSlug(title: string): string {
     (byte) => SLUG_ALPHABET[byte % SLUG_ALPHABET.length],
   ).join('');
   return `${slugify(title, 40) || 'form'}-${suffix}`;
-}
-
-/** "Survey" -> "Survey (copy)", shortening long titles so the result still fits. */
-export function copyTitle(title: string): string {
-  return `${title.slice(0, FORM_TITLE_MAX_LENGTH - COPY_SUFFIX.length).trimEnd()}${COPY_SUFFIX}`;
 }
 
 /** Prisma's `contains` becomes ILIKE without escaping, so `%` and `_` would act as wildcards. */
@@ -212,7 +206,7 @@ export function createFormService(prisma: Database): FormService {
       return insert({
         workspaceId: source.workspaceId,
         createdById: userId,
-        title: copyTitle(source.title),
+        title: copyFormTitle(source.title),
         draftSchema: source.draftSchema,
         theme: source.theme,
       });

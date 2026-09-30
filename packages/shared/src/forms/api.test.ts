@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createFormInputSchema, listFormsQuerySchema, updateFormInputSchema } from './api.js';
+import {
+  copyFormTitle,
+  createFormInputSchema,
+  FORM_TITLE_MAX_LENGTH,
+  listFormsQuerySchema,
+  updateFormInputSchema,
+} from './api.js';
 import { createEmptyForm } from './factories.js';
 
 describe('createFormInputSchema', () => {
@@ -31,6 +37,19 @@ describe('updateFormInputSchema', () => {
     expect(
       updateFormInputSchema.safeParse({ version: 3, draftSchema: createEmptyForm() }).success,
     ).toBe(true);
+  });
+});
+
+describe('copyFormTitle', () => {
+  it('adds "(copy)"', () => {
+    expect(copyFormTitle('Survey')).toBe('Survey (copy)');
+    expect(copyFormTitle('Survey (copy)')).toBe('Survey (copy) (copy)');
+  });
+
+  it('shortens long titles so the copy is still a valid title', () => {
+    const title = copyFormTitle(`${'a'.repeat(110)} ${'b'.repeat(20)}`);
+    expect(title).toHaveLength(FORM_TITLE_MAX_LENGTH);
+    expect(title.endsWith(' (copy)')).toBe(true);
   });
 });
 
