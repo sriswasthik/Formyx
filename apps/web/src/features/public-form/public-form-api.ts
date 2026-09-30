@@ -1,7 +1,7 @@
 import {
-  publicFormSchema,
+  publicFormResponseSchema,
   submissionResponseSchema,
-  type PublicForm,
+  type PublicFormResponse,
   type SubmissionInput,
   type SubmissionResponse,
 } from '@formyx/shared';
@@ -10,9 +10,9 @@ import { apiRequest, jsonRequest } from '@/lib/api';
 
 const publicFormPath = (slug: string) => `/public/forms/${encodeURIComponent(slug)}`;
 
-/** The published form. Fails with 404 if there is none, 410 if it takes no responses. */
-export function getPublicForm(slug: string): Promise<PublicForm> {
-  return apiRequest(publicFormPath(slug), publicFormSchema);
+/** The published form, or that it is closed. Fails with 404 if it was never published. */
+export function getPublicForm(slug: string): Promise<PublicFormResponse> {
+  return apiRequest(publicFormPath(slug), publicFormResponseSchema);
 }
 
 export async function recordFormView(slug: string): Promise<void> {

@@ -6,7 +6,7 @@ import {
   toAnswerIssues,
   type ClosedFormDetails,
   type FormSchema,
-  type PublicForm,
+  type PublicFormResponse,
   type SubmissionInput,
 } from '@formyx/shared';
 import type { z } from 'zod';
@@ -45,8 +45,8 @@ export interface SubmissionContext {
 }
 
 export interface PublicFormService {
-  /** The published form, or 404 if there is none, or 410 if it takes no more responses. */
-  get(slug: string): Promise<PublicForm>;
+  /** The published form, or that it is closed; 404 if it was never published. */
+  get(slug: string): Promise<PublicFormResponse>;
   /** Counts a visit to an open form. */
   recordView(slug: string): Promise<void>;
   /**
@@ -79,35 +79,45 @@ function toLiveForm(record: PublicRecord | null): LiveForm {
   };
 }
 
-/** Throws 410 unless the form is published and within its response limit and closing date. */
-function assertOpen(form: LiveForm, now = new Date()): void {
-  const open =
+/** Whether the form is published and within its response limit and closing time. */
+function isOpen(form: LiveForm, now = new Date()): boolean {
+  return (
     form.record.status === 'PUBLISHED' &&
-    responseLimitReached(form.schema.settings, form.record._count.submissions, now) === null;
-  if (!open) throw closed(form.title);
+    responseLimitReached(form.schema.settings, form.record._count.submissions, now) === null
+  );
+}
+
+/** Throws 410 unless the form takes responses. */
+function assertOpen(form: LiveForm): void {
+  if (!isOpen(form)) throw closed(form.title);
 }
 
 export function createPublicFormService(prisma: Database): PublicFormService {
-  async function findOpen(slug: string): Promise<LiveForm> {
-    const form = toLiveForm(
-      await prisma.form.findUnique({ where: { slug }, select: publicSelect }),
-    );
-    assertOpen(form);
-    return form;
+  async function find(slug: string): Promise<LiveForm> {
+    return toLiveForm(await prisma.form.findUnique({ where: { slug }, select: publicSelect }));
   }
 
   return {
     async get(slug) {
-      const form = await findOpen(slug);
+      const form = await find(slug);
+      if (!isOpen(form)) return { status: 'closed', slug: form.slug, title: form.title };
+
       const theme = formThemeSchema.safeParse(form.record.theme);
       if (!theme.success) {
         throw new Error('Stored theme does not match its schema', { cause: theme.error });
       }
-      return { slug: form.slug, title: form.title, schema: form.schema, theme: theme.data };
+      return {
+        status: 'open',
+        slug: form.slug,
+        title: form.title,
+        schema: form.schema,
+        theme: theme.data,
+      };
     },
 
     async recordView(slug) {
-      const form = await findOpen(slug);
+      const form = await find(slug);
+      assertOpen(form);
       await prisma.formView.create({ data: { formId: form.id } });
     },
 

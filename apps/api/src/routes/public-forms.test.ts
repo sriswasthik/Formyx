@@ -4,7 +4,7 @@ import {
   createField,
   createOption,
   formDetailSchema,
-  publicFormSchema,
+  publicFormResponseSchema,
   submissionResponseSchema,
   type FormDetail,
   type FormSchema,
@@ -78,7 +78,8 @@ describe('GET /api/public/forms/:slug', () => {
 
     const res = await request(app).get(formUrl(form.slug)).expect(200);
 
-    expect(publicFormSchema.parse(res.body)).toEqual({
+    expect(publicFormResponseSchema.parse(res.body)).toEqual({
+      status: 'open',
       slug: form.slug,
       title: 'Party RSVP',
       schema: RSVP,
@@ -102,7 +103,13 @@ describe('GET /api/public/forms/:slug', () => {
 
     expect(res.body).toMatchObject({ title: 'Party RSVP', schema: RSVP });
     expect(JSON.stringify(res.body)).not.toContain('Secret');
-    expect(Object.keys(res.body as object).sort()).toEqual(['schema', 'slug', 'theme', 'title']);
+    expect(Object.keys(res.body as object).sort()).toEqual([
+      'schema',
+      'slug',
+      'status',
+      'theme',
+      'title',
+    ]);
   });
 
   it('answers 404 for unknown forms and drafts that were never published', async () => {
@@ -122,18 +129,18 @@ describe('GET /api/public/forms/:slug', () => {
       (form) => prisma.submission.create({ data: { formId: form.id, answers: {}, metadata: {} } }),
       rsvp({ closeAfterResponses: 1 }),
     ],
-  ])('answers 410 with the title when the form is %s', async (_state, close, schema) => {
-    const form = await publishForm(schema);
-    await close(form);
+  ])(
+    'says the form is closed, with only its title, when it is %s',
+    async (_state, close, schema) => {
+      const form = await publishForm(schema);
+      await close(form);
 
-    const res = await request(app).get(formUrl(form.slug)).expect(410);
+      // An expected state rather than an error, so browsers do not log it as a failed request.
+      const res = await request(app).get(formUrl(form.slug)).expect(200);
 
-    expect(apiErrorSchema.parse(res.body).error).toEqual({
-      code: 'FORM_CLOSED',
-      message: 'This form is no longer accepting responses.',
-      details: { title: 'Party RSVP' },
-    });
-  });
+      expect(res.body).toEqual({ status: 'closed', slug: form.slug, title: 'Party RSVP' });
+    },
+  );
 });
 
 describe('POST /api/public/forms/:slug/view', () => {

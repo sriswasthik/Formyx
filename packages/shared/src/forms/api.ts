@@ -111,8 +111,9 @@ export type PublishFormInput = z.infer<typeof publishFormInputSchema>;
 /** `details` of the 422 FORM_INCOMPLETE returned when a draft is not ready to publish. */
 export const formIncompleteDetailsSchema = z.array(validationIssueSchema);
 
-/** What `GET /api/public/forms/:slug` returns: the published form, never the draft. */
+/** A published form that takes responses: its published snapshot, never the draft. */
 export const publicFormSchema = z.object({
+  status: z.literal('open'),
   slug: z.string(),
   title: z.string(),
   schema: formSchema,
@@ -120,6 +121,24 @@ export const publicFormSchema = z.object({
 });
 export type PublicForm = z.infer<typeof publicFormSchema>;
 
-/** `details` of the 410 FORM_CLOSED from the public endpoints. */
+/** A form that no longer takes responses: closed, full or past its closing time. */
+export const closedPublicFormSchema = z.object({
+  status: z.literal('closed'),
+  slug: z.string(),
+  title: z.string(),
+});
+export type ClosedPublicForm = z.infer<typeof closedPublicFormSchema>;
+
+/**
+ * What `GET /api/public/forms/:slug` returns. A closed form is an expected state rather than
+ * an error, so it comes back as 200 too; forms that were never published are 404.
+ */
+export const publicFormResponseSchema = z.discriminatedUnion('status', [
+  publicFormSchema,
+  closedPublicFormSchema,
+]);
+export type PublicFormResponse = z.infer<typeof publicFormResponseSchema>;
+
+/** `details` of the 410 FORM_CLOSED when responding to (or viewing) a closed form. */
 export const closedFormDetailsSchema = z.object({ title: z.string() });
 export type ClosedFormDetails = z.infer<typeof closedFormDetailsSchema>;

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   HONEYPOT_FIELD,
   submissionInputSchema,
-  type PublicForm,
+  type PublicFormResponse,
   type SubmissionResponse,
 } from '@formyx/shared';
 import { Router } from 'express';
@@ -27,7 +27,7 @@ export function createPublicFormsRouter({ env, logger, prisma }: AppDependencies
   });
 
   router.get('/:slug', async (req, res) => {
-    const form: PublicForm = await forms.get(routeParam(req, 'slug'));
+    const form: PublicFormResponse = await forms.get(routeParam(req, 'slug'));
     res.json(form);
   });
 

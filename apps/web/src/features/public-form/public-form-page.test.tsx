@@ -34,6 +34,7 @@ const guests = {
 const name = { ...createField('short_text'), label: 'Your name', required: true };
 
 const FORM: PublicForm = {
+  status: 'open',
   slug: 'party-abc12345',
   title: 'Party RSVP',
   schema: {
@@ -218,17 +219,7 @@ describe('PublicFormPage', () => {
 
   it('explains that a form is closed, naming it', async () => {
     serve({
-      load: () =>
-        jsonResponse(
-          {
-            error: {
-              code: 'FORM_CLOSED',
-              message: 'This form is no longer accepting responses.',
-              details: { title: 'Party RSVP' },
-            },
-          },
-          410,
-        ),
+      load: () => jsonResponse({ status: 'closed', slug: FORM.slug, title: 'Party RSVP' }),
     });
     renderPage();
 

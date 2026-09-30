@@ -1,6 +1,5 @@
 import {
   answerErrorsFromIssues,
-  closedFormDetailsSchema,
   HONEYPOT_FIELD,
   validationIssueSchema,
   type PublicForm,
@@ -18,14 +17,9 @@ import { getPublicForm, submitResponse } from './public-form-api';
 import { MadeWithFormyx, PublicFormMessage, PublicFormSkeleton } from './public-form-states';
 import { recordViewOnce } from './record-view';
 
-/** Missing or closed forms stay that way, so asking again would not help. */
-function isFinal(error: unknown): boolean {
-  return error instanceof ApiRequestError && (error.status === 404 || error.status === 410);
-}
-
-function closedTitleOf(error: unknown): string | undefined {
-  if (!(error instanceof ApiRequestError) || error.status !== 410) return undefined;
-  return closedFormDetailsSchema.safeParse(error.details).data?.title;
+/** A missing form stays missing, so asking again would not help. */
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 404;
 }
 
 /**
@@ -48,7 +42,7 @@ function Honeypot({ inputRef }: { inputRef: RefObject<HTMLInputElement> }) {
   );
 }
 
-function FormClosed({ title }: { title: string | undefined }) {
+function FormClosed({ title }: { title: string }) {
   return (
     <PublicFormMessage
       icon={Lock}
@@ -122,14 +116,14 @@ export function PublicFormPage() {
     // The form must not change under someone halfway through it.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    retry: (failures, error) => !isFinal(error) && failures < 1,
+    retry: (failures, error) => !isNotFound(error) && failures < 1,
   });
-  usePageTitle(query.data?.title ?? closedTitleOf(query.error) ?? 'Form');
+  usePageTitle(query.data?.title ?? 'Form');
 
   if (query.isPending) return <PublicFormSkeleton />;
 
   if (query.isError) {
-    if (query.error instanceof ApiRequestError && query.error.status === 404) {
+    if (isNotFound(query.error)) {
       return (
         <PublicFormMessage
           icon={FileQuestion}
@@ -137,9 +131,6 @@ export function PublicFormPage() {
           description="The link may be mistyped, or the form was deleted. Check with whoever shared it with you."
         />
       );
-    }
-    if (query.error instanceof ApiRequestError && query.error.status === 410) {
-      return <FormClosed title={closedTitleOf(query.error)} />;
     }
     return (
       <PublicFormMessage
@@ -161,7 +152,9 @@ export function PublicFormPage() {
     );
   }
 
-  if (closedWhileOpen) return <FormClosed title={query.data.title} />;
+  if (query.data.status === 'closed' || closedWhileOpen) {
+    return <FormClosed title={query.data.title} />;
+  }
 
   return (
     <LiveForm
