@@ -197,7 +197,7 @@ export function removeBrokenConditions(form: FormSchema): { form: FormSchema; re
     return kept.length > 0
       ? { ...field, conditions: kept }
       : // Nothing left to match, so the match mode goes too.
-        (rest);
+        rest;
   });
 
   return removed === 0 ? { form, removed } : { form: { ...form, fields }, removed };
