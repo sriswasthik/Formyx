@@ -56,8 +56,8 @@ function QuestionList({ form }: { form: FormDetail }) {
                     <span className="text-danger-text" aria-hidden>
                       {' '}
                       *
-                    </span>
-                    <span className="sr-only"> (required)</span>
+                    </span>{' '}
+                    <span className="sr-only">(required)</span>
                   </>
                 )}
               </span>
