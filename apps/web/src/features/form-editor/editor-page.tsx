@@ -1,5 +1,6 @@
 import { hasRole, type FormDetail } from '@formyx/shared';
 import { FileQuestion, Lock, RotateCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -10,8 +11,16 @@ import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/session-context';
+import { formKeys } from '@/features/forms/form-list-cache';
+import { getForm } from '@/features/forms/forms-api';
 import { useFormDetail } from '@/features/forms/use-forms';
 import { ApiRequestError } from '@/lib/api';
+import { ConflictDialog } from './autosave/conflict-dialog';
+import { LeaveGuard } from './autosave/leave-guard';
+import { SaveStatus } from './autosave/save-status';
+import { useAutosave } from './autosave/use-autosave';
+import { focusQuestion } from './canvas/focus-question';
+import { findDraftIssues, firstFieldWithIssue } from './draft-issues';
 import { EditorLayout } from './editor-layout';
 import { createEditorStore } from './editor-store';
 import { EditorStoreContext } from './editor-store-context';
@@ -67,6 +76,7 @@ function EditorProblem({
 
 /** One editor per form: its store is created from the form once and lives until it closes. */
 function FormEditor({ form }: { form: FormDetail }) {
+  const queryClient = useQueryClient();
   const [store] = useState(() =>
     createEditorStore(
       { title: form.title, schema: form.draftSchema, version: form.version },
@@ -80,12 +90,69 @@ function FormEditor({ form }: { form: FormDetail }) {
       },
     ),
   );
+  const { state: saveState, autosaver } = useAutosave(form.id, store);
+  const [conflictDismissed, setConflictDismissed] = useState(false);
+  const [reloading, setReloading] = useState(false);
   usePageTitle(useStore(store, (state) => state.title) || 'Untitled form');
+
+  const reloadLatest = async () => {
+    setReloading(true);
+    try {
+      const latest = await getForm(form.id);
+      queryClient.setQueryData(formKeys.detail(form.id), latest);
+      autosaver.reload(latest);
+      setConflictDismissed(false);
+      toast.success('Loaded the latest version');
+    } catch {
+      toast.error('Could not load the latest version', {
+        description: 'Check your connection and try again.',
+      });
+    } finally {
+      setReloading(false);
+    }
+  };
+
+  /** Takes the user to the first problem that stops saving. */
+  const showIssues = () => {
+    const state = store.getState();
+    const issues = findDraftIssues(state);
+    const index = firstFieldWithIssue(issues);
+    const field = index === null ? undefined : state.schema.fields[index];
+    if (field) {
+      state.selectField(field.id);
+      focusQuestion(field.id);
+    } else if (issues.some((issue) => issue.path === 'title')) {
+      document.querySelector<HTMLInputElement>('input[aria-label="Form title"]')?.focus();
+    } else {
+      state.selectField(null);
+    }
+  };
 
   return (
     <EditorStoreContext.Provider value={store}>
       <h1 className="sr-only">Edit form</h1>
-      <EditorLayout form={form} status={null} />
+      <EditorLayout
+        form={form}
+        status={
+          <SaveStatus
+            state={saveState}
+            onRetry={() => {
+              autosaver.retryNow();
+            }}
+            onReload={() => void reloadLatest()}
+            onShowIssues={showIssues}
+          />
+        }
+      />
+      <ConflictDialog
+        open={saveState.kind === 'conflict' && !conflictDismissed}
+        onOpenChange={(open) => {
+          if (!open) setConflictDismissed(true);
+        }}
+        onReload={() => void reloadLatest()}
+        reloading={reloading}
+      />
+      <LeaveGuard autosaver={autosaver} />
     </EditorStoreContext.Provider>
   );
 }

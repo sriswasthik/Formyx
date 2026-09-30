@@ -76,7 +76,7 @@ export function EditorTopBar({ status, view, onViewChange }: EditorTopBarProps) 
         <div className="min-w-0 flex-1 sm:max-w-sm">
           <TitleInput />
         </div>
-        <div className="hidden shrink-0 sm:block">{status}</div>
+        <div className="shrink-0">{status}</div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
