@@ -8,5 +8,9 @@ export default defineConfig({
   ssr: { resolve: { conditions } },
   test: {
     include: ['src/**/*.test.ts'],
+    globalSetup: ['./src/test/global-setup.ts'],
+    setupFiles: ['./src/test/setup.ts'],
+    // Test files share one Postgres database and empty it between tests.
+    fileParallelism: false,
   },
 });

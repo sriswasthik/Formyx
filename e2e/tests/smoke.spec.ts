@@ -1,18 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { trackConsoleProblems } from './helpers.js';
 
-/** Collects console errors, warnings and uncaught exceptions for the page's lifetime. */
-function trackConsoleProblems(page: Page) {
-  const problems: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error' || message.type() === 'warning') {
-      problems.push(`${message.type()}: ${message.text()}`);
-    }
-  });
-  page.on('pageerror', (error) => {
-    problems.push(`pageerror: ${error.message}`);
-  });
-  return problems;
-}
+// These tests run signed in, as the user created by auth.setup.ts.
 
 test('landing page renders without console errors', async ({ page }) => {
   const problems = trackConsoleProblems(page);
@@ -42,13 +31,13 @@ test('theme choice persists across reloads', async ({ page }) => {
   await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 });
 
-test('moves from the landing page into the app without console errors', async ({ page }) => {
+test('signed-in visitors go from the landing page straight into the app', async ({ page }) => {
   const problems = trackConsoleProblems(page);
 
   await page.goto('/');
   await page.getByRole('link', { name: 'Start building' }).click();
 
-  await expect(page).toHaveURL(/\/forms$/);
+  await expect(page).toHaveURL(/\/app\/forms$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Forms' })).toBeVisible();
   await expect(page).toHaveTitle('Forms · Formyx');
   expect(problems).toEqual([]);
@@ -57,19 +46,19 @@ test('moves from the landing page into the app without console errors', async ({
 test('mobile navigation opens in a sheet', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'The sheet is only used below 768px');
 
-  await page.goto('/forms');
+  await page.goto('/app/forms');
   await page.getByRole('button', { name: 'Open navigation' }).click();
 
   const sheet = page.getByRole('dialog', { name: 'Navigation' });
   await expect(sheet).toBeVisible();
   await sheet.getByRole('link', { name: 'Settings' }).click();
 
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/app\/settings$/);
   await expect(sheet).toBeHidden();
 });
 
 test('pages never scroll horizontally', async ({ page }) => {
-  for (const path of ['/', '/forms', '/settings']) {
+  for (const path of ['/', '/app/forms', '/app/settings']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(

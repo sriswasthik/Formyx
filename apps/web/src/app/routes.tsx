@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router';
+import { Navigate, type RouteObject } from 'react-router';
 import { LandingPage } from '@/features/landing/landing-page';
 import { NotFoundPage } from './not-found-page';
 import { RootLayout, RouteFallback } from './root-layout';
@@ -26,28 +26,63 @@ export const routes: RouteObject[] = [
     children: [
       // The public landing page ships in the entry chunk for the fastest first paint.
       { index: true, element: <LandingPage /> },
-      // Signed-in pages are split out so marketing visitors never download them.
+      // Log in and sign up: signed-in visitors are sent on to the app.
       {
         lazy: async () => {
-          const { AppShell } = await import('@/features/shell/app-shell');
-          return { Component: AppShell };
+          const { GuestRoute } = await import('@/features/auth/guest-route');
+          return { Component: GuestRoute };
         },
         children: [
           {
-            path: 'forms',
-            handle: { title: 'Forms' } satisfies RouteHandle,
+            path: 'login',
+            handle: { title: 'Log in' } satisfies RouteHandle,
             lazy: async () => {
-              const { FormsPage } = await import('@/features/forms/forms-page');
-              return { Component: FormsPage };
+              const { LoginPage } = await import('@/features/auth/login-page');
+              return { Component: LoginPage };
             },
           },
           {
-            path: 'settings',
-            handle: { title: 'Settings' } satisfies RouteHandle,
+            path: 'signup',
+            handle: { title: 'Sign up' } satisfies RouteHandle,
             lazy: async () => {
-              const { SettingsPage } = await import('@/features/settings/settings-page');
-              return { Component: SettingsPage };
+              const { SignupPage } = await import('@/features/auth/signup-page');
+              return { Component: SignupPage };
             },
+          },
+        ],
+      },
+      // Signed-in pages are split out so marketing visitors never download them.
+      {
+        path: 'app',
+        lazy: async () => {
+          const { ProtectedRoute } = await import('@/features/auth/protected-route');
+          return { Component: ProtectedRoute };
+        },
+        children: [
+          {
+            lazy: async () => {
+              const { AppShell } = await import('@/features/shell/app-shell');
+              return { Component: AppShell };
+            },
+            children: [
+              { index: true, element: <Navigate to="forms" replace /> },
+              {
+                path: 'forms',
+                handle: { title: 'Forms' } satisfies RouteHandle,
+                lazy: async () => {
+                  const { FormsPage } = await import('@/features/forms/forms-page');
+                  return { Component: FormsPage };
+                },
+              },
+              {
+                path: 'settings',
+                handle: { title: 'Settings' } satisfies RouteHandle,
+                lazy: async () => {
+                  const { SettingsPage } = await import('@/features/settings/settings-page');
+                  return { Component: SettingsPage };
+                },
+              },
+            ],
           },
         ],
       },

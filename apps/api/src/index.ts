@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { EnvError, parseEnv, type Env } from './config/env.js';
 import { createLogger } from './lib/logger.js';
+import { createPrismaClient } from './lib/prisma.js';
 
 function loadEnv(): Env {
   try {
@@ -16,7 +17,8 @@ function loadEnv(): Env {
 
 const env = loadEnv();
 const logger = createLogger(env);
-const app = createApp({ env, logger });
+const prisma = createPrismaClient(env.DATABASE_URL, logger);
+const app = createApp({ env, logger, prisma });
 
 const server = app.listen(env.PORT, (error) => {
   if (error) {
@@ -30,7 +32,14 @@ function shutdown(signal: NodeJS.Signals) {
   logger.info({ signal }, 'Shutting down');
   server.close((error) => {
     if (error) logger.error({ err: error }, 'Error while closing server');
-    process.exit(error ? 1 : 0);
+    prisma
+      .$disconnect()
+      .catch((disconnectError: unknown) => {
+        logger.error({ err: disconnectError }, 'Error while disconnecting from the database');
+      })
+      .finally(() => {
+        process.exit(error ? 1 : 0);
+      });
   });
   setTimeout(() => {
     logger.error('Forced shutdown after timeout');

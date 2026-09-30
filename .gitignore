@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# generated code (Prisma client: `pnpm --filter @formyx/api db:generate`)
+apps/api/src/generated/
+
 # env
 .env
 .env.*
@@ -15,6 +18,7 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+e2e/playwright/.auth/
 
 # logs
 *.log

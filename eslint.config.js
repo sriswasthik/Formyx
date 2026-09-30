@@ -14,6 +14,7 @@ export default defineConfig(
     '**/playwright-report',
     '**/test-results',
     '**/blob-report',
+    'apps/api/src/generated',
   ]),
 
   js.configs.recommended,

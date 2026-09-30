@@ -7,6 +7,6 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/forms', label: 'Forms', icon: FileText },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/app/forms', label: 'Forms', icon: FileText },
+  { to: '/app/settings', label: 'Settings', icon: Settings },
 ];

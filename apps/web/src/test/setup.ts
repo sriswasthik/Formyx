@@ -4,6 +4,8 @@ import { afterEach, vi } from 'vitest';
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 // jsdom does not implement these browser APIs that Radix and our theme code rely on.

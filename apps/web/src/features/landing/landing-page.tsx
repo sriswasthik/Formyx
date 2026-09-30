@@ -43,7 +43,7 @@ export function LandingPage() {
               className="mt-8 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row"
             >
               <Button asChild size="lg">
-                <Link to="/forms">
+                <Link to="/signup">
                   Start building
                   <ArrowRight aria-hidden />
                 </Link>

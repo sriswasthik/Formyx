@@ -19,9 +19,11 @@ describe('LandingPage', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('sends the primary call to action to the app', () => {
+  it('sends the primary call to action to sign up', () => {
     renderLanding();
-    expect(screen.getByRole('link', { name: 'Start building' })).toHaveAttribute('href', '/forms');
+    expect(screen.getByRole('link', { name: 'Start building' })).toHaveAttribute('href', '/signup');
+    expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/signup');
+    expect(screen.getAllByRole('link', { name: 'Log in' })[0]).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: 'See how it works' })).toHaveAttribute(
       'href',
       '#features',
