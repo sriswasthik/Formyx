@@ -163,4 +163,15 @@ describe('EditorLayout', () => {
     await user.click(screen.getByRole('radio', { name: 'Build' }));
     expect(screen.getByRole('navigation', { name: 'Question types' })).toBeInTheDocument();
   });
+
+  it('says answers are not saved in preview, and restarts with an empty form', async () => {
+    const { user } = renderEditor([{ ...createField('short_text'), label: 'Name' }]);
+    await user.click(screen.getByRole('radio', { name: 'Preview' }));
+
+    expect(screen.getByText(/Answers are not saved/)).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Ada');
+    await user.click(screen.getByRole('button', { name: 'Restart' }));
+
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+  });
 });

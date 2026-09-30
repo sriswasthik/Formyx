@@ -12,7 +12,7 @@ import {
   stubFetch,
 } from '@/test/session';
 import { EditorPage } from './editor-page';
-import { makeFormDetail } from './test-utils';
+import { makeFormDetail, setScreen } from './test-utils';
 
 interface FakeServer {
   form: FormDetail;
@@ -49,6 +49,7 @@ function installFakeServer(form: FormDetail): FakeServer {
 }
 
 function renderEditorPage(me: MeResponse = ADA) {
+  setScreen('desktop');
   const router = createMemoryRouter(
     [
       {

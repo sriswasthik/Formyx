@@ -104,7 +104,10 @@ export const CanvasField = memo(function CanvasField({
           aria-label={`Question ${index + 1}: ${label}, ${fieldTypeLabel(field.type)}`}
           aria-current={selected || undefined}
           className="absolute inset-0 cursor-pointer rounded-lg"
-          onPointerDown={onPointerDown}
+          onPointerDown={(event) => {
+            // On touch screens a swipe over a question scrolls; dragging starts at the handle.
+            if (event.pointerType !== 'touch') onPointerDown?.(event);
+          }}
           onClick={() => {
             selectField(id);
           }}

@@ -6,6 +6,7 @@ import {
   type FormSchema,
 } from '@formyx/shared';
 import { render } from '@testing-library/react';
+import { vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -36,8 +37,29 @@ export function makeFormDetail(
   };
 }
 
-/** Renders `ui` with an editor store for `form`, inside a router and tooltip provider. */
-export function renderWithEditor(ui: React.ReactElement, form: FormDetail = makeFormDetail()) {
+/** Makes `matchMedia` report a desktop (1024px and up) or a smaller screen. */
+export function setScreen(size: 'desktop' | 'mobile') {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query) =>
+      ({
+        matches: size === 'desktop' && query.includes('min-width: 1024px'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
+}
+
+/**
+ * Renders `ui` with an editor store for `form`, inside a router and tooltip provider, on a
+ * desktop-sized screen unless told otherwise.
+ */
+export function renderWithEditor(
+  ui: React.ReactElement,
+  form: FormDetail = makeFormDetail(),
+  screen: 'desktop' | 'mobile' = 'desktop',
+) {
+  setScreen(screen);
   const store: EditorStore = createEditorStore({
     title: form.title,
     schema: form.draftSchema,
