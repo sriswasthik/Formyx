@@ -8,6 +8,7 @@ import { useEditorStore } from './editor-store-context';
 import { FieldPalette } from './palette/field-palette';
 import { SettingsPanel } from './settings/settings-panel';
 import { EditorTopBar, type EditorView } from './top-bar/editor-top-bar';
+import { useEditorShortcuts } from './use-editor-shortcuts';
 
 interface EditorLayoutProps {
   form: FormDetail;
@@ -20,6 +21,7 @@ export function EditorLayout({ form, status }: EditorLayoutProps) {
   const addField = useEditorStore((state) => state.addField);
   const title = useEditorStore((state) => state.title);
   const schema = useEditorStore((state) => state.schema);
+  useEditorShortcuts(view === 'build');
 
   const add = (type: FieldType) => {
     focusQuestion(addField(type));
