@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { type z } from 'zod';
-import { loginInputSchema, meResponseSchema, registerInputSchema } from './auth.js';
+import { loginInputSchema, meResponseSchema, registerInputSchema, utf8ByteLength } from './auth.js';
 import { toValidationIssues } from './errors.js';
+
+describe('utf8ByteLength', () => {
+  it.each(['', 'ascii', 'ünï', '€uro', '李雷', '🔒 lock', '\u{10FFFF}', '\uD800'])(
+    'matches TextEncoder for %j',
+    (value) => {
+      expect(utf8ByteLength(value)).toBe(new TextEncoder().encode(value).length);
+    },
+  );
+});
 
 /** Returns field -> messages for a failed parse, or `null` when the input is valid. */
 function issuesFor(schema: z.ZodType, input: unknown) {

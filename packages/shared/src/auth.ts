@@ -7,7 +7,21 @@ export const PASSWORD_MIN_LENGTH = 8;
 /** bcrypt ignores everything after 72 bytes, so longer passwords are rejected, not truncated. */
 export const PASSWORD_MAX_BYTES = 72;
 
-const utf8 = new TextEncoder();
+/**
+ * Length of `value` in UTF-8 bytes. Counted by hand because this package targets both Node
+ * and browsers with only the ES library typings, which do not include TextEncoder.
+ */
+export function utf8ByteLength(value: string): number {
+  let bytes = 0;
+  for (const char of value) {
+    const codePoint = char.codePointAt(0) ?? 0;
+    if (codePoint < 0x80) bytes += 1;
+    else if (codePoint < 0x800) bytes += 2;
+    else if (codePoint < 0x10000) bytes += 3;
+    else bytes += 4;
+  }
+  return bytes;
+}
 
 export const nameSchema = z
   .string({ error: 'Enter your name' })
@@ -29,7 +43,7 @@ export const newPasswordSchema = z
   .string({ error: 'Enter a password' })
   .min(1, { error: 'Enter a password', abort: true })
   .min(PASSWORD_MIN_LENGTH, `Use at least ${PASSWORD_MIN_LENGTH} characters`)
-  .refine((value) => utf8.encode(value).length <= PASSWORD_MAX_BYTES, 'Password is too long');
+  .refine((value) => utf8ByteLength(value) <= PASSWORD_MAX_BYTES, 'Password is too long');
 
 /** Logging in only needs a password to be present; the policy applies when choosing one. */
 export const currentPasswordSchema = z
