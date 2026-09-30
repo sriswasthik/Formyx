@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validationIssueSchema } from '../errors.js';
 import { formSchema } from './form-schema.js';
 import { formTemplateIdSchema } from './templates.js';
 import { formThemeSchema } from './theme.js';
@@ -87,6 +88,7 @@ export type FormListResponse = z.infer<typeof formListResponseSchema>;
 
 export const formDetailSchema = formSummarySchema.extend({
   draftSchema: formSchema,
+  /** The snapshot respondents see, taken when the form was last published. */
   publishedSchema: formSchema.nullable(),
   theme: formThemeSchema,
 });
@@ -94,3 +96,28 @@ export type FormDetail = z.infer<typeof formDetailSchema>;
 
 /** `details` of the 409 returned when an update was based on an outdated version. */
 export const versionConflictDetailsSchema = z.object({ currentVersion: z.number().int() });
+
+/**
+ * Body of `POST /api/forms/:id/publish`: the version of the draft being published. If the
+ * draft has changed since, publishing is refused with 409 rather than going live unseen.
+ */
+export const publishFormInputSchema = z.object({
+  version: z.number({ error: 'Send the version you are publishing' }).int().min(1),
+});
+export type PublishFormInput = z.infer<typeof publishFormInputSchema>;
+
+/** `details` of the 422 FORM_INCOMPLETE returned when a draft is not ready to publish. */
+export const formIncompleteDetailsSchema = z.array(validationIssueSchema);
+
+/** What `GET /api/public/forms/:slug` returns: the published form, never the draft. */
+export const publicFormSchema = z.object({
+  slug: z.string(),
+  title: z.string(),
+  schema: formSchema,
+  theme: formThemeSchema,
+});
+export type PublicForm = z.infer<typeof publicFormSchema>;
+
+/** `details` of the 410 FORM_CLOSED from the public endpoints. */
+export const closedFormDetailsSchema = z.object({ title: z.string() });
+export type ClosedFormDetails = z.infer<typeof closedFormDetailsSchema>;

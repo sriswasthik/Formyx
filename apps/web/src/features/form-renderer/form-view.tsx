@@ -1,5 +1,5 @@
 import {
-  getVisibleFieldIds,
+  evaluateVisibility,
   validateAnswers,
   type AnswerValue,
   type Answers,
@@ -48,7 +48,7 @@ export function FormView({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<Status>('filling');
 
-  const visibleIds = useMemo(() => getVisibleFieldIds(schema, answers), [schema, answers]);
+  const visibleIds = useMemo(() => evaluateVisibility(schema, answers), [schema, answers]);
   const errorCount = Object.keys(errors).length;
 
   const handleChange = useCallback((fieldId: string, value: AnswerValue) => {

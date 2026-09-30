@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { operatorNeedsValue, type Condition } from './conditions.js';
 import { isAnswerableFieldType } from './field-types.js';
 import type { Field } from './fields.js';
@@ -98,9 +97,10 @@ export function evaluateCondition(
 
 /**
  * Ids of the questions a respondent sees given their answers so far. Conditions only look
- * back, so one pass in order is enough; answers to hidden questions do not count.
+ * back, so one pass in order is enough. The answer to a hidden question counts as empty,
+ * so a chain of conditions collapses when an early link fails.
  */
-export function getVisibleFieldIds(schema: FormSchema, answers: Answers): Set<string> {
+export function evaluateVisibility(schema: FormSchema, answers: Answers): Set<string> {
   const visible = new Set<string>();
   const byId = new Map(schema.fields.map((field) => [field.id, field]));
 
@@ -121,90 +121,19 @@ export function getVisibleFieldIds(schema: FormSchema, answers: Answers): Set<st
   return visible;
 }
 
-const emailSchema = z.email();
-const PHONE_PATTERN = /^\+?[\d\s().-]{5,25}$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function isValidDate(value: string): boolean {
-  if (!ISO_DATE.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
-/** The problem with one answer, or `null` if it is fine. Assumes the question is visible. */
-export function validateAnswer(field: Field, value: AnswerValue | undefined): string | null {
-  if (!isAnswerableFieldType(field.type)) return null;
-  if (!isAnswered(value)) return field.required ? 'This question is required' : null;
-
-  switch (field.type) {
-    case 'short_text':
-    case 'long_text': {
-      if (typeof value !== 'string') return 'Enter text';
-      const length = value.trim().length;
-      const { minLength, maxLength } = field.validation ?? {};
-      if (minLength !== undefined && length < minLength) {
-        return `Use at least ${plural(minLength, 'character')}`;
-      }
-      if (maxLength !== undefined && length > maxLength) {
-        return `Use ${plural(maxLength, 'character')} or fewer`;
-      }
-      return null;
-    }
-    case 'email':
-      return typeof value === 'string' && emailSchema.safeParse(value.trim()).success
-        ? null
-        : 'Enter a valid email address';
-    case 'phone': {
-      const digits = typeof value === 'string' ? value.replace(/\D/g, '').length : 0;
-      return typeof value === 'string' && PHONE_PATTERN.test(value.trim()) && digits >= 5
-        ? null
-        : 'Enter a valid phone number';
-    }
-    case 'number': {
-      const number = asNumber(value ?? null);
-      if (number === null) return 'Enter a number';
-      const { min, max } = field.validation ?? {};
-      if (min !== undefined && number < min) return `Enter a number of at least ${min}`;
-      if (max !== undefined && number > max) return `Enter a number of at most ${max}`;
-      return null;
-    }
-    case 'rating':
-      return typeof value === 'number' &&
-        Number.isInteger(value) &&
-        value >= 1 &&
-        value <= field.ratingScale
-        ? null
-        : `Pick a rating from 1 to ${field.ratingScale}`;
-    case 'date':
-      return typeof value === 'string' && isValidDate(value) ? null : 'Enter a valid date';
-    case 'single_choice':
-    case 'dropdown':
-      return field.options.some((option) => option.id === value) ? null : 'Choose an option';
-    case 'multi_choice':
-      return Array.isArray(value) &&
-        value.every((id) => field.options.some((option) => option.id === id))
-        ? null
-        : 'Choose from the options';
-    case 'file':
-      // Uploads arrive in a later sprint; any selected file counts for now.
-      return null;
-    case 'statement':
-      return null;
-  }
-}
-
-/** Problems keyed by field id, for visible questions only (hidden ones are skipped). */
-export function validateAnswers(schema: FormSchema, answers: Answers): Record<string, string> {
-  const visible = getVisibleFieldIds(schema, answers);
-  const errors: Record<string, string> = {};
+/**
+ * Only the answers that count: those to visible questions that take an answer. Answers to
+ * hidden, unknown or statement questions are dropped, and so are empty ones.
+ */
+export function sanitizeAnswers(schema: FormSchema, answers: Answers): Record<string, AnswerValue> {
+  const visible = evaluateVisibility(schema, answers);
+  const kept: Record<string, AnswerValue> = {};
   for (const field of schema.fields) {
-    if (!visible.has(field.id)) continue;
-    const problem = validateAnswer(field, answers[field.id]);
-    if (problem) errors[field.id] = problem;
+    const value = answers[field.id];
+    if (!visible.has(field.id) || !isAnswerableFieldType(field.type) || !isAnswered(value)) {
+      continue;
+    }
+    if (value !== undefined) kept[field.id] = value;
   }
-  return errors;
+  return kept;
 }
