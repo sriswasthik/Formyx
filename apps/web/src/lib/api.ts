@@ -23,6 +23,15 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** Request options for sending `body` as JSON. */
+export function jsonRequest(method: 'POST' | 'PATCH' | 'PUT', body: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 /**
  * Calls the API (`/api${path}`), validates the JSON response with `schema`
  * and throws an `ApiRequestError` for anything unexpected.

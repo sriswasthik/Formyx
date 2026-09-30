@@ -5,16 +5,8 @@ import {
   type RegisterInput,
 } from '@formyx/shared';
 import { z } from 'zod';
-import { apiRequest, ApiRequestError } from '@/lib/api';
+import { apiRequest, ApiRequestError, jsonRequest } from '@/lib/api';
 import { hasSessionHint, setSessionHint } from './session-cache';
-
-function postJson(body: unknown): RequestInit {
-  return {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  };
-}
 
 /** The signed-in user, or `null` when there is no valid session. */
 export async function fetchMe(): Promise<MeResponse | null> {
@@ -31,11 +23,11 @@ export async function fetchMe(): Promise<MeResponse | null> {
 }
 
 export function logIn(input: LoginInput): Promise<MeResponse> {
-  return apiRequest('/auth/login', meResponseSchema, postJson(input));
+  return apiRequest('/auth/login', meResponseSchema, jsonRequest('POST', input));
 }
 
 export function signUp(input: RegisterInput): Promise<MeResponse> {
-  return apiRequest('/auth/register', meResponseSchema, postJson(input));
+  return apiRequest('/auth/register', meResponseSchema, jsonRequest('POST', input));
 }
 
 export async function logOut(): Promise<void> {
