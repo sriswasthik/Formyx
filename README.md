@@ -51,7 +51,7 @@ psql -U postgres -c "CREATE ROLE formyx LOGIN PASSWORD 'formyx' CREATEDB" \
 
 **Neon.** Set `DATABASE_URL` to the pooled connection string and `DIRECT_URL` to the direct one; migrations use the direct connection. Point `TEST_DATABASE_URL` at a separate branch or database whose name ends in `_test`.
 
-After changing `apps/api/prisma/schema.prisma`, run `pnpm db:migrate` to create and apply a migration. The Prisma client is generated into `apps/api/src/generated` on install (or with `pnpm --filter @formyx/api db:generate`).
+After changing `apps/api/prisma/schema.prisma`, run `pnpm db:migrate` to create and apply a migration and regenerate the Prisma client. The client lives in `apps/api/src/generated` and is also generated on install (or with `pnpm --filter @formyx/api db:generate`).
 
 ## Authentication
 
