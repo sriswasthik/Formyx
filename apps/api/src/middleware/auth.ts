@@ -3,6 +3,7 @@ import type { Request, RequestHandler } from 'express';
 import type { Env } from '../config/env.js';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
+import { routeParam } from '../lib/route-param.js';
 import { readSessionToken, verifySessionToken } from '../lib/session.js';
 
 export interface AuthContext {
@@ -43,14 +44,6 @@ export interface AuthGuards {
    * A form that does not exist gets 404. Must run after `requireAuth`.
    */
   requireFormRole: (minRole: Role) => RequestHandler;
-}
-
-function routeParam(req: Request, name: string): string {
-  const value = req.params[name];
-  if (typeof value !== 'string' || value === '') {
-    throw new Error(`Route is missing its :${name} param`);
-  }
-  return value;
 }
 
 /** Throws unless `role` (`null` for non-members) grants at least `minRole`. */
