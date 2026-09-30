@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import {
   copyFormTitle,
   createDefaultTheme,
+  findPublishIssues,
   formSchema,
   formThemeSchema,
   getFormTemplate,
@@ -12,7 +13,9 @@ import {
   type FormTheme,
   type FormTemplateId,
   type ListFormsQuery,
+  type PublishFormInput,
   type UpdateFormInput,
+  responseLimitReached,
 } from '@formyx/shared';
 import type { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
@@ -40,6 +43,7 @@ const detailSelect = {
   ...summarySelect,
   draftSchema: true,
   publishedSchema: true,
+  publishedTitle: true,
   theme: true,
 } satisfies Prisma.FormSelect;
 
@@ -73,14 +77,17 @@ function parseStored<T>(schema: z.ZodType<T>, value: unknown, column: string): T
   return result.data;
 }
 
+/** A stored `publishedSchema`, or `null` for a form that was never published. */
+export function parsePublishedSchema(value: Prisma.JsonValue | null): FormSchema | null {
+  return value === null ? null : parseStored(formSchema, value, 'publishedSchema');
+}
+
 function toDetail(form: DetailRecord): FormDetail {
   return {
     ...toSummary(form),
     draftSchema: parseStored(formSchema, form.draftSchema, 'draftSchema'),
-    publishedSchema:
-      form.publishedSchema === null
-        ? null
-        : parseStored(formSchema, form.publishedSchema, 'publishedSchema'),
+    publishedSchema: parsePublishedSchema(form.publishedSchema),
+    publishedTitle: form.publishedTitle,
     theme: parseStored(formThemeSchema, form.theme, 'theme'),
   };
 }
@@ -107,6 +114,22 @@ function notFound(): AppError {
   return new AppError(404, 'NOT_FOUND', 'Form not found');
 }
 
+function versionConflict(currentVersion: number): AppError {
+  return new AppError(
+    409,
+    'CONFLICT',
+    'This form was changed somewhere else. Load the latest version and try again.',
+    { details: { currentVersion } },
+  );
+}
+
+const LIMIT_REACHED_MESSAGES = {
+  response_limit:
+    'This form has reached its response limit. Raise or remove the limit and publish, then reopen it.',
+  close_date:
+    'This form is past its closing date. Change or remove the date and publish, then reopen it.',
+} as const;
+
 interface NewForm {
   workspaceId: string;
   createdById: string;
@@ -127,6 +150,16 @@ export interface FormService {
   update(formId: string, input: UpdateFormInput): Promise<FormDetail>;
   duplicate(formId: string, userId: string): Promise<FormDetail>;
   remove(formId: string): Promise<void>;
+  /**
+   * Snapshots the draft and title as what respondents see. A draft form goes live; a closed
+   * one stays closed until reopened. Refused with 409 if the draft moved on from `version`,
+   * or 422 if it is not complete.
+   */
+  publish(formId: string, input: PublishFormInput): Promise<FormDetail>;
+  /** Stops a published form taking responses. */
+  close(formId: string): Promise<FormDetail>;
+  /** Takes responses again, unless the published response limit or closing date says no. */
+  reopen(formId: string): Promise<FormDetail>;
 }
 
 export function createFormService(prisma: Database): FormService {
@@ -191,12 +224,7 @@ export function createFormService(prisma: Database): FormService {
           select: { version: true },
         });
         if (!current) throw notFound();
-        throw new AppError(
-          409,
-          'CONFLICT',
-          'This form was changed somewhere else. Load the latest version and try again.',
-          { details: { currentVersion: current.version } },
-        );
+        throw versionConflict(current.version);
       }
       return get(formId);
     },
@@ -215,6 +243,78 @@ export function createFormService(prisma: Database): FormService {
     async remove(formId) {
       const { count } = await prisma.form.deleteMany({ where: { id: formId } });
       if (count === 0) throw notFound();
+    },
+
+    async publish(formId, { version }) {
+      const form = await prisma.form.findUnique({
+        where: { id: formId },
+        select: { version: true, title: true, status: true, draftSchema: true },
+      });
+      if (!form) throw notFound();
+      if (form.version !== version) throw versionConflict(form.version);
+
+      const draft = parseStored(formSchema, form.draftSchema, 'draftSchema');
+      const issues = findPublishIssues(draft);
+      if (issues.length > 0) {
+        throw new AppError(422, 'FORM_INCOMPLETE', 'Finish the form before publishing it.', {
+          details: issues,
+        });
+      }
+
+      // Conditional on the version, so a draft saved in the meantime is never published unseen.
+      const { count } = await prisma.form.updateMany({
+        where: { id: formId, version },
+        data: {
+          publishedSchema: draft,
+          publishedTitle: form.title,
+          publishedAt: new Date(),
+          ...(form.status === 'DRAFT' && { status: 'PUBLISHED' }),
+        },
+      });
+      if (count === 0) {
+        const current = await prisma.form.findUnique({
+          where: { id: formId },
+          select: { version: true },
+        });
+        if (!current) throw notFound();
+        throw versionConflict(current.version);
+      }
+      return get(formId);
+    },
+
+    async close(formId) {
+      const { count } = await prisma.form.updateMany({
+        where: { id: formId, status: 'PUBLISHED' },
+        data: { status: 'CLOSED' },
+      });
+      if (count === 0) {
+        const form = await get(formId);
+        throw new AppError(
+          409,
+          'CONFLICT',
+          form.status === 'CLOSED'
+            ? 'This form is already closed.'
+            : 'Only published forms can be closed.',
+        );
+      }
+      return get(formId);
+    },
+
+    async reopen(formId) {
+      const form = await get(formId);
+      if (form.status !== 'CLOSED') {
+        throw new AppError(409, 'CONFLICT', 'Only closed forms can be reopened.');
+      }
+      const reached =
+        form.publishedSchema &&
+        responseLimitReached(form.publishedSchema.settings, form.responseCount);
+      if (reached) throw new AppError(409, 'CONFLICT', LIMIT_REACHED_MESSAGES[reached]);
+
+      await prisma.form.updateMany({
+        where: { id: formId, status: 'CLOSED' },
+        data: { status: 'PUBLISHED' },
+      });
+      return get(formId);
     },
   };
 }

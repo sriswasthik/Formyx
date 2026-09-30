@@ -31,6 +31,7 @@ const FORM: FormDetail = {
   publishedAt: null,
   draftSchema: getFormTemplate('event_registration').build(),
   publishedSchema: null,
+  publishedTitle: null,
   theme: createDefaultTheme(),
 };
 

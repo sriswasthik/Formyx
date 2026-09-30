@@ -87,6 +87,7 @@ export function isPendingForm(form: FormSummary): boolean {
 export function toSummary({
   draftSchema: _draft,
   publishedSchema: _published,
+  publishedTitle: _publishedTitle,
   theme: _theme,
   ...summary
 }: FormDetail): FormSummary {

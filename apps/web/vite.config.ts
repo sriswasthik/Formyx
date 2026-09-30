@@ -47,6 +47,9 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       restoreMocks: true,
+      // Editor tests render the whole editor and type like a person, waiting out autosave's
+      // one-second delay. They take a second or two, so 5s leaves no room on a busy machine.
+      testTimeout: 15_000,
     },
   };
 });

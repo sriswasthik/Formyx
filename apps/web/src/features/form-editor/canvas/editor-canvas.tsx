@@ -24,6 +24,7 @@ interface EditorCanvasProps {
 export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasProps) {
   const fields = useEditorStore((state) => state.schema.fields);
   const title = useEditorStore((state) => state.title);
+  const description = useEditorStore((state) => state.schema.description);
   const submitText = useEditorStore((state) => state.schema.settings.submitButtonText);
   const selectField = useEditorStore((state) => state.selectField);
   const dropIndex = useDropIndex();
@@ -47,6 +48,11 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
           <h2 className="text-24 font-semibold tracking-tight break-words sm:text-32">
             {title || 'Untitled form'}
           </h2>
+          {description && (
+            <p className="mt-3 text-16 break-words whitespace-pre-wrap text-(--form-muted)">
+              {description}
+            </p>
+          )}
 
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
             <div role="list" aria-label="Questions" className="relative mt-8 flex flex-col gap-3">

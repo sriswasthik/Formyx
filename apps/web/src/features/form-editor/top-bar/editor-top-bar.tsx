@@ -1,4 +1,4 @@
-import { ArrowLeft, Eye, PencilRuler, Redo2, Send, Undo2 } from 'lucide-react';
+import { ArrowLeft, Eye, PencilRuler, Redo2, Undo2 } from 'lucide-react';
 import type * as React from 'react';
 import { Link } from 'react-router';
 import { ActionTooltip } from '@/components/action-tooltip';
@@ -14,6 +14,8 @@ export type EditorView = 'build' | 'preview';
 interface EditorTopBarProps {
   /** Save status, shown next to the title. */
   status: React.ReactNode;
+  /** Publishing controls, at the end of the bar. */
+  actions?: React.ReactNode;
   /** Only on large screens; smaller ones switch views with tabs. */
   view?: EditorView;
   onViewChange?: (view: EditorView) => void;
@@ -41,26 +43,7 @@ function UndoRedo() {
   );
 }
 
-function PublishButton() {
-  return (
-    <ActionTooltip label="Publishing arrives in the next sprint">
-      <Button
-        size="sm"
-        aria-disabled="true"
-        // Focusable and hoverable, so the tooltip explains why it does nothing yet.
-        className="aria-disabled:pointer-events-auto aria-disabled:cursor-not-allowed"
-        onClick={(event) => {
-          event.preventDefault();
-        }}
-      >
-        <Send aria-hidden />
-        <span className="sr-only sm:not-sr-only">Publish</span>
-      </Button>
-    </ActionTooltip>
-  );
-}
-
-export function EditorTopBar({ status, view, onViewChange }: EditorTopBarProps) {
+export function EditorTopBar({ status, actions, view, onViewChange }: EditorTopBarProps) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-3">
       <ActionTooltip label="All forms">
@@ -100,7 +83,7 @@ export function EditorTopBar({ status, view, onViewChange }: EditorTopBarProps) 
             </ToggleGroupItem>
           </ToggleGroup>
         )}
-        <PublishButton />
+        {actions}
       </div>
     </header>
   );

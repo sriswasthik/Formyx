@@ -117,6 +117,19 @@ describe('EditorLayout', () => {
     expect(screen.getByText('Send it')).toBeInTheDocument();
   });
 
+  it('edits the description and response limits from form settings', async () => {
+    const { user, store } = renderEditor();
+
+    await user.type(screen.getByRole('textbox', { name: 'Description' }), 'Tell us how we did');
+    await user.type(screen.getByRole('textbox', { name: 'Response limit' }), '100');
+
+    expect(screen.getByText('Tell us how we did', { selector: 'p' })).toBeInTheDocument();
+    expect(store.getState().schema).toMatchObject({
+      description: 'Tell us how we did',
+      settings: { closeAfterResponses: 100 },
+    });
+  });
+
   it('undoes and redoes from the top bar', async () => {
     const { user } = renderEditor([]);
     const undo = screen.getByRole('button', { name: 'Undo' });

@@ -17,6 +17,7 @@ describe('parseEnv', () => {
       TRUST_PROXY: false,
       BCRYPT_COST: 12,
       AUTH_RATE_LIMIT_MAX: 10,
+      SUBMISSION_RATE_LIMIT_MAX: 10,
     });
   });
 
@@ -60,6 +61,7 @@ describe('parseEnv', () => {
     [{ JWT_SECRET: 'too-short' }, 'JWT_SECRET'],
     [{ BCRYPT_COST: '3' }, 'BCRYPT_COST'],
     [{ AUTH_RATE_LIMIT_MAX: '0' }, 'AUTH_RATE_LIMIT_MAX'],
+    [{ SUBMISSION_RATE_LIMIT_MAX: '0' }, 'SUBMISSION_RATE_LIMIT_MAX'],
   ])('rejects %j and names the variable', (overrides, variable) => {
     const source = { ...REQUIRED, ...overrides };
     expect(() => parseEnv(source)).toThrow(EnvError);

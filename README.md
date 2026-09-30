@@ -73,6 +73,9 @@ A form's questions and settings are a JSON document (`FormSchema`) defined with 
 | `PATCH /api/forms/:formId`                | Editors | Updates `title` and/or `draftSchema`; send the `version` you edited |
 | `POST /api/forms/:formId/duplicate`       | Editors | Copies the draft into a new form                                    |
 | `DELETE /api/forms/:formId`               | Editors | Deletes the form and its responses                                  |
+| `POST /api/forms/:formId/publish`         | Editors | Snapshots the draft and title as the published form; send `version` |
+| `POST /api/forms/:formId/close`           | Editors | Stops a published form taking responses                             |
+| `POST /api/forms/:formId/reopen`          | Editors | Takes responses again, unless its limit or closing time has passed  |
 
 Every update increments `version`. A `PATCH` whose `version` is no longer current gets `409 CONFLICT` with `details.currentVersion`, so concurrent editors never overwrite each other silently.
 
@@ -82,10 +85,29 @@ Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app
 
 - **Store.** A Zustand + immer store per editor holds the title and draft schema, with up to 100 undo steps. Typing in one input within a second counts as one step. After a question is removed or moved, or its options or rating scale change, conditions that no longer make sense are removed, and a toast offers to undo that.
 - **Drag and drop** uses dnd-kit. Drag question types from the palette to a position, or reorder questions with the mouse, touch (by the handle) or keyboard (focus the handle, then Space, the arrow keys and Space). Clicking a question type adds it at the end.
-- **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and, from the next sprint, the public form page. Form colours come from the form's theme as `--form-*` CSS variables, so a form looks the same in the app's light and dark modes.
+- **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and the public form page. Form colours come from the form's theme as `--form-*` CSS variables, so a form looks the same in the app's light and dark modes.
 - **Autosave.** Saves one second after the last change, one request at a time, with the `version` the edit started from. Drafts are checked with the shared schema first; failed saves retry with backoff. A `409` pauses saving and offers to load the latest version. Leaving the editor saves pending changes first, and asks before discarding any that could not be saved.
 - **Shortcuts.** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z (or Ctrl+Y) redo, Ctrl/⌘+D duplicate, Delete or Backspace remove, Escape deselect. These apply outside text inputs; tooltips show them.
 - **Small screens.** Below 1024px the editor has Build, Settings and Preview tabs, and the question types open in a bottom sheet.
+- **Logic.** A question's settings end with "Show this question only when…": conditions on earlier questions, with comparisons and values that fit each question type, combined with all or any. Questions with logic carry a Logic badge and a summary on the canvas.
+
+## Publishing and responses
+
+Publishing snapshots the draft and title into `publishedSchema` and `publishedTitle`: respondents only ever see the snapshot, and edits go live with the next publish. The editor saves pending changes first, marks a live form's "Unpublished changes", and lists what an unfinished draft still needs (`findPublishIssues`: labels, options, condition values). After publishing, the share dialog has the public link, a copy button and a QR code with a PNG download. A published form can be closed and reopened.
+
+Anyone with the link answers at `/f/:slug`, a separate bundle without editor or app code (an ESLint rule keeps it that way). The same shared functions decide what respondents see and what they may send, in the browser and on the server:
+
+- `evaluateVisibility(schema, answers)`: which questions show. Conditions only look back, and an answer to a hidden question counts as empty, so chains of conditions collapse.
+- `buildSubmissionValidator(schema, answers)`: a Zod schema for the visible questions (required, text length, email, phone, number, rating, date, options), returning trimmed, typed answers.
+- `sanitizeAnswers(schema, answers)`: drops answers to hidden, unknown and statement questions.
+
+| Endpoint                                   | Does                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| `GET /api/public/forms/:slug`              | `{ status: 'open', title, schema, theme }` or `{ status: 'closed', title }` |
+| `POST /api/public/forms/:slug/view`        | Counts a view (the page sends one per browser session)                      |
+| `POST /api/public/forms/:slug/submissions` | Stores a response: `answers`, `completionTimeMs`, `referrer`                |
+
+Submissions are validated against the published snapshot, with problems returned per question (`answers.<fieldId>`). Responses to a closed form get `410 FORM_CLOSED`, and so do responses after its `closeAt` time or once it has `closeAfterResponses` responses. The form row is locked while a response is stored, so simultaneous responses never overshoot the limit, and the response that reaches it closes the form. A hidden honeypot field (`website`) catches bots: they get a normal reply, but nothing is stored. Submissions are rate limited per IP and form (`SUBMISSION_RATE_LIMIT_MAX` per 15 minutes). Responses store the user agent and referrer, never IP addresses.
 
 ## Scripts
 

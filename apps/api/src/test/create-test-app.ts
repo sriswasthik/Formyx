@@ -16,6 +16,7 @@ export function createTestApp(env: Record<string, string> = {}) {
       BCRYPT_COST: '4',
       // One app serves a whole test file; rate-limit tests pass their own low limit.
       AUTH_RATE_LIMIT_MAX: '1000',
+      SUBMISSION_RATE_LIMIT_MAX: '1000',
       ...env,
     }),
     logger: pino({ level: 'silent' }),

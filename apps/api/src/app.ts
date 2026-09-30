@@ -25,11 +25,17 @@ export function createApp(deps: AppDependencies): Express {
   app.use(requestLogger(logger));
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
-  // Form updates carry whole schemas; everything else stays small.
+  // Form updates carry whole schemas and responses can hold long answers; the rest is small.
   const parseJson = express.json({ limit: '100kb' });
   const parseFormJson = express.json({ limit: '1mb' });
+  const parseSubmissionJson = express.json({ limit: '256kb' });
   app.use((req, res, next) => {
-    (req.path.startsWith('/api/forms/') ? parseFormJson : parseJson)(req, res, next);
+    const parse = req.path.startsWith('/api/forms/')
+      ? parseFormJson
+      : req.path.startsWith('/api/public/forms/')
+        ? parseSubmissionJson
+        : parseJson;
+    parse(req, res, next);
   });
   app.use(cookieParser());
 

@@ -8,6 +8,10 @@ export const ERROR_CODES = [
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
+  /** The form is closed, full or past its closing date. */
+  'FORM_CLOSED',
+  /** The draft is not ready to publish; `details` lists what to fix. */
+  'FORM_INCOMPLETE',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

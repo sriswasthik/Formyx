@@ -63,6 +63,8 @@ export interface EditorState extends EditorSnapshot {
   selectField: (id: string | null) => void;
   updateSettings: (patch: SettingsPatch, options?: ChangeOptions) => void;
   setTitle: (title: string, options?: ChangeOptions) => void;
+  /** Sets the text shown under the title; an empty string removes it. */
+  setDescription: (description: string, options?: ChangeOptions) => void;
   undo: () => void;
   redo: () => void;
   markSaved: (revision: number, version: number) => void;
@@ -279,6 +281,14 @@ export function createEditorStore(
           if (title === get().title) return;
           change((state) => {
             state.title = title;
+          }, options);
+        },
+
+        setDescription: (description, options) => {
+          if (description === (get().schema.description ?? '')) return;
+          change((state) => {
+            if (description === '') Reflect.deleteProperty(state.schema, 'description');
+            else state.schema.description = description;
           }, options);
         },
 

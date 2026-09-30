@@ -68,3 +68,16 @@ export async function createFormViaApi(
   const { id } = (await created.json()) as { id: string };
   return id;
 }
+
+/** Publishes the form's current draft through the API and returns its public path. */
+export async function publishViaApi(page: Page, formId: string): Promise<string> {
+  const form = await page.request.get(`/api/forms/${formId}`);
+  expect(form.ok()).toBe(true);
+  const { version, slug } = (await form.json()) as { version: number; slug: string };
+
+  const published = await page.request.post(`/api/forms/${formId}/publish`, {
+    data: { version },
+  });
+  expect(published.ok()).toBe(true);
+  return `/f/${slug}`;
+}

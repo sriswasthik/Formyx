@@ -5,6 +5,7 @@ import {
   type FormDetail,
   type FormStatus,
   type FormSummary,
+  type PublishFormInput,
   type UpdateFormInput,
 } from '@formyx/shared';
 import { z } from 'zod';
@@ -50,4 +51,21 @@ export function duplicateForm(formId: string): Promise<FormDetail> {
 
 export async function deleteForm(formId: string): Promise<void> {
   await apiRequest(formPath(formId), z.undefined(), { method: 'DELETE' });
+}
+
+/** Puts the draft live. Rejected with 409 if the draft changed since `version`, 422 if unfinished. */
+export function publishForm(formId: string, version: number): Promise<FormDetail> {
+  return apiRequest(
+    `${formPath(formId)}/publish`,
+    formDetailSchema,
+    jsonRequest('POST', { version } satisfies PublishFormInput),
+  );
+}
+
+export function closeForm(formId: string): Promise<FormDetail> {
+  return apiRequest(`${formPath(formId)}/close`, formDetailSchema, { method: 'POST' });
+}
+
+export function reopenForm(formId: string): Promise<FormDetail> {
+  return apiRequest(`${formPath(formId)}/reopen`, formDetailSchema, { method: 'POST' });
 }

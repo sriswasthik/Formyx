@@ -1,6 +1,7 @@
 import {
   createFormInputSchema,
   listFormsQuerySchema,
+  publishFormInputSchema,
   updateFormInputSchema,
   type FormDetail,
   type FormListResponse,
@@ -83,6 +84,27 @@ export function createFormsRouter(
   router.delete('/forms/:formId', requireAuth, requireFormRole('EDITOR'), async (req, res) => {
     await forms.remove(routeParam(req, 'formId'));
     res.status(204).end();
+  });
+
+  router.post(
+    '/forms/:formId/publish',
+    requireAuth,
+    requireFormRole('EDITOR'),
+    async (req, res) => {
+      const input = publishFormInputSchema.parse(req.body ?? {});
+      const form: FormDetail = await forms.publish(routeParam(req, 'formId'), input);
+      res.json(form);
+    },
+  );
+
+  router.post('/forms/:formId/close', requireAuth, requireFormRole('EDITOR'), async (req, res) => {
+    const form: FormDetail = await forms.close(routeParam(req, 'formId'));
+    res.json(form);
+  });
+
+  router.post('/forms/:formId/reopen', requireAuth, requireFormRole('EDITOR'), async (req, res) => {
+    const form: FormDetail = await forms.reopen(routeParam(req, 'formId'));
+    res.json(form);
   });
 
   return router;

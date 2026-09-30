@@ -49,6 +49,8 @@ export const envSchema = z.object({
   BCRYPT_COST: z.coerce.number().int().min(4).max(15).default(12),
   /** Allowed sign-up requests and failed log-in attempts per IP per 15 minutes. */
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  /** Allowed submissions per IP per form per 15 minutes. */
+  SUBMISSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
 });
 
 export type Env = z.infer<typeof envSchema>;

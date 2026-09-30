@@ -10,6 +10,7 @@ import { fieldSchema, type Field } from './fields.js';
 
 export const FORM_SCHEMA_VERSION = 1;
 export const MAX_FIELDS = 250;
+export const FORM_DESCRIPTION_MAX_LENGTH = 2000;
 
 export const formSettingsSchema = z.object({
   submitButtonText: z
@@ -170,6 +171,11 @@ function checkIntegrity(form: { fields: Field[] }, ctx: z.RefinementCtx): void {
 export const formSchema = z
   .object({
     version: z.literal(FORM_SCHEMA_VERSION),
+    /** Shown under the title, to introduce the form. */
+    description: z
+      .string()
+      .max(FORM_DESCRIPTION_MAX_LENGTH, `Use ${FORM_DESCRIPTION_MAX_LENGTH} characters or fewer`)
+      .optional(),
     fields: z.array(fieldSchema).max(MAX_FIELDS, `Forms can have at most ${MAX_FIELDS} questions`),
     settings: formSettingsSchema,
   })
