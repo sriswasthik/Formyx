@@ -4,6 +4,7 @@ import { formatDateTime, formatRelativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
 import { FormActionsMenu, type FormActionHandler } from './form-actions-menu';
 import { isPendingForm } from './form-list-cache';
+import { formOpenPath } from './form-paths';
 import { FormStatusBadge } from './form-status-badge';
 import { responseCountLabel } from './format';
 
@@ -29,10 +30,10 @@ const stretchedLink = 'outline-none after:absolute after:inset-0 after:rounded-[
 const focusWithin =
   'has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-ring';
 
-function FormTitle({ form }: { form: FormSummary }) {
+function FormTitle({ form, canEdit }: { form: FormSummary; canEdit: boolean }) {
   if (isPendingForm(form)) return <span>{form.title}</span>;
   return (
-    <Link to={`/app/forms/${form.id}`} className={stretchedLink}>
+    <Link to={formOpenPath(form.id, canEdit)} className={stretchedLink}>
       {form.title}
     </Link>
   );
@@ -53,7 +54,7 @@ export function FormCard({ form, now, canEdit, onAction }: FormItemProps) {
     >
       <div className="flex items-start gap-3">
         <h3 className="line-clamp-2 min-w-0 flex-1 text-14 leading-snug font-medium break-words">
-          <FormTitle form={form} />
+          <FormTitle form={form} canEdit={canEdit} />
         </h3>
         {!pending && (
           <FormActionsMenu
@@ -96,7 +97,7 @@ export function FormRow({ form, now, canEdit, onAction }: FormItemProps) {
     >
       <div className="min-w-0">
         <p className="truncate text-14 font-medium">
-          <FormTitle form={form} />
+          <FormTitle form={form} canEdit={canEdit} />
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-13 text-muted-foreground @2xl:hidden">
           <FormStatusBadge status={form.status} />

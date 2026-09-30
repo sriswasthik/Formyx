@@ -211,6 +211,7 @@ function renderDashboard({
         children: [
           { path: 'forms', element: <FormsPage /> },
           { path: 'forms/:formId', element: <OpenedForm /> },
+          { path: 'forms/:formId/edit', element: <OpenedForm /> },
         ],
       },
     ],
@@ -252,7 +253,7 @@ describe('FormsPage: loading and states', () => {
     expect(second).toHaveTextContent('Edited 1d ago');
     expect(within(list).getByRole('link', { name: 'Customer feedback' })).toHaveAttribute(
       'href',
-      '/app/forms/form_1',
+      '/app/forms/form_1/edit',
     );
   });
 
@@ -264,7 +265,7 @@ describe('FormsPage: loading and states', () => {
     await user.click(screen.getByRole('button', { name: /Feedback survey/ }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/app/forms/form_100');
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
     });
     expect(api.writes()[0]?.body).toEqual({ templateId: 'feedback_survey' });
   });
@@ -427,7 +428,7 @@ describe('FormsPage: changing forms', () => {
     releaseWrites();
     expect(
       await within(list).findByRole('link', { name: 'Customer feedback (copy)' }),
-    ).toHaveAttribute('href', '/app/forms/form_100');
+    ).toHaveAttribute('href', '/app/forms/form_100/edit');
   });
 
   it('deletes a form after confirmation', async () => {
@@ -480,7 +481,7 @@ describe('FormsPage: changing forms', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Create form' }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/app/forms/form_100');
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
     });
     expect(api.writes()[0]?.body).toEqual({ templateId: 'feedback_survey' });
   });

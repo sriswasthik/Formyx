@@ -1,12 +1,13 @@
-import { FIELD_TYPE_LABELS, isAnswerableFieldType, type FormDetail } from '@formyx/shared';
-import { ArrowLeft, FileQuestion, Lock, PencilRuler, RotateCw } from 'lucide-react';
-import { Link, useParams } from 'react-router';
+import { FIELD_TYPE_LABELS, hasRole, isAnswerableFieldType, type FormDetail } from '@formyx/shared';
+import { ArrowLeft, Eye, FileQuestion, Lock, RotateCw } from 'lucide-react';
+import { Link, Navigate, useParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSession } from '@/features/auth/session-context';
 import { ApiRequestError } from '@/lib/api';
 import { useNow } from '@/lib/use-now';
 import { EditedAt } from './form-card';
@@ -82,13 +83,11 @@ function FormDetailSkeleton() {
   );
 }
 
-/**
- * Where "Open" leads. For now it summarises the form; the builder takes this page over in
- * the next sprint.
- */
+/** The read-only view of a form, for viewers. Editors are sent on to the editor. */
 export function FormDetailPage() {
   const { formId = '' } = useParams();
   const formQuery = useFormDetail(formId);
+  const { workspaces } = useSession();
   const now = useNow();
   usePageTitle(formQuery.data?.title);
 
@@ -136,6 +135,12 @@ export function FormDetailPage() {
   }
 
   const form = formQuery.data;
+  const role = workspaces.find((workspace) => workspace.id === form.workspaceId)?.role;
+  // Editors work on forms in the editor; this page is the read-only view.
+  if (role && hasRole(role, 'EDITOR')) {
+    return <Navigate to={`/app/forms/${form.id}/edit`} replace />;
+  }
+
   const questionCount = form.draftSchema.fields.filter((field) =>
     isAnswerableFieldType(field.type),
   ).length;
@@ -154,11 +159,10 @@ export function FormDetailPage() {
         </p>
       </div>
 
-      <EmptyState
-        icon={PencilRuler}
-        title="The form builder is coming next"
-        description="Soon you will add and arrange questions, set up logic and publish right here."
-      />
+      <p className="flex items-center gap-2 rounded-lg border bg-surface px-4 py-3 text-14 text-muted-foreground">
+        <Eye aria-hidden className="shrink-0" />
+        You can view this form. Editors of the workspace can change it.
+      </p>
 
       {form.draftSchema.fields.length > 0 && <QuestionList form={form} />}
     </div>

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { formOpenPath } from './form-paths';
 
 export type FormAction = 'rename' | 'duplicate' | 'delete';
 
@@ -51,7 +52,7 @@ export function FormActionsMenu({ form, canEdit, onAction, className }: FormActi
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem asChild>
-          <Link to={`/app/forms/${form.id}`}>
+          <Link to={formOpenPath(form.id, canEdit)}>
             <FolderOpen aria-hidden />
             Open
           </Link>

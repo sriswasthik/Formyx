@@ -16,6 +16,7 @@ import { useNow } from '@/lib/use-now';
 import { cn } from '@/lib/utils';
 import { DeleteFormDialog } from './delete-form-dialog';
 import type { FormActionHandler } from './form-actions-menu';
+import { formOpenPath } from './form-paths';
 import { FormsCollection } from './forms-collection';
 import { FormsEmptyState } from './forms-empty-state';
 import { FormsSkeleton } from './forms-skeleton';
@@ -60,7 +61,7 @@ function useCreateAndOpen(workspaceId: string) {
         { templateId },
         {
           onSuccess: (form) => {
-            void navigate(`/app/forms/${form.id}`);
+            void navigate(formOpenPath(form.id, true));
           },
           onError: (error) => {
             const { title, description } = describeError(error);

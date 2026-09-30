@@ -1,4 +1,9 @@
-import { createDefaultTheme, getFormTemplate, type FormDetail } from '@formyx/shared';
+import {
+  createDefaultTheme,
+  getFormTemplate,
+  type FormDetail,
+  type MeResponse,
+} from '@formyx/shared';
 import { screen, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -33,7 +38,13 @@ function Title() {
   return <p data-testid="page-title">{useCurrentTitle()}</p>;
 }
 
-function renderPage(respond: () => Response) {
+/** Viewers see this page; editors are sent to the editor. */
+const VIEWER: MeResponse = {
+  ...ADA,
+  workspaces: [{ id: 'ws_personal', name: 'Shared', slug: 'shared', role: 'VIEWER' }],
+};
+
+function renderPage(respond: () => Response, me: MeResponse = VIEWER) {
   stubFetch(respond);
   const router = createMemoryRouter(
     [
@@ -51,12 +62,14 @@ function renderPage(respond: () => Response) {
               </>
             ),
           },
+          { path: 'forms/:formId/edit', element: <p>Editor</p> },
         ],
       },
     ],
     { initialEntries: ['/app/forms/form_1'] },
   );
-  renderWithProviders(<RouterProvider router={router} />, createTestQueryClient(ADA));
+  renderWithProviders(<RouterProvider router={router} />, createTestQueryClient(me));
+  return router;
 }
 
 describe('FormDetailPage', () => {
@@ -75,6 +88,18 @@ describe('FormDetailPage', () => {
     expect(screen.getByText('Draft')).toBeInTheDocument();
     expect(screen.getByTestId('page-title')).toHaveTextContent('Summit 2026');
     expect(screen.getByRole('link', { name: 'All forms' })).toHaveAttribute('href', '/app/forms');
+  });
+
+  it('tells viewers they cannot change the form', async () => {
+    renderPage(() => jsonResponse(FORM));
+    expect(await screen.findByText(/You can view this form/)).toBeInTheDocument();
+  });
+
+  it('sends editors to the editor', async () => {
+    const router = renderPage(() => jsonResponse(FORM), ADA);
+
+    expect(await screen.findByText('Editor')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/app/forms/form_1/edit');
   });
 
   it('explains when the form does not exist', async () => {
