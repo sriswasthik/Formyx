@@ -172,7 +172,7 @@ describe('updateField', () => {
     store.getState().updateField(choice.id, { options: choice.options.slice(1) });
 
     expect(state().schema.fields[1]).not.toHaveProperty('conditions');
-    expect(onConditionsRemoved).toHaveBeenCalledWith(1);
+    expect(onConditionsRemoved).toHaveBeenCalledWith(1, expect.any(Function));
   });
 });
 
@@ -207,7 +207,7 @@ describe('removeField', () => {
 
     store.getState().removeField(source.id);
     expect(state().schema.fields[0]).not.toHaveProperty('conditions');
-    expect(onConditionsRemoved).toHaveBeenCalledWith(1);
+    expect(onConditionsRemoved).toHaveBeenCalledWith(1, expect.any(Function));
 
     store.getState().undo();
     expect(state().schema.fields[1]?.conditions).toEqual(dependent.conditions);
@@ -290,7 +290,7 @@ describe('moveField', () => {
 
     store.getState().moveField(dependent.id, 0);
     expect(state().schema.fields[0]).not.toHaveProperty('conditions');
-    expect(onConditionsRemoved).toHaveBeenCalledWith(1);
+    expect(onConditionsRemoved).toHaveBeenCalledWith(1, expect.any(Function));
 
     store.getState().undo();
     expect(ids()).toEqual([a.id, dependent.id]);

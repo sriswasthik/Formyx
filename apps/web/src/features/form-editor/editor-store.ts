@@ -71,8 +71,11 @@ export interface EditorState extends EditorSnapshot {
 }
 
 export interface EditorStoreOptions {
-  /** Called when a change made other questions' conditions invalid and they were removed. */
-  onConditionsRemoved?: (count: number) => void;
+  /**
+   * Called when a change made other questions' conditions invalid and they were removed.
+   * `undo` reverts that change, e.g. from a toast.
+   */
+  onConditionsRemoved?: (count: number, undo: () => void) => void;
   /** Clock for merging edits; tests pass a fake one. */
   now?: () => number;
 }
@@ -145,7 +148,11 @@ export function createEditorStore(
           state.lastChange = mergeKey ? { key: mergeKey, at: time } : null;
           state.revision += 1;
         });
-        if (removed > 0) onConditionsRemoved?.(removed);
+        if (removed > 0) {
+          onConditionsRemoved?.(removed, () => {
+            get().undo();
+          });
+        }
       };
 
       /** Makes `snapshot` current, keeping the selection only if that question still exists. */
