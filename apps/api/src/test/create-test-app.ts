@@ -1,25 +1,34 @@
 import { pino } from 'pino';
 import { createApp } from '../app.js';
 import { parseEnv } from '../config/env.js';
+import { createEventBus } from '../lib/events.js';
 import { testDatabaseUrl, testPrisma } from './database.js';
 
 export const TEST_JWT_SECRET = 'test-only-jwt-secret-with-at-least-32-chars';
 
+const silentLogger = pino({ level: 'silent' });
+
+function testEnv(env: Record<string, string>) {
+  return parseEnv({
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'silent',
+    DATABASE_URL: testDatabaseUrl,
+    JWT_SECRET: TEST_JWT_SECRET,
+    // The minimum cost keeps password hashing from dominating test time.
+    BCRYPT_COST: '4',
+    // One app serves a whole test file; rate-limit tests pass their own low limit.
+    AUTH_RATE_LIMIT_MAX: '1000',
+    SUBMISSION_RATE_LIMIT_MAX: '1000',
+    ...env,
+  });
+}
+
+/** The Express app alone: enough for request/response tests. Events go nowhere. */
 export function createTestApp(env: Record<string, string> = {}) {
   return createApp({
-    env: parseEnv({
-      NODE_ENV: 'test',
-      LOG_LEVEL: 'silent',
-      DATABASE_URL: testDatabaseUrl,
-      JWT_SECRET: TEST_JWT_SECRET,
-      // The minimum cost keeps password hashing from dominating test time.
-      BCRYPT_COST: '4',
-      // One app serves a whole test file; rate-limit tests pass their own low limit.
-      AUTH_RATE_LIMIT_MAX: '1000',
-      SUBMISSION_RATE_LIMIT_MAX: '1000',
-      ...env,
-    }),
-    logger: pino({ level: 'silent' }),
+    env: testEnv(env),
+    logger: silentLogger,
     prisma: testPrisma,
+    events: createEventBus(silentLogger),
   });
 }

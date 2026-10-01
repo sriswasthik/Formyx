@@ -5,6 +5,7 @@ import { createAuthRouter } from './auth.js';
 import { createFormsRouter } from './forms.js';
 import { healthRouter } from './health.js';
 import { createPublicFormsRouter } from './public-forms.js';
+import { createSubmissionsRouter } from './submissions.js';
 
 export function createApiRouter(deps: AppDependencies): Router {
   const router = Router();
@@ -13,7 +14,9 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use('/health', healthRouter);
   router.use('/auth', createAuthRouter(deps, guards));
   router.use('/public/forms', createPublicFormsRouter(deps));
+  // The forms router goes first: it marks everything under /forms as not cacheable.
   router.use(createFormsRouter(deps, guards));
+  router.use(createSubmissionsRouter(deps, guards));
 
   return router;
 }

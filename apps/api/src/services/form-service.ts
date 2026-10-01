@@ -20,6 +20,7 @@ import {
 import type { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
+import { escapeLikePattern } from '../lib/like-pattern.js';
 import type { Database } from '../lib/prisma.js';
 
 const SLUG_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -99,11 +100,6 @@ export function formSlug(title: string): string {
     (byte) => SLUG_ALPHABET[byte % SLUG_ALPHABET.length],
   ).join('');
   return `${slugify(title, 40) || 'form'}-${suffix}`;
-}
-
-/** Prisma's `contains` becomes ILIKE without escaping, so `%` and `_` would act as wildcards. */
-function escapeLikePattern(text: string): string {
-  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 function isUniqueViolation(error: unknown): boolean {

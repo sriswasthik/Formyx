@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { EnvError, parseEnv, type Env } from './config/env.js';
+import { createEventBus } from './lib/events.js';
 import { createLogger } from './lib/logger.js';
 import { createPrismaClient } from './lib/prisma.js';
 
@@ -18,7 +19,7 @@ function loadEnv(): Env {
 const env = loadEnv();
 const logger = createLogger(env);
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
-const app = createApp({ env, logger, prisma });
+const app = createApp({ env, logger, prisma, events: createEventBus(logger) });
 
 const server = app.listen(env.PORT, (error) => {
   if (error) {

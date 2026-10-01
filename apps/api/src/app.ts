@@ -4,6 +4,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import type { Env } from './config/env.js';
+import type { EventBus } from './lib/events.js';
 import type { Database } from './lib/prisma.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
@@ -14,6 +15,8 @@ export interface AppDependencies {
   env: Env;
   logger: Logger;
   prisma: Database;
+  /** Where routes announce what happened, e.g. a saved response. */
+  events: EventBus;
 }
 
 export function createApp(deps: AppDependencies): Express {

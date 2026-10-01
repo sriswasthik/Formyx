@@ -15,7 +15,7 @@ import { createPublicFormService } from '../services/public-form-service.js';
  * Published forms, for anyone with the link: no account needed. Only the published snapshot
  * is ever sent, never the draft.
  */
-export function createPublicFormsRouter({ env, logger, prisma }: AppDependencies): Router {
+export function createPublicFormsRouter({ env, logger, prisma, events }: AppDependencies): Router {
   const router = Router();
   const forms = createPublicFormService(prisma);
   const limit = createPublicRateLimiters(env);
@@ -48,10 +48,13 @@ export function createPublicFormsRouter({ env, logger, prisma }: AppDependencies
       return;
     }
 
-    const body: SubmissionResponse = await forms.submit(routeParam(req, 'slug'), input, {
+    const saved = await forms.submit(routeParam(req, 'slug'), input, {
       userAgent: req.get('user-agent'),
     });
+    const body: SubmissionResponse = { id: saved.submission.id };
     res.status(201).json(body);
+    // Committed and answered: now live dashboards and notification emails can follow.
+    events.emit('submission.created', saved);
   });
 
   return router;

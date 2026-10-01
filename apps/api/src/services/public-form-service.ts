@@ -8,6 +8,7 @@ import {
   type FormSchema,
   type PublicFormResponse,
   type SubmissionInput,
+  type SubmissionRecord,
 } from '@formyx/shared';
 import type { z } from 'zod';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -52,8 +53,18 @@ export interface PublicFormService {
   /**
    * Stores a response after checking it against the published schema. Answers to hidden or
    * unknown questions are dropped. The response that reaches the limit closes the form.
+   * Resolves once the response is committed.
    */
-  submit(slug: string, input: SubmissionInput, context: SubmissionContext): Promise<{ id: string }>;
+  submit(
+    slug: string,
+    input: SubmissionInput,
+    context: SubmissionContext,
+  ): Promise<SavedSubmission>;
+}
+
+export interface SavedSubmission {
+  formId: string;
+  submission: SubmissionRecord;
 }
 
 function notFound(): AppError {
@@ -139,24 +150,34 @@ export function createPublicFormService(prisma: Database): PublicFormService {
         const result = buildSubmissionValidator(form.schema, answers).safeParse(answers);
         if (!result.success) throw invalidAnswers(result.error);
 
-        const submission = await tx.submission.create({
+        const metadata = {
+          userAgent: context.userAgent?.slice(0, USER_AGENT_MAX_LENGTH) ?? null,
+          referrer: input.referrer || null,
+        };
+        const created = await tx.submission.create({
           data: {
             formId: form.id,
             answers: result.data,
             completionTimeMs: input.completionTimeMs ?? null,
-            metadata: {
-              userAgent: context.userAgent?.slice(0, USER_AGENT_MAX_LENGTH) ?? null,
-              referrer: input.referrer || null,
-            },
+            metadata,
           },
-          select: { id: true },
+          select: { id: true, createdAt: true, completionTimeMs: true },
         });
 
         const count = form.record._count.submissions + 1;
         if (responseLimitReached(form.schema.settings, count) === 'response_limit') {
           await tx.form.update({ where: { id: form.id }, data: { status: 'CLOSED' } });
         }
-        return submission;
+        return {
+          formId: form.id,
+          submission: {
+            id: created.id,
+            createdAt: created.createdAt.toISOString(),
+            completionTimeMs: created.completionTimeMs,
+            answers: result.data,
+            metadata,
+          },
+        };
       });
     },
   };
