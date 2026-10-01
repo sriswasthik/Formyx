@@ -23,6 +23,9 @@ const prisma = createPrismaClient(env.DATABASE_URL, logger);
 if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
   logger.warn('RESEND_API_KEY is not set: notification emails will be logged, not sent');
 }
+if (env.NODE_ENV === 'production' && env.WEBHOOK_ALLOW_PRIVATE_URLS) {
+  logger.warn('WEBHOOK_ALLOW_PRIVATE_URLS is on: webhooks can reach private networks');
+}
 const storage = createUploadStorage(env);
 if (!storage) logger.info('Cloudinary is not configured: file uploads are switched off');
 const server = createServer({

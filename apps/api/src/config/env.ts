@@ -60,6 +60,14 @@ export const envSchema = z.object({
   SUBMISSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   /** Allowed invite emails (new or sent again) per user per 15 minutes. */
   INVITE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
+  /**
+   * Lets webhooks use plain http and reach localhost and private networks. For development
+   * only: on a server it would let anyone with a form send requests inside your network.
+   */
+  WEBHOOK_ALLOW_PRIVATE_URLS: z
+    .enum(['true', 'false'], { error: 'Use true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
   /** Where the web app lives, for links in emails. */
   APP_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

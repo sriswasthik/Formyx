@@ -33,6 +33,7 @@ model User {
   forms         Form[]
   subscriptions FormSubscription[]
   invitesSent   Invite[]
+  webhooks      Webhook[]
 
   @@map("users")
 }
@@ -125,6 +126,7 @@ model Form {
   submissions     Submission[]
   views           FormView[]
   subscriptions   FormSubscription[]
+  webhooks        Webhook[]
 
   // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
   @@index([workspaceId, updatedAt(sort: Desc)])
@@ -175,4 +177,42 @@ model FormSubscription {
   // A new response looks up who to email by form.
   @@index([formId])
   @@map("form_subscriptions")
+}
+
+/// A URL that gets a signed POST for each new response to a form.
+model Webhook {
+  id              String            @id @default(cuid())
+  formId          String            @map("form_id")
+  url             String
+  /// The signing secret, encrypted with a key derived from JWT_SECRET (see webhook-signature.ts).
+  /// It is shown once, when the webhook is added; Formyx needs it back only to sign requests.
+  secretEncrypted String            @map("secret_encrypted")
+  createdById     String?           @map("created_by_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  form            Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  createdBy       User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  deliveries      WebhookDelivery[]
+
+  @@index([formId])
+  @@map("webhooks")
+}
+
+/// One attempt to deliver an event; the newest few per webhook are kept for its log.
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  webhookId  String   @map("webhook_id")
+  /// Shared by every attempt at one event; sent as X-Formyx-Delivery.
+  eventId    String   @map("event_id")
+  event      String
+  attempt    Int
+  succeeded  Boolean
+  /// The receiver's HTTP status; null when no response came back.
+  statusCode Int?     @map("status_code")
+  durationMs Int?     @map("duration_ms")
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  webhook    Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@map("webhook_deliveries")
 }

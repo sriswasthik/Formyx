@@ -6,6 +6,7 @@ import { parseEnv } from '../config/env.js';
 import { createEventBus } from '../lib/events.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
+import { createDefaultWebhookDispatcher, type WebhookDispatcher } from '../webhooks/dispatcher.js';
 import { createServer, type FormyxServer } from '../server.js';
 import { testDatabaseUrl, testPrisma } from './database.js';
 
@@ -25,6 +26,8 @@ function testEnv(env: Record<string, string>) {
     AUTH_RATE_LIMIT_MAX: '1000',
     SUBMISSION_RATE_LIMIT_MAX: '1000',
     INVITE_RATE_LIMIT_MAX: '1000',
+    // Test receivers listen on 127.0.0.1.
+    WEBHOOK_ALLOW_PRIVATE_URLS: 'true',
     APP_URL: 'https://app.formyx.test',
     ...env,
   });
@@ -39,15 +42,33 @@ export function createTestApp(
   {
     storage = null,
     mailer = createFakeMailer(),
-  }: { storage?: UploadStorage | null; mailer?: Mailer } = {},
+    webhooks,
+  }: { storage?: UploadStorage | null; mailer?: Mailer; webhooks?: WebhookDispatcher } = {},
 ) {
+  const parsed = testEnv(env);
   return createApp({
-    env: testEnv(env),
+    env: parsed,
     logger: silentLogger,
     prisma: testPrisma,
     events: createEventBus(silentLogger),
     storage,
     mailer,
+    webhooks: webhooks ?? createTestWebhookDispatcher(parsed),
+  });
+}
+
+/** Retries a few milliseconds apart rather than seconds, so tests can wait for them. */
+export const TEST_RETRY_DELAYS_MS = [5, 10, 20];
+
+export function createTestWebhookDispatcher(
+  env = testEnv({}),
+  retryDelaysMs: readonly number[] = TEST_RETRY_DELAYS_MS,
+): WebhookDispatcher {
+  return createDefaultWebhookDispatcher({
+    env,
+    prisma: testPrisma,
+    logger: silentLogger,
+    retryDelaysMs,
   });
 }
 
@@ -71,12 +92,22 @@ export async function startTestServer({
   mailer = createFakeMailer(),
   logger = silentLogger,
   storage = null,
+  webhookRetryDelaysMs = TEST_RETRY_DELAYS_MS,
 }: {
   mailer?: Mailer;
   logger?: typeof silentLogger;
   storage?: UploadStorage | null;
+  /** Waits between webhook retries; a test that acts between tries makes them longer. */
+  webhookRetryDelaysMs?: readonly number[];
 } = {}): Promise<TestServer> {
-  const server = createServer({ env: testEnv({}), logger, prisma: testPrisma, mailer, storage });
+  const server = createServer({
+    env: testEnv({}),
+    logger,
+    prisma: testPrisma,
+    mailer,
+    storage,
+    webhooks: createTestWebhookDispatcher(testEnv({}), webhookRetryDelaysMs),
+  });
   await new Promise<void>((resolve) => {
     server.httpServer.listen(0, '127.0.0.1', resolve);
   });

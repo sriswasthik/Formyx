@@ -1,11 +1,13 @@
 import { createEmptyForm, createField, hasRole, type Role } from '@formyx/shared';
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { createTestApp } from '../test/create-test-app.js';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createSecretBox } from '../lib/webhook-signature.js';
+import { createTestApp, TEST_JWT_SECRET } from '../test/create-test-app.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
 import { createFakeCloudinary } from '../test/fake-cloudinary.js';
 import { createPublishedForm, createSubmission } from '../test/responses.js';
 import { createTeam, requestAs } from '../test/team.js';
+import { closedPort } from '../test/webhook-receiver.js';
 
 /*
  * Who may call what: every endpoint that needs an account, called by each kind of caller.
@@ -21,6 +23,7 @@ interface Fixture {
   formVersion: number;
   submissionId: string;
   inviteId: string;
+  webhookId: string;
   /** A viewer whose role can be changed, or who can be removed, without side effects. */
   memberId: string;
 }
@@ -142,6 +145,37 @@ const ENDPOINTS: Endpoint[] = [
     ok: 200,
     call: (as, f) => as.put(`${forms(f)}/notifications`, { emailOnSubmission: true }),
   },
+  // Webhooks
+  {
+    name: 'list webhooks',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.get(`${forms(f)}/webhooks`),
+  },
+  {
+    name: 'add a webhook',
+    minRole: 'EDITOR',
+    ok: 201,
+    call: (as, f) => as.post(`${forms(f)}/webhooks`, { url: 'https://hooks.example.com/x' }),
+  },
+  {
+    name: 'remove a webhook',
+    minRole: 'EDITOR',
+    ok: 204,
+    call: (as, f) => as.delete(`${forms(f)}/webhooks/${f.webhookId}`),
+  },
+  {
+    name: 'read a webhook’s deliveries',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.get(`${forms(f)}/webhooks/${f.webhookId}/deliveries`),
+  },
+  {
+    name: 'send a test event',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.post(`${forms(f)}/webhooks/${f.webhookId}/test`),
+  },
   // Workspaces, members and invites
   {
     name: 'rename the workspace',
@@ -203,6 +237,12 @@ type Caller = Role | 'OUTSIDER' | 'SIGNED_OUT';
 const CALLERS: Caller[] = ['OWNER', 'EDITOR', 'VIEWER', 'OUTSIDER', 'SIGNED_OUT'];
 
 let fixture: Fixture;
+/** Test events go here: nothing listens, so they fail fast without leaving the machine. */
+let deadEnd: string;
+
+beforeAll(async () => {
+  deadEnd = `http://127.0.0.1:${await closedPort()}/hook`;
+});
 let users: Record<Exclude<Caller, 'SIGNED_OUT'>, string>;
 
 beforeEach(async () => {
@@ -231,6 +271,13 @@ beforeEach(async () => {
       expiresAt: new Date(Date.now() + 60_000),
     },
   });
+  const webhook = await prisma.webhook.create({
+    data: {
+      formId: form.id,
+      url: deadEnd,
+      secretEncrypted: createSecretBox(TEST_JWT_SECRET).encrypt('whsec_test'),
+    },
+  });
   const { version } = await prisma.form.findUniqueOrThrow({
     where: { id: form.id },
     select: { version: true },
@@ -243,6 +290,7 @@ beforeEach(async () => {
     formVersion: version,
     submissionId: submission.id,
     inviteId: invite.id,
+    webhookId: webhook.id,
     memberId: member.id,
   };
 });

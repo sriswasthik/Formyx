@@ -116,3 +116,14 @@ export function createInviteLinkRateLimiter() {
     'Too many requests. Try again in a few minutes.',
   );
 }
+
+/** "Send test event" makes a request to any URL an editor gives, so it is limited per user. */
+const WEBHOOK_TEST_LIMIT = 30;
+
+export function createWebhookTestRateLimiter() {
+  return limitedTo(
+    WEBHOOK_TEST_LIMIT,
+    (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
+    'Too many test events. Try again in a few minutes.',
+  );
+}
