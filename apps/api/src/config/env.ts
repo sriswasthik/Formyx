@@ -58,6 +58,8 @@ export const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   /** Allowed submissions per IP per form per 15 minutes. */
   SUBMISSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  /** Allowed invite emails (new or sent again) per user per 15 minutes. */
+  INVITE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
   /** Where the web app lives, for links in emails. */
   APP_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

@@ -39,12 +39,18 @@ export function createResendMailer({ apiKey, from }: { apiKey: string; from: str
   };
 }
 
-/** For development without a Resend key: says what would have been sent. */
-export function createLogMailer(logger: Logger): Mailer {
+/**
+ * Without a Resend key: says what would have been sent. With `includeText` (development
+ * only) it logs the text too, so links in emails, such as invites, can still be followed.
+ */
+export function createLogMailer(logger: Logger, { includeText = false } = {}): Mailer {
   return {
     send(messages) {
-      for (const { to, subject } of messages) {
-        logger.info({ to, subject }, 'Email not sent: RESEND_API_KEY is not set');
+      for (const { to, subject, text } of messages) {
+        logger.info(
+          { to, subject, ...(includeText && { text }) },
+          'Email not sent: RESEND_API_KEY is not set',
+        );
       }
       return Promise.resolve();
     },
@@ -52,11 +58,11 @@ export function createLogMailer(logger: Logger): Mailer {
 }
 
 export function createMailer(
-  env: Pick<Env, 'RESEND_API_KEY' | 'EMAIL_FROM'>,
+  env: Pick<Env, 'NODE_ENV' | 'RESEND_API_KEY' | 'EMAIL_FROM'>,
   logger: Logger,
 ): Mailer {
   if (env.RESEND_API_KEY) {
     return createResendMailer({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM });
   }
-  return createLogMailer(logger);
+  return createLogMailer(logger, { includeText: env.NODE_ENV === 'development' });
 }

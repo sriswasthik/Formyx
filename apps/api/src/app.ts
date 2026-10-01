@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import type { Logger } from 'pino';
 import type { Env } from './config/env.js';
 import type { EventBus } from './lib/events.js';
+import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
 import type { UploadStorage } from './lib/upload-storage.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -20,6 +21,8 @@ export interface AppDependencies {
   events: EventBus;
   /** File storage; `null` when uploads are not set up. */
   storage: UploadStorage | null;
+  /** Sends emails a request asks for, such as invites. */
+  mailer: Mailer;
 }
 
 export function createApp(deps: AppDependencies): Express {

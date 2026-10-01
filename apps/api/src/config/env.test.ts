@@ -18,6 +18,7 @@ describe('parseEnv', () => {
       BCRYPT_COST: 12,
       AUTH_RATE_LIMIT_MAX: 10,
       SUBMISSION_RATE_LIMIT_MAX: 10,
+      INVITE_RATE_LIMIT_MAX: 20,
       APP_URL: 'http://localhost:5173',
       EMAIL_FROM: 'Formyx <notifications@formyx.app>',
       CLOUDINARY_FOLDER: 'formyx',

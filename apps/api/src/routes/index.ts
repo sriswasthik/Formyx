@@ -10,6 +10,7 @@ import { createPublicFormsRouter } from './public-forms.js';
 import { createRealtimeRouter } from './realtime.js';
 import { createSubmissionsRouter } from './submissions.js';
 import { createUploadsRouter } from './uploads.js';
+import { createWorkspacesRouter } from './workspaces.js';
 
 export function createApiRouter(deps: AppDependencies): Router {
   const router = Router();
@@ -25,6 +26,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createSubmissionsRouter(deps, guards));
   router.use(createAnalyticsRouter(deps, guards));
   router.use(createNotificationsRouter(deps, guards));
+  router.use(createWorkspacesRouter(deps, guards));
 
   return router;
 }

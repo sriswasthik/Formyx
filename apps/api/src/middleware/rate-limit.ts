@@ -82,3 +82,37 @@ export function createUploadRateLimiter() {
     },
   });
 }
+
+function limitedTo(limit: number, keyGenerator: (req: Request) => string, message: string) {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit,
+    keyGenerator,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new AppError(429, 'RATE_LIMITED', message));
+    },
+  });
+}
+
+/** Per-user limit on invite emails, new or sent again: owners cannot be used to spam. */
+export function createInviteRateLimiter(env: Pick<Env, 'INVITE_RATE_LIMIT_MAX'>) {
+  return limitedTo(
+    env.INVITE_RATE_LIMIT_MAX,
+    // Runs after requireAuth, so there is always a user.
+    (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
+    'Too many invites. Try again in a few minutes.',
+  );
+}
+
+/** Opening and accepting invite links, per IP. */
+const INVITE_LINK_LIMIT = 60;
+
+export function createInviteLinkRateLimiter() {
+  return limitedTo(
+    INVITE_LINK_LIMIT,
+    (req) => ipKeyGenerator(req.ip ?? ''),
+    'Too many requests. Try again in a few minutes.',
+  );
+}

@@ -47,16 +47,21 @@ export function personalWorkspaceName(name: string): string {
   return `${firstName(name)}'s workspace`;
 }
 
-/** "Ada Lovelace" -> "ada-x7k2p9". The random suffix keeps slugs unique and unguessable. */
-export function personalWorkspaceSlug(name: string): string {
+/** "Design team" -> "design-team-x7k2p9". The random suffix keeps slugs unique and unguessable. */
+export function workspaceSlug(name: string): string {
   const suffix = Array.from(
     randomBytes(SLUG_SUFFIX_LENGTH),
     (byte) => SLUG_ALPHABET[byte % SLUG_ALPHABET.length],
   ).join('');
-  return `${slugify(firstName(name), 32) || 'workspace'}-${suffix}`;
+  return `${slugify(name, 32) || 'workspace'}-${suffix}`;
 }
 
-function isUniqueViolation(error: unknown): boolean {
+/** "Ada Lovelace" -> "ada-x7k2p9" */
+export function personalWorkspaceSlug(name: string): string {
+  return workspaceSlug(firstName(name));
+}
+
+export function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
 

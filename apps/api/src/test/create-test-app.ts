@@ -24,18 +24,22 @@ function testEnv(env: Record<string, string>) {
     // One app serves a whole test file; rate-limit tests pass their own low limit.
     AUTH_RATE_LIMIT_MAX: '1000',
     SUBMISSION_RATE_LIMIT_MAX: '1000',
+    INVITE_RATE_LIMIT_MAX: '1000',
     APP_URL: 'https://app.formyx.test',
     ...env,
   });
 }
 
 /**
- * The Express app alone: enough for request/response tests. Events go nowhere, and uploads
- * are off unless a `storage` is given (see `createFakeCloudinary`).
+ * The Express app alone: enough for request/response tests. Events go nowhere, emails go to
+ * a fake mailer, and uploads are off unless a `storage` is given (see `createFakeCloudinary`).
  */
 export function createTestApp(
   env: Record<string, string> = {},
-  { storage = null }: { storage?: UploadStorage | null } = {},
+  {
+    storage = null,
+    mailer = createFakeMailer(),
+  }: { storage?: UploadStorage | null; mailer?: Mailer } = {},
 ) {
   return createApp({
     env: testEnv(env),
@@ -43,6 +47,7 @@ export function createTestApp(
     prisma: testPrisma,
     events: createEventBus(silentLogger),
     storage,
+    mailer,
   });
 }
 

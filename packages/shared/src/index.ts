@@ -6,3 +6,4 @@ export * from './realtime.js';
 export * from './roles.js';
 export * from './slug.js';
 export * from './uploads.js';
+export * from './workspaces.js';

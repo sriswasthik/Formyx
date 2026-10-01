@@ -5,6 +5,18 @@ import {
   type FormSchema,
   type SubmissionRecord,
 } from '@formyx/shared';
+import {
+  button,
+  COLOR,
+  emailPage,
+  escapeHtml,
+  heading,
+  paragraph as p,
+  singleLine,
+  type RenderedEmail,
+} from './email-layout.js';
+
+export { escapeHtml } from './email-layout.js';
 
 /** Answers shown in the email; the rest are a click away. */
 export const EMAIL_ANSWER_LIMIT = 10;
@@ -19,37 +31,6 @@ export interface SubmissionEmailInput {
   responseUrl: string;
   /** Where the notification setting can be turned off. */
   settingsUrl: string;
-}
-
-export interface RenderedEmail {
-  subject: string;
-  html: string;
-  text: string;
-}
-
-const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
-const COLOR = {
-  page: '#fafafa',
-  card: '#ffffff',
-  border: '#e4e4e7',
-  text: '#09090b',
-  muted: '#71717a',
-  button: '#18181b',
-  buttonText: '#fafafa',
-  link: '#2e5aac',
-} as const;
-
-const HTML_ESCAPES: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-};
-
-/** Text safe to put in HTML content and attributes. */
-export function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character] ?? character);
 }
 
 function shorten(text: string): string {
@@ -100,7 +81,7 @@ function moreAnswers(hidden: number): string {
 /** A plain, table-based email (the layout email clients render reliably), plus a text part. */
 export function renderSubmissionEmail(input: SubmissionEmailInput): RenderedEmail {
   // A title is a single line; never let one reach the subject header with a line break.
-  const title = input.formTitle.replace(/\s+/g, ' ').trim() || 'Untitled form';
+  const title = singleLine(input.formTitle) || 'Untitled form';
   const subject = `New response to ${title}`;
   const when = submittedAt(input.submission.createdAt);
   const { shown, hidden } = shownAnswers(input);
@@ -115,9 +96,6 @@ export function renderSubmissionEmail(input: SubmissionEmailInput): RenderedEmai
     '',
     `You're getting this because you turned on emails about new responses to this form. Turn them off: ${input.settingsUrl}`,
   ].join('\n');
-
-  const p = (style: string, content: string) =>
-    `<p style="margin:0;font-family:${FONT};${style}">${content}</p>`;
 
   const answerRows = shown
     .map(
@@ -139,46 +117,17 @@ export function renderSubmissionEmail(input: SubmissionEmailInput): RenderedEmai
         )}</td></tr>`
       : '';
 
-  const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<title>${escapeHtml(subject)}</title>
-</head>
-<body style="margin:0;padding:0;background:${COLOR.page};">
-<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(`Submitted ${when}`)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLOR.page};">
-  <tr><td align="center" style="padding:32px 16px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-      <tr><td style="padding:0 4px 16px;">
-        ${p(`font-size:14px;line-height:21px;font-weight:600;color:${COLOR.text};`, 'Formyx')}
-      </td></tr>
-      <tr><td style="background:${COLOR.card};border:1px solid ${COLOR.border};border-radius:12px;padding:24px;">
-        ${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, 'New response')}
-        <h1 style="margin:4px 0;font-family:${FONT};font-size:20px;line-height:28px;font-weight:600;letter-spacing:-0.2px;color:${COLOR.text};">${escapeHtml(title)}</h1>
+  const html = emailPage({
+    subject,
+    preheader: `Submitted ${when}`,
+    card: `${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, 'New response')}
+        ${heading(title)}
         ${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, `Submitted ${escapeHtml(when)}`)}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">${answerRows}${hiddenRow}
         </table>
-        <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;">
-          <tr><td style="border-radius:8px;background:${COLOR.button};">
-            <a href="${escapeHtml(input.responseUrl)}" style="display:inline-block;padding:10px 16px;font-family:${FONT};font-size:14px;line-height:20px;font-weight:500;color:${COLOR.buttonText};text-decoration:none;border-radius:8px;">View response</a>
-          </td></tr>
-        </table>
-      </td></tr>
-      <tr><td style="padding:16px 4px 0;">
-        ${p(
-          `font-size:12px;line-height:18px;color:${COLOR.muted};`,
-          `You're getting this because you turned on emails about new responses to this form. <a href="${escapeHtml(input.settingsUrl)}" style="color:${COLOR.link};">Turn them off</a>`,
-        )}
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>
-`;
+        ${button('View response', input.responseUrl)}`,
+    footer: `You're getting this because you turned on emails about new responses to this form. <a href="${escapeHtml(input.settingsUrl)}" style="color:${COLOR.link};">Turn them off</a>`,
+  });
 
   return { subject, html, text };
 }
