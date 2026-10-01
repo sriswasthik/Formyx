@@ -27,8 +27,6 @@ export const formSettingsSchema = z.object({
   closeAfterResponses: z.number().int().min(1).max(1_000_000).optional(),
   /** Stop accepting responses at this moment (ISO 8601). */
   closeAt: z.iso.datetime({ offset: true, error: 'Use an ISO 8601 date and time' }).optional(),
-  /** Email workspace members about each new response. */
-  notifyOnSubmit: z.boolean(),
 });
 export type FormSettings = z.infer<typeof formSettingsSchema>;
 

@@ -39,7 +39,6 @@ describe('createEmptyForm', () => {
       settings: {
         submitButtonText: 'Submit',
         successMessage: 'Thanks! Your response has been recorded.',
-        notifyOnSubmit: false,
       },
     });
   });

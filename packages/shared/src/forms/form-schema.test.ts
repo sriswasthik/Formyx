@@ -41,6 +41,14 @@ describe('formSchema: valid forms', () => {
     expect(issues(formWith(choice, text, dependent))).toBeNull();
   });
 
+  it('reads forms saved with the retired notifyOnSubmit setting, and drops it', () => {
+    const stored = {
+      ...createEmptyForm(),
+      settings: { ...createEmptyForm().settings, notifyOnSubmit: true },
+    };
+    expect(formSchema.parse(stored).settings).not.toHaveProperty('notifyOnSubmit');
+  });
+
   it('accepts a fully configured form', () => {
     const rating = { ...createField('rating'), label: 'How was it?', required: true };
     const choice = createField('single_choice');
@@ -68,7 +76,6 @@ describe('formSchema: valid forms', () => {
         successMessage: 'Thanks',
         closeAfterResponses: 100,
         closeAt: '2026-12-31T23:59:00+01:00',
-        notifyOnSubmit: true,
       },
     };
 
@@ -161,7 +168,6 @@ describe('formSchema: invalid forms', () => {
         submitButtonText: '  ',
         successMessage: '',
         closeAt: 'next friday',
-        notifyOnSubmit: false,
       },
     };
     expect(issues(form)?.map((issue) => issue.path)).toEqual([

@@ -26,7 +26,6 @@ const schema: FormSchema = {
   settings: {
     submitButtonText: 'Send',
     successMessage: 'Thanks, we got it.',
-    notifyOnSubmit: false,
   },
 };
 
