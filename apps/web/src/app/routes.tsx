@@ -87,9 +87,27 @@ export const routes: RouteObject[] = [
                 path: 'settings',
                 handle: { title: 'Settings' } satisfies RouteHandle,
                 lazy: async () => {
-                  const { SettingsPage } = await import('@/features/settings/settings-page');
-                  return { Component: SettingsPage };
+                  const { SettingsLayout } = await import('@/features/settings/settings-layout');
+                  return { Component: SettingsLayout };
                 },
+                children: [
+                  {
+                    index: true,
+                    lazy: async () => {
+                      const { PreferencesPage } =
+                        await import('@/features/settings/preferences-page');
+                      return { Component: PreferencesPage };
+                    },
+                  },
+                  {
+                    path: 'workspace',
+                    lazy: async () => {
+                      const { WorkspaceSettingsPage } =
+                        await import('@/features/settings/workspace/workspace-settings-page');
+                      return { Component: WorkspaceSettingsPage };
+                    },
+                  },
+                ],
               },
             ],
           },
@@ -120,6 +138,15 @@ export const routes: RouteObject[] = [
         lazy: async () => {
           const { PublicFormPage } = await import('@/features/public-form/public-form-page');
           return { Component: PublicFormPage };
+        },
+      },
+      // The link in an invite email; it works signed in or out.
+      {
+        path: 'invite/:token',
+        handle: { title: 'Invite' } satisfies RouteHandle,
+        lazy: async () => {
+          const { InvitePage } = await import('@/features/invites/invite-page');
+          return { Component: InvitePage };
         },
       },
       ...devOnlyRoutes,

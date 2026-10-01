@@ -10,7 +10,7 @@ import { applyServerError } from './server-errors';
 import { SubmitButton } from './submit-button';
 import { useLogIn } from './use-session';
 
-export function LoginForm() {
+export function LoginForm({ defaultEmail = '' }: { defaultEmail?: string }) {
   const logIn = useLogIn();
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -21,7 +21,7 @@ export function LoginForm() {
   } = useForm({
     resolver: zodResolver(loginInputSchema),
     mode: 'onTouched',
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: defaultEmail, password: '' },
   });
 
   const onSubmit = handleSubmit(async (values) => {

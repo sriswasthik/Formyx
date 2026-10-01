@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router';
 import { AuthLayout, AuthLink } from './auth-layout';
+import { getRedirectEmail } from './redirect';
 import { SignupForm } from './signup-form';
 
 export function SignupPage() {
@@ -19,7 +20,7 @@ export function SignupPage() {
         </>
       }
     >
-      <SignupForm />
+      <SignupForm defaultEmail={getRedirectEmail(state)} />
     </AuthLayout>
   );
 }

@@ -4,13 +4,14 @@ import {
   type FormTemplateId,
   type WorkspaceSummary,
 } from '@formyx/shared';
-import { Building2, RotateCw, SearchX } from 'lucide-react';
+import { Building2, Plus, RotateCw, SearchX } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
+import { CreateWorkspaceDialog } from '@/features/workspaces/create-workspace-dialog';
 import { useActiveWorkspace } from '@/features/workspaces/use-active-workspace';
 import { useNow } from '@/lib/use-now';
 import { cn } from '@/lib/utils';
@@ -36,14 +37,28 @@ import { useFormsViewStore } from './view-store';
 
 export function FormsPage() {
   const workspace = useActiveWorkspace();
+  const [creating, setCreating] = useState(false);
 
   if (!workspace) {
     return (
-      <EmptyState
-        icon={Building2}
-        title="You are not in a workspace"
-        description="Ask a workspace owner to invite you, then your forms will appear here."
-      />
+      <>
+        <EmptyState
+          icon={Building2}
+          title="You are not in a workspace"
+          description="Create one for your forms, or ask a workspace owner to invite you."
+          action={
+            <Button
+              onClick={() => {
+                setCreating(true);
+              }}
+            >
+              <Plus aria-hidden />
+              Create workspace
+            </Button>
+          }
+        />
+        <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} />
+      </>
     );
   }
   // Remount per workspace so dialogs and pending state never carry over.
