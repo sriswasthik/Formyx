@@ -9,10 +9,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AuthLayout, AuthLink } from '@/features/auth/auth-layout';
 import type { AuthRedirectState } from '@/features/auth/redirect';
 import { useLogOut, useMe } from '@/features/auth/use-session';
+import { useAcceptInvite } from '@/features/workspaces/use-workspace-admin';
 import { ROLE_DESCRIPTIONS, roleWithArticle } from '@/features/workspaces/workspace-format';
-import { changeErrorMessage, useAcceptInvite } from '@/features/workspaces/use-workspace-admin';
 import { getInvitePreview } from '@/features/workspaces/workspaces-api';
-import { ApiRequestError } from '@/lib/api';
+import { ApiRequestError, changeErrorMessage } from '@/lib/api';
 
 const homeLink = <AuthLink to="/">Go to Formyx</AuthLink>;
 

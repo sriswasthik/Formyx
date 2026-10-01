@@ -6,7 +6,8 @@ import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { changeErrorMessage, useRenameWorkspace } from '@/features/workspaces/use-workspace-admin';
+import { useRenameWorkspace } from '@/features/workspaces/use-workspace-admin';
+import { changeErrorMessage } from '@/lib/api';
 
 function RenameForm({ workspace }: { workspace: WorkspaceSummary }) {
   const rename = useRenameWorkspace(workspace.id);

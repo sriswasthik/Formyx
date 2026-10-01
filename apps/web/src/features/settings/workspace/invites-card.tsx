@@ -31,14 +31,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { applyServerError } from '@/features/auth/server-errors';
 import {
-  changeErrorMessage,
   useInvites,
   useResendInvite,
   useRevokeInvite,
   useSendInvite,
 } from '@/features/workspaces/use-workspace-admin';
-import { useNow } from '@/lib/use-now';
 import { inviteExpiry, ROLE_DESCRIPTIONS } from '@/features/workspaces/workspace-format';
+import { changeErrorMessage } from '@/lib/api';
+import { useNow } from '@/lib/use-now';
 
 const inviteFormSchema = z.object({ email: emailSchema, role: roleSchema });
 

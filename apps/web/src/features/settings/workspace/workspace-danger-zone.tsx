@@ -18,11 +18,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSession } from '@/features/auth/session-context';
 import {
-  changeErrorMessage,
   useDeleteWorkspace,
   useMembers,
   useRemoveMember,
 } from '@/features/workspaces/use-workspace-admin';
+import { changeErrorMessage } from '@/lib/api';
 
 function Row({
   title,

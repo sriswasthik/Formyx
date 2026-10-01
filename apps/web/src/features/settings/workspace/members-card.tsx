@@ -32,12 +32,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/session-context';
 import {
-  changeErrorMessage,
   useChangeRole,
   useMembers,
   useRemoveMember,
 } from '@/features/workspaces/use-workspace-admin';
 import { initial, roleWithArticle } from '@/features/workspaces/workspace-format';
+import { changeErrorMessage } from '@/lib/api';
 
 function Avatar({ name }: { name: string }) {
   return (

@@ -8,7 +8,6 @@ import type {
 } from '@formyx/shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { meQueryKey } from '@/features/auth/session-cache';
-import { ApiRequestError } from '@/lib/api';
 import {
   acceptInvite,
   changeMemberRole,
@@ -29,15 +28,6 @@ export const workspaceKeys = {
   members: (workspaceId: string) => ['workspaces', workspaceId, 'members'] as const,
   invites: (workspaceId: string) => ['workspaces', workspaceId, 'invites'] as const,
 };
-
-/** What to tell people when a change was refused, in the server's words where it has some. */
-export function changeErrorMessage(error: unknown): string {
-  if (error instanceof ApiRequestError) {
-    if (error.code === 'NETWORK_ERROR') return 'Check your connection and try again.';
-    if (error.status >= 400 && error.status < 500) return error.message;
-  }
-  return 'Something went wrong. Please try again.';
-}
 
 /** Applies `change` to the signed-in user's list of workspaces. */
 function updateSessionWorkspaces(
