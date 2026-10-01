@@ -1,5 +1,5 @@
-import type { FormSummary } from '@formyx/shared';
-import { Copy, FolderOpen, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { formResponsesPath, type FormSummary } from '@formyx/shared';
+import { Copy, FolderOpen, Inbox, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useRef } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,12 @@ export function FormActionsMenu({ form, canEdit, onAction, className }: FormActi
           <Link to={formOpenPath(form.id, canEdit)}>
             <FolderOpen aria-hidden />
             Open
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to={formResponsesPath(form.id)}>
+            <Inbox aria-hidden />
+            Responses
           </Link>
         </DropdownMenuItem>
         {canEdit && (

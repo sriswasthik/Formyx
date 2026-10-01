@@ -91,9 +91,13 @@ describe('FormDetailPage', () => {
     expect(screen.getByRole('link', { name: 'All forms' })).toHaveAttribute('href', '/app/forms');
   });
 
-  it('tells viewers they cannot change the form', async () => {
+  it('tells viewers they cannot change the form, and leads to its responses', async () => {
     renderPage(() => jsonResponse(FORM));
     expect(await screen.findByText(/You can view this form/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View responses' })).toHaveAttribute(
+      'href',
+      '/app/forms/form_1/responses',
+    );
   });
 
   it('sends editors to the editor', async () => {
