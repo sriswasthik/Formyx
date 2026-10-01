@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 dist/
+.vercel/
 *.tsbuildinfo
 
 # generated code (Prisma client: `pnpm --filter @formyx/api db:generate`)

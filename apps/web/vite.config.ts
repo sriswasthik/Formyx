@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from 'node:url';
 import { defaultClientConditions, defineConfig, loadEnv } from 'vite';
 import { fontPreload } from './build/font-preload.ts';
 import { routePreload } from './build/route-preload.ts';
+import { vercelOutput } from './build/vercel-output.ts';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '');
@@ -34,6 +35,8 @@ export default defineConfig(({ mode }) => {
       routePreload([
         { pathPrefix: '/f/', module: 'src/features/public-form/public-form-page.tsx' },
       ]),
+      // Only on Vercel: routes, the /api proxy and security headers (see build/vercel-output.ts).
+      vercelOutput(),
     ],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
@@ -64,7 +67,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}'],
+      include: ['src/**/*.test.{ts,tsx}', 'build/**/*.test.ts'],
       restoreMocks: true,
       // Editor tests render the whole editor and type like a person, waiting out autosave's
       // one-second delay. They take a second or two, so 5s leaves no room on a busy machine.

@@ -1,0 +1,76 @@
+# Render Blueprint for the API and the nightly demo reset. In the Render dashboard choose
+# New > Blueprint, pick this repository, then fill in every value marked `sync: false`.
+# The web app is deployed separately, on Vercel (see "Deployment" in the README).
+
+envVarGroups:
+  # Shared by the API and the cron job. With Neon, DATABASE_URL is the pooled connection
+  # string and DIRECT_URL the direct one, which migrations use.
+  - name: formyx-database
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+
+services:
+  - type: web
+    name: formyx-api
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @formyx/shared build &&
+      pnpm --filter @formyx/api build
+    # Runs after each build and before the new version takes traffic. A failed migration
+    # stops the deploy and the previous version keeps running.
+    preDeployCommand: pnpm --filter @formyx/api db:deploy
+    startCommand: pnpm --filter @formyx/api start
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: formyx-database
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      # The Vercel site, e.g. https://formyx.vercel.app. Also allowed to open the live-updates
+      # socket, which connects to this service directly.
+      - key: CORS_ORIGIN
+        sync: false
+      # The same address, for links in emails.
+      - key: APP_URL
+        sync: false
+      # Requests arrive through Vercel's proxy and then Render's load balancer.
+      - key: TRUST_PROXY
+        value: '2'
+      - key: DEMO_ENABLED
+        value: 'true'
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  # Puts the shared demo account back to its starting point every night at 03:00 UTC.
+  - type: cron
+    name: formyx-demo-reset
+    runtime: node
+    region: frankfurt
+    plan: starter
+    schedule: '0 3 * * *'
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @formyx/shared build &&
+      pnpm --filter @formyx/api build
+    startCommand: pnpm --filter @formyx/api demo:reset
+    envVars:
+      - fromGroup: formyx-database
+      - key: NODE_ENV
+        value: production
