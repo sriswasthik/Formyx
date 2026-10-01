@@ -7,7 +7,12 @@ import { defaultClientConditions, defineConfig, loadEnv } from 'vite';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '');
   const proxy = {
-    '/api': { target: env.API_PROXY_TARGET || 'http://localhost:4000', changeOrigin: true },
+    // `ws` carries the live-updates socket, which lives under /api too.
+    '/api': {
+      target: env.API_PROXY_TARGET || 'http://localhost:4000',
+      changeOrigin: true,
+      ws: true,
+    },
   };
 
   return {
@@ -36,6 +41,11 @@ export default defineConfig(({ mode }) => {
               {
                 name: 'motion',
                 test: /[\\/]node_modules[\\/](motion|motion-dom|motion-utils|framer-motion)[\\/]/,
+              },
+              {
+                // Recharts and the libraries only it uses: only the responses summary loads them.
+                name: 'charts',
+                test: /[\\/]node_modules[\\/](recharts|victory-vendor|d3-[^\\/]+|@reduxjs[\\/]toolkit|react-redux|redux|reselect)[\\/]/,
               },
             ],
           },
