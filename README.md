@@ -9,7 +9,7 @@ See [CLAUDE.md](./CLAUDE.md) for the product brief, design system and engineerin
 | Package           | What                                                                                                                                                |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`        | React 18, Vite, TypeScript, Tailwind CSS v4, shadcn/ui (Radix), React Router, TanStack Query and Table, React Hook Form, Recharts, Socket.IO client |
-| `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino, Socket.IO, Resend                                                                 |
+| `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino, Socket.IO, Resend, Cloudinary                                                     |
 | `packages/shared` | Zod schemas, types and pure logic shared by web and api                                                                                             |
 | `e2e`             | Playwright end-to-end tests                                                                                                                         |
 
@@ -70,7 +70,7 @@ A form's questions and settings are a JSON document (`FormSchema`) defined with 
 | `GET /api/workspaces/:workspaceId/forms`  | Members | Summaries with response counts; `?search=` (title) and `?status=`   |
 | `POST /api/workspaces/:workspaceId/forms` | Editors | Creates a form, blank or from `templateId`                          |
 | `GET /api/forms/:formId`                  | Members | The full form: draft and published schema, theme, version           |
-| `PATCH /api/forms/:formId`                | Editors | Updates `title` and/or `draftSchema`; send the `version` you edited |
+| `PATCH /api/forms/:formId`                | Editors | Updates `title`, `draftSchema` and/or `theme`; send the `version`   |
 | `POST /api/forms/:formId/duplicate`       | Editors | Copies the draft into a new form                                    |
 | `DELETE /api/forms/:formId`               | Editors | Deletes the form and its responses                                  |
 | `POST /api/forms/:formId/publish`         | Editors | Snapshots the draft and title as the published form; send `version` |
@@ -88,7 +88,7 @@ Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app
 - **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and the public form page. Form colours come from the form's theme as `--form-*` CSS variables, so a form looks the same in the app's light and dark modes.
 - **Autosave.** Saves one second after the last change, one request at a time, with the `version` the edit started from. Drafts are checked with the shared schema first; failed saves retry with backoff. A `409` pauses saving and offers to load the latest version. Leaving the editor saves pending changes first, and asks before discarding any that could not be saved.
 - **Shortcuts.** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z (or Ctrl+Y) redo, Ctrl/⌘+D duplicate, Delete or Backspace remove, Escape deselect. These apply outside text inputs; tooltips show them.
-- **Small screens.** Below 1024px the editor has Build, Settings and Preview tabs, and the question types open in a bottom sheet.
+- **Small screens.** Below 1024px the editor has Build, Design, Settings and Preview tabs, and the question types open in a bottom sheet.
 - **Logic.** A question's settings end with "Show this question only when…": conditions on earlier questions, with comparisons and values that fit each question type, combined with all or any. Questions with logic carry a Logic badge and a summary on the canvas.
 
 ## Publishing and responses
@@ -138,6 +138,48 @@ Submissions are validated against the published snapshot, with problems returned
 **Emails** go through Resend after the response is saved and answered: a listener on an in-process event bus sends one batch to subscribers who are still members, with an idempotency key per response. Listener failures are logged and never reach the respondent. Without `RESEND_API_KEY`, emails are written to the log instead. `APP_URL` is used for the links in emails and `EMAIL_FROM` is the sender; its domain must be verified in Resend.
 
 One API instance is assumed: rate limits and Socket.IO rooms live in memory. Running several needs a shared store such as Redis (and the Socket.IO Redis adapter).
+
+## Themes
+
+The editor's Design tab sets a form's look: an accent from eight muted presets or any hex colour (with a warning below 3:1 contrast against the background), a font (Inter, a serif or a rounded sans), sharp or rounded corners, a white, off-white or dark background, and an optional logo and cover image. The canvas and preview change as you go; respondents see the theme from the last publish (`publishedTheme`), like the questions. `formThemeVariables` turns a theme into `--form-*` CSS variables, and fonts load only when a form uses them.
+
+## File uploads
+
+File questions upload straight from the browser to Cloudinary with a progress bar, cancel and retry; the API never handles the bytes.
+
+1. `GET /api/uploads/signature?purpose=answer&form=<slug>&field=<id>` (no account; rate limited) or `?purpose=logo|cover&formId=` (editors) signs one upload. The signature pins the folder (`<CLOUDINARY_FOLDER>/forms/<formId>/<fieldId>` or `.../themes/<formId>`) and the allowed formats.
+2. The browser checks the question's size and type limits (`fileProblem` in `packages/shared`) and posts the file to Cloudinary.
+3. The answer keeps `{ url, publicId, name, size, type }`. On submit the API asks Cloudinary's Admin API about each file and refuses files from another question or form, URLs it did not issue, real sizes over the limit and formats the question does not take; the stored size replaces the browser's. Logos and cover images get the same check when the theme is saved.
+
+Responses link to the files (they open in a new tab) and CSV exports have their URLs. Uploaded files are public but unguessable Cloudinary URLs. Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to switch uploads on; without them the signature endpoint answers `503 UPLOADS_UNAVAILABLE` and file questions say uploads are unavailable.
+
+## Teams and roles
+
+Every request that touches a workspace checks the caller's role in it. Owners manage people and can delete the workspace; editors build forms, manage responses and webhooks; viewers read forms and responses. The web app hides or disables what a role cannot do, and `apps/api/src/routes/authorization.test.ts` calls every protected endpoint as an owner, editor, viewer, non-member and signed-out visitor.
+
+| Endpoint                                                     | Who     | Does                                                     |
+| ------------------------------------------------------------ | ------- | -------------------------------------------------------- |
+| `POST /api/workspaces`                                       | Anyone  | Creates a workspace owned by the caller                  |
+| `PATCH`, `DELETE /api/workspaces/:workspaceId`               | Owners  | Renames, or deletes it with its forms and responses      |
+| `GET /api/workspaces/:workspaceId/members`                   | Members | Members and roles                                        |
+| `PATCH /api/workspaces/:workspaceId/members/:userId`         | Owners  | Changes a role                                           |
+| `DELETE /api/workspaces/:workspaceId/members/:userId`        | Owners  | Removes someone; anyone may remove themselves (leave)    |
+| `GET`, `POST /api/workspaces/:workspaceId/invites`           | Owners  | Open invites; invites `{ email, role }` by email         |
+| `POST .../invites/:inviteId/resend`, `DELETE .../:inviteId`  | Owners  | A fresh link (the old one stops working), or withdraws   |
+| `GET /api/invites/:token`, `POST /api/invites/:token/accept` | Link    | What the invite is for; joins (signed in, invited email) |
+
+- **Invites** carry a random 256-bit token in the link; only its SHA-256 is stored. A link works for 7 days, once, and only for the invited address. Inviting someone again replaces their open invite. Used, withdrawn and expired links answer `410 INVITE_UNAVAILABLE` with the reason. `/invite/:token` works signed out too: it leads to sign-up or log-in with the email filled in and comes back. Invite emails are rate limited per user (`INVITE_RATE_LIMIT_MAX`).
+- **Last owner.** Changing a role or removing someone locks the workspace's owner rows first, so a workspace always keeps an owner, even when two owners demote each other at once (`409 LAST_OWNER`).
+
+## Webhooks
+
+Editors manage a form's webhooks from its settings in the editor (Webhooks › Manage webhooks): add up to 10 endpoints, send a test event, read the last 20 deliveries and remove them.
+
+- **Requests.** Each new response is `POST`ed as JSON (`event`, `form`, `submission` with each answer's label, raw value and readable text) with `X-Formyx-Event`, `X-Formyx-Delivery` (one id per event, shared by its retries) and `X-Formyx-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed with the webhook's secret>`. Verify by computing the same over the raw bytes and comparing in constant time.
+- **Secrets** are shown once, when the webhook is added. They are stored encrypted (AES-256-GCM with a key derived from `JWT_SECRET`), so changing `JWT_SECRET` means adding webhooks again.
+- **Retries.** No response, or anything but 2xx, is retried three times, after 2, 4 and 8 seconds, with the same body and signature. Requests time out after 10 seconds.
+- **Limitation: the queue is in memory.** Deliveries waiting for a retry are lost if the API restarts, and with several API instances each retries only its own. A durable queue (a jobs table, or Redis with BullMQ) would remove this; `apps/api/src/webhooks/dispatcher.ts` keeps the same interface either way.
+- **Private networks.** Endpoints must be public `https` URLs. Loopback, private, link-local (including cloud metadata addresses) and other non-public addresses are refused when the URL is added and again when connecting, through the socket's own DNS lookup, so a name that later resolves somewhere private is caught. `WEBHOOK_ALLOW_PRIVATE_URLS=true` lifts this for local development; never set it on a server. Webhook URLs never appear in logs, since some carry tokens.
 
 ## Scripts
 
