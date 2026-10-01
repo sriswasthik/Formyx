@@ -19,19 +19,21 @@ import { testPayload } from '../webhooks/payload.js';
 /** A form's webhooks: adding, removing, the delivery log and test events. EDITOR and up. */
 export function createWebhooksRouter(
   { prisma, env, webhooks: dispatcher }: AppDependencies,
-  { requireAuth, requireFormRole }: AuthGuards,
+  { requireAuth, requireRealAccount, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
   const webhooks = createWebhookService(prisma, createSecretBox(env.JWT_SECRET));
   const limitTests = createWebhookTestRateLimiter();
   const guards = [requireAuth, requireFormRole('EDITOR')];
+  // Webhooks send requests to any URL: not for the shared demo account.
+  const changeGuards = [requireAuth, requireRealAccount, requireFormRole('EDITOR')];
 
   router.get('/forms/:formId/webhooks', ...guards, async (req, res) => {
     const body: WebhooksResponse = { webhooks: await webhooks.list(routeParam(req, 'formId')) };
     res.json(body);
   });
 
-  router.post('/forms/:formId/webhooks', ...guards, async (req, res) => {
+  router.post('/forms/:formId/webhooks', ...changeGuards, async (req, res) => {
     const { url } = createWebhookInputSchema.parse(req.body);
     const problem = webhookUrlProblem(url, { allowPrivate: env.WEBHOOK_ALLOW_PRIVATE_URLS });
     if (problem) {
@@ -47,7 +49,7 @@ export function createWebhooksRouter(
     res.status(201).json(body);
   });
 
-  router.delete('/forms/:formId/webhooks/:webhookId', ...guards, async (req, res) => {
+  router.delete('/forms/:formId/webhooks/:webhookId', ...changeGuards, async (req, res) => {
     await webhooks.remove(routeParam(req, 'formId'), routeParam(req, 'webhookId'));
     res.status(204).end();
   });
@@ -64,7 +66,7 @@ export function createWebhooksRouter(
 
   router.post(
     '/forms/:formId/webhooks/:webhookId/test',
-    ...guards,
+    ...changeGuards,
     limitTests,
     async (req, res) => {
       const webhookId = routeParam(req, 'webhookId');

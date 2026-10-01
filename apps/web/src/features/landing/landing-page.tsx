@@ -2,6 +2,8 @@ import { ArrowRight } from 'lucide-react';
 import { m, type Variants } from 'motion/react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { isDemoOffered } from '@/features/demo/demo-api';
+import { TryDemoButton } from '@/features/demo/try-demo-button';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { FeatureSection } from './feature-section';
 import { SiteFooter } from './site-footer';
@@ -45,9 +47,13 @@ export function LandingPage() {
                   <ArrowRight aria-hidden />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="secondary">
-                <a href="#features">See how it works</a>
-              </Button>
+              {isDemoOffered() ? (
+                <TryDemoButton />
+              ) : (
+                <Button asChild size="lg" variant="secondary">
+                  <a href="#features">See how it works</a>
+                </Button>
+              )}
             </m.div>
           </m.div>
         </section>

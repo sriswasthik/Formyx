@@ -1,6 +1,7 @@
 import { loginInputSchema, registerInputSchema } from '@formyx/shared';
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
+import { createDemoAccounts } from '../demo/demo-seed.js';
 import { AppError } from '../lib/app-error.js';
 import { createPasswordHasher } from '../lib/password.js';
 import { clearSessionCookie, setSessionCookie } from '../lib/session.js';
@@ -15,6 +16,7 @@ export function createAuthRouter(
   const router = Router();
   const auth = createAuthService({ prisma, passwords: createPasswordHasher(env.BCRYPT_COST) });
   const limit = createAuthRateLimiters(env);
+  const demo = createDemoAccounts(prisma);
 
   // These responses carry personal data or set the session cookie: never cache them.
   router.use((_req, res, next) => {
@@ -31,6 +33,18 @@ export function createAuthRouter(
   router.post('/login', limit.login, async (req, res) => {
     const me = await auth.logIn(loginInputSchema.parse(req.body));
     setSessionCookie(res, me.user.id, env);
+    res.json(me);
+  });
+
+  // Signs in to the shared demo account, setting it up on first use.
+  router.post('/demo', limit.demo, async (_req, res) => {
+    if (!env.DEMO_ENABLED) {
+      throw new AppError(404, 'NOT_FOUND', 'The demo is not available on this server');
+    }
+    const userId = await demo.userId();
+    const me = await auth.getMe(userId);
+    if (!me) throw new Error('The demo account disappeared while signing in');
+    setSessionCookie(res, userId, env);
     res.json(me);
   });
 

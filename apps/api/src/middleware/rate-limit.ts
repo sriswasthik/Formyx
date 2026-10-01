@@ -28,6 +28,8 @@ export function createAuthRateLimiters(env: Pick<Env, 'AUTH_RATE_LIMIT_MAX'>) {
     register: authLimiter(env.AUTH_RATE_LIMIT_MAX, false),
     /** Only failed log-ins count: slows password guessing without locking out a shared office IP. */
     login: authLimiter(env.AUTH_RATE_LIMIT_MAX, true),
+    /** Every demo sign-in counts: each one is cheap, but nobody needs dozens. */
+    demo: authLimiter(env.AUTH_RATE_LIMIT_MAX, false),
   };
 }
 

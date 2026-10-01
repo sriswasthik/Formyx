@@ -8,7 +8,7 @@ import { createNotificationService } from '../services/notification-service.js';
 /** Each member's own notification settings. They only affect that member, so any role may change them. */
 export function createNotificationsRouter(
   { prisma }: AppDependencies,
-  { requireAuth, requireFormRole }: AuthGuards,
+  { requireAuth, requireRealAccount, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
   const notifications = createNotificationService(prisma);
@@ -29,6 +29,7 @@ export function createNotificationsRouter(
   router.put(
     '/forms/:formId/notifications',
     requireAuth,
+    requireRealAccount,
     requireFormRole('VIEWER'),
     async (req, res) => {
       const input = notificationSettingsSchema.parse(req.body);

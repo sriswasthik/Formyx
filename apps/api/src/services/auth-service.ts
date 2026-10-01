@@ -18,6 +18,7 @@ const meSelect = {
   name: true,
   email: true,
   createdAt: true,
+  isDemo: true,
   memberships: {
     orderBy: { createdAt: 'asc' },
     select: { role: true, workspace: { select: { id: true, name: true, slug: true } } },
@@ -33,6 +34,7 @@ function toMeResponse(user: MeRecord): MeResponse {
       name: user.name,
       email: user.email,
       createdAt: user.createdAt.toISOString(),
+      isDemo: user.isDemo,
     },
     workspaces: user.memberships.map(({ role, workspace }) => ({ ...workspace, role })),
   };
@@ -139,7 +141,8 @@ export function createAuthService({
         select: { ...meSelect, passwordHash: true },
       });
 
-      if (!user) {
+      // The demo account has no password: it is only reachable through POST /auth/demo.
+      if (!user || user.isDemo) {
         await passwords.verifyAgainstDummy(password);
         throw invalidCredentials();
       }
