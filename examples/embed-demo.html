@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  Formyx embed demo: a page on "another site" with a Formyx form in it.
+
+  1. Run Formyx (`pnpm dev`) and publish a form.
+  2. Put its slug (the part after /f/ in its link) in data-formyx below.
+  3. Open this file in a browser (double-click it), or serve the folder: `npx serve examples`.
+
+  In production, load embed.js from your Formyx site instead of localhost.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Formyx embed demo</title>
+    <style>
+      body {
+        margin: 0;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        color: #18181b;
+        background: #f4f4f5;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 48px 24px;
+      }
+      h1 {
+        font-size: 28px;
+        letter-spacing: -0.02em;
+        margin: 0 0 8px;
+      }
+      p {
+        color: #52525b;
+        margin: 0 0 24px;
+      }
+      .log {
+        margin-top: 24px;
+        padding: 12px 16px;
+        border: 1px solid #e4e4e7;
+        border-radius: 8px;
+        background: #fff;
+        font:
+          13px/1.5 ui-monospace,
+          monospace;
+        color: #3f3f46;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Join the community meetup</h1>
+      <p>This page is a stand-in for your own site. The form below comes from Formyx.</p>
+
+      <!-- The embed: a placeholder with the form's slug, and the script. -->
+      <div data-formyx="REPLACE-WITH-YOUR-FORM-SLUG"></div>
+      <script src="http://localhost:5173/embed.js" async></script>
+
+      <div class="log" id="log" aria-live="polite">Waiting for a response…</div>
+    </main>
+
+    <script>
+      // Fired on the placeholder (and bubbling up) when someone sends a response.
+      document.addEventListener('formyx:submitted', function (event) {
+        document.getElementById('log').textContent =
+          'formyx:submitted ' +
+          JSON.stringify(event.detail) +
+          ' at ' +
+          new Date().toLocaleTimeString();
+      });
+    </script>
+  </body>
+</html>

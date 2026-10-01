@@ -8,7 +8,7 @@ import {
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeSignature, stubStorageUploads } from '@/test/fake-storage';
 import {
   createTestQueryClient,
@@ -74,9 +74,9 @@ function serve(
   return requests;
 }
 
-function renderPage(slug = FORM.slug) {
+function renderPage(slug = FORM.slug, search = '') {
   const router = createMemoryRouter([{ path: 'f/:slug', element: <PublicFormPage /> }], {
-    initialEntries: [`/f/${slug}`],
+    initialEntries: [`/f/${slug}${search}`],
   });
   renderWithProviders(<RouterProvider router={router} />, createTestQueryClient(null));
   return userEvent.setup();
@@ -324,5 +324,54 @@ describe('PublicFormPage with a file question', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(uploads).toEqual([]);
+  });
+});
+
+describe('PublicFormPage embedded in another site', () => {
+  const host = { postMessage: vi.fn<(message: unknown, targetOrigin: string) => void>() };
+
+  beforeEach(() => {
+    // What index.html does for /f/:slug?embed=1, and the page around the iframe.
+    document.documentElement.setAttribute('data-embed', '');
+    vi.spyOn(window, 'parent', 'get').mockReturnValue(host as unknown as Window);
+    host.postMessage.mockClear();
+  });
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-embed');
+  });
+
+  const messages = () => host.postMessage.mock.calls.map(([message]) => message);
+
+  it('leaves out the page chrome and reports its height to the host only', async () => {
+    serve();
+    renderPage(FORM.slug, '?embed=1&parent=https%3A%2F%2Fshop.example');
+
+    await screen.findByRole('heading', { level: 1, name: 'Party RSVP' });
+    expect(screen.queryByRole('link', { name: 'Made with Formyx' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(messages()).toContainEqual(
+        expect.objectContaining({ source: 'formyx', type: 'resize', title: 'Party RSVP' }),
+      );
+    });
+    expect(
+      host.postMessage.mock.calls.every(([, origin]) => origin === 'https://shop.example'),
+    ).toBe(true);
+  });
+
+  it('tells the host when the response was sent', async () => {
+    serve();
+    const user = renderPage(FORM.slug, '?embed=1&parent=https%3A%2F%2Fshop.example');
+
+    await user.type(await screen.findByRole('textbox', { name: /Your name/ }), 'Ada');
+    await user.click(screen.getByRole('radio', { name: 'No' }));
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(await screen.findByText('See you there!')).toBeInTheDocument();
+    expect(messages()).toContainEqual({
+      source: 'formyx',
+      type: 'submitted',
+      slug: FORM.slug,
+    });
   });
 });

@@ -13,15 +13,23 @@
     <title>Formyx</title>
     <script>
       // Apply the saved theme before first paint to avoid a flash of the wrong theme.
-      // Keep in sync with src/features/theme/theme.ts.
+      // Keep in sync with src/features/theme/theme.ts and src/lib/embed.ts.
       (function () {
+        var root = document.documentElement;
+        // A form embedded in another site (/f/:slug?embed=1) has a transparent page and
+        // ignores the app's dark mode: the form's own theme decides its colours.
+        if (/^\/f\//.test(location.pathname) && /[?&]embed=1(&|$)/.test(location.search)) {
+          root.setAttribute('data-embed', '');
+          root.style.colorScheme = 'normal';
+          return;
+        }
         try {
           var stored = localStorage.getItem('formyx-theme');
           var dark =
             stored === 'dark' ||
             (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.classList.toggle('dark', dark);
-          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+          root.classList.toggle('dark', dark);
+          root.style.colorScheme = dark ? 'dark' : 'light';
         } catch (_) {}
       })();
     </script>

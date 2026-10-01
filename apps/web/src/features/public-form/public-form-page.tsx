@@ -8,11 +8,13 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { FileQuestion, Lock, WifiOff } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { FormView, type SubmitOutcome } from '@/features/form-renderer/form-view';
 import { ApiRequestError } from '@/lib/api';
+import { isEmbedded } from '@/lib/embed';
+import { hostTargetOrigin, postToHost, useReportHeight } from './embed-host';
 import { answerUploader, getPublicForm, submitResponse } from './public-form-api';
 import { MadeWithFormyx, PublicFormMessage, PublicFormSkeleton } from './public-form-states';
 import { recordViewOnce } from './record-view';
@@ -53,7 +55,15 @@ function FormClosed({ title }: { title: string }) {
   );
 }
 
-function LiveForm({ form, onClosed }: { form: PublicForm; onClosed: () => void }) {
+interface LiveFormProps {
+  form: PublicForm;
+  onClosed: () => void;
+  /** Set when embedded in another site: tells that page when a response was sent. */
+  hostOrigin: string | null;
+}
+
+function LiveForm({ form, onClosed, hostOrigin }: LiveFormProps) {
+  const embedded = hostOrigin !== null;
   const [openedAt] = useState(() => Date.now());
   const honeypot = useRef<HTMLInputElement>(null);
   const uploadFile = useMemo(() => answerUploader(form.slug), [form.slug]);
@@ -70,6 +80,7 @@ function LiveForm({ form, onClosed }: { form: PublicForm; onClosed: () => void }
         referrer: document.referrer || undefined,
         [HONEYPOT_FIELD]: honeypot.current?.value || undefined,
       });
+      if (hostOrigin !== null) postToHost({ type: 'submitted', slug: form.slug }, hostOrigin);
       return { ok: true };
     } catch (error) {
       if (!(error instanceof ApiRequestError)) throw error;
@@ -102,8 +113,12 @@ function LiveForm({ form, onClosed }: { form: PublicForm; onClosed: () => void }
       allowAnotherResponse={false}
       uploadFile={uploadFile}
       hiddenFields={<Honeypot inputRef={honeypot} />}
-      footer={<MadeWithFormyx />}
-      className="relative min-h-dvh"
+      compact={embedded}
+      // Embedded, the form is a card on the host's page rather than a page of its own.
+      footer={embedded ? undefined : <MadeWithFormyx />}
+      className={
+        embedded ? 'relative overflow-hidden rounded-(--form-radius)' : 'relative min-h-dvh'
+      }
     />
   );
 }
@@ -111,6 +126,9 @@ function LiveForm({ form, onClosed }: { form: PublicForm; onClosed: () => void }
 /** A published form at `/f/:slug`, for anyone with the link. */
 export function PublicFormPage() {
   const { slug = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const [embedded] = useState(isEmbedded);
+  const hostOrigin = embedded ? hostTargetOrigin(searchParams.get('parent')) : null;
   const [closedWhileOpen, setClosedWhileOpen] = useState(false);
   const query = useQuery({
     queryKey: ['public-form', slug],
@@ -121,6 +139,12 @@ export function PublicFormPage() {
     retry: (failures, error) => !isNotFound(error) && failures < 1,
   });
   usePageTitle(query.data?.title ?? 'Form');
+  useReportHeight({
+    enabled: embedded,
+    slug,
+    title: query.data?.title,
+    targetOrigin: hostOrigin ?? '*',
+  });
 
   if (query.isPending) return <PublicFormSkeleton />;
 
@@ -161,6 +185,7 @@ export function PublicFormPage() {
   return (
     <LiveForm
       form={query.data}
+      hostOrigin={hostOrigin}
       onClosed={() => {
         setClosedWhileOpen(true);
       }}

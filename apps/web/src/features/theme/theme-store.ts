@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
+import { isEmbedded } from '@/lib/embed';
 import {
   applyTheme,
   DARK_MEDIA_QUERY,
@@ -29,6 +30,8 @@ export function useThemeSync() {
   const preference = useThemeStore((state) => state.preference);
 
   useEffect(() => {
+    // Embedded forms take their colours from the form, never from the app's theme.
+    if (isEmbedded()) return;
     const media = window.matchMedia(DARK_MEDIA_QUERY);
     const update = () => {
       applyTheme(resolveTheme(preference, media.matches));

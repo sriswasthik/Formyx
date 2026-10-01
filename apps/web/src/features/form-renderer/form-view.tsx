@@ -43,6 +43,8 @@ interface FormViewProps {
   footer?: ReactNode;
   /** Offers "Submit another response" after the thank-you message. */
   allowAnotherResponse?: boolean;
+  /** Less space around the form, for embedding it in another site. */
+  compact?: boolean;
   /** Uploads respondents' files. Without it, file questions turn files away. */
   uploadFile?: FileUploader | undefined;
   className?: string;
@@ -67,6 +69,7 @@ export function FormView({
   footer,
   allowAnotherResponse = true,
   uploadFile,
+  compact = false,
   className,
 }: FormViewProps) {
   const idPrefix = useId();
@@ -152,7 +155,12 @@ export function FormView({
   return (
     <FormThemeScope theme={theme} className={cn('flex min-h-full flex-col', className)}>
       <FormCover theme={theme} />
-      <div className="mx-auto w-full max-w-[640px] flex-1 px-6 py-10 sm:py-14">
+      <div
+        className={cn(
+          'mx-auto w-full max-w-[640px] flex-1',
+          compact ? 'px-5 py-6 sm:px-8 sm:py-8' : 'px-6 py-10 sm:py-14',
+        )}
+      >
         {status === 'done' ? (
           <motion.div
             role="status"
