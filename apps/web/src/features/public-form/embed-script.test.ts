@@ -16,7 +16,8 @@ function runEmbedScript() {
   script.src = `${FORMYX}/embed.js`;
   vi.spyOn(document, 'currentScript', 'get').mockReturnValue(script);
   // eslint-disable-next-line @typescript-eslint/no-implied-eval -- runs the file as a browser would
-  new Function(SOURCE)();
+  const run = new Function(SOURCE) as () => void;
+  run();
 }
 
 function frameOf(container: Element): HTMLIFrameElement {
