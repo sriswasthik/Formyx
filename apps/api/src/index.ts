@@ -1,5 +1,6 @@
 import { EnvError, parseEnv, type Env } from './config/env.js';
 import { createLogger } from './lib/logger.js';
+import { createMailer } from './lib/mailer.js';
 import { createPrismaClient } from './lib/prisma.js';
 import { createServer } from './server.js';
 
@@ -18,7 +19,10 @@ function loadEnv(): Env {
 const env = loadEnv();
 const logger = createLogger(env);
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
-const server = createServer({ env, logger, prisma });
+if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
+  logger.warn('RESEND_API_KEY is not set: notification emails will be logged, not sent');
+}
+const server = createServer({ env, logger, prisma, mailer: createMailer(env, logger) });
 
 server.httpServer.once('error', (error) => {
   logger.fatal({ err: error }, 'Failed to start server');

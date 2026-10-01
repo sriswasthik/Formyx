@@ -51,6 +51,19 @@ export const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   /** Allowed submissions per IP per form per 15 minutes. */
   SUBMISSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  /** Where the web app lives, for links in emails. */
+  APP_URL: z
+    .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
+    .default('http://localhost:5173')
+    .transform((url) => new URL(url).origin),
+  /** Sends notification emails through Resend. Without it, emails are logged instead of sent. */
+  RESEND_API_KEY: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || undefined),
+  /** Sender of notification emails; its domain must be verified in Resend. */
+  EMAIL_FROM: z.string().trim().min(3).default('Formyx <notifications@formyx.app>'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -22,15 +22,16 @@ enum Role {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  name         String
+  id            String             @id @default(cuid())
+  name          String
   /// Stored trimmed and lowercased, so the unique index is effectively case-insensitive.
-  email        String       @unique
-  passwordHash String       @map("password_hash")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
-  memberships  Membership[]
-  forms        Form[]
+  email         String             @unique
+  passwordHash  String             @map("password_hash")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  memberships   Membership[]
+  forms         Form[]
+  subscriptions FormSubscription[]
 
   @@map("users")
 }
@@ -71,31 +72,32 @@ enum FormStatus {
 }
 
 model Form {
-  id              String       @id @default(cuid())
-  workspaceId     String       @map("workspace_id")
+  id              String             @id @default(cuid())
+  workspaceId     String             @map("workspace_id")
   title           String
   /// Identifies the form's public link. Never changes, so shared links keep working.
-  slug            String       @unique
-  status          FormStatus   @default(DRAFT)
+  slug            String             @unique
+  status          FormStatus         @default(DRAFT)
   /// The schema being edited. Every write is validated with the shared `formSchema`.
-  draftSchema     Json         @map("draft_schema")
+  draftSchema     Json               @map("draft_schema")
   /// What respondents see: a snapshot of the draft, taken each time the form is published.
-  publishedSchema Json?        @map("published_schema")
+  publishedSchema Json?              @map("published_schema")
   /// The title as last published, so renames go live with the next publish.
-  publishedTitle  String?      @map("published_title")
+  publishedTitle  String?            @map("published_title")
   theme           Json
   /// Incremented on every draft update. Writers send the version they started from (optimistic concurrency).
-  version         Int          @default(1)
+  version         Int                @default(1)
   /// When the form was last published.
-  publishedAt     DateTime?    @map("published_at")
+  publishedAt     DateTime?          @map("published_at")
   /// Null once the creator's account is deleted; the form stays with its workspace.
-  createdById     String?      @map("created_by_id")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
-  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy       User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById     String?            @map("created_by_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy       User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   submissions     Submission[]
   views           FormView[]
+  subscriptions   FormSubscription[]
 
   // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
   @@index([workspaceId, updatedAt(sort: Desc)])
@@ -131,4 +133,19 @@ model FormView {
 
   @@index([formId, createdAt])
   @@map("form_views")
+}
+
+/// A member who wants an email about each new response to a form. Each member decides for
+/// themselves, and it takes effect at once rather than with the next publish.
+model FormSubscription {
+  userId    String   @map("user_id")
+  formId    String   @map("form_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@id([userId, formId])
+  // A new response looks up who to email by form.
+  @@index([formId])
+  @@map("form_subscriptions")
 }

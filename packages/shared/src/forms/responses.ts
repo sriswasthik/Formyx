@@ -80,6 +80,15 @@ export type DeleteSubmissionsInput = z.infer<typeof deleteSubmissionsInputSchema
 export const deleteSubmissionsResponseSchema = z.object({ deleted: z.number().int().min(0) });
 export type DeleteSubmissionsResponse = z.infer<typeof deleteSubmissionsResponseSchema>;
 
+/**
+ * The dashboard page with a form's responses; with `responseId`, the Responses tab with that
+ * response open. Shared so the links in emails always match the web app's routes.
+ */
+export function formResponsesPath(formId: string, { responseId }: { responseId?: string } = {}) {
+  const path = `/app/forms/${encodeURIComponent(formId)}/responses`;
+  return responseId ? `${path}?tab=responses&response=${encodeURIComponent(responseId)}` : path;
+}
+
 /** The signed-in member's own notification settings for one form. */
 export const notificationSettingsSchema = z.object({
   /** Email me about each new response. */

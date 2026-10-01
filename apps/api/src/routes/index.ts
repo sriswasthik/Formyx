@@ -5,6 +5,7 @@ import { createAnalyticsRouter } from './analytics.js';
 import { createAuthRouter } from './auth.js';
 import { createFormsRouter } from './forms.js';
 import { healthRouter } from './health.js';
+import { createNotificationsRouter } from './notifications.js';
 import { createPublicFormsRouter } from './public-forms.js';
 import { createRealtimeRouter } from './realtime.js';
 import { createSubmissionsRouter } from './submissions.js';
@@ -21,6 +22,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createFormsRouter(deps, guards));
   router.use(createSubmissionsRouter(deps, guards));
   router.use(createAnalyticsRouter(deps, guards));
+  router.use(createNotificationsRouter(deps, guards));
 
   return router;
 }

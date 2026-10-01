@@ -4,13 +4,16 @@ import type { Logger } from 'pino';
 import { createApp } from './app.js';
 import type { Env } from './config/env.js';
 import { createEventBus, type EventBus } from './lib/events.js';
+import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
+import { registerSubmissionNotifier } from './notifications/submission-notifier.js';
 import { attachRealtime, type RealtimeServer } from './realtime/realtime-server.js';
 
 export interface ServerDependencies {
   env: Env;
   logger: Logger;
   prisma: Database;
+  mailer: Mailer;
 }
 
 export interface FormyxServer {
@@ -23,12 +26,13 @@ export interface FormyxServer {
   close(): Promise<void>;
 }
 
-/** Everything the API runs: the Express app and live updates, wired together. */
+/** Everything the API runs: the Express app, live updates and notification emails, wired together. */
 export function createServer(deps: ServerDependencies): FormyxServer {
   const events = createEventBus(deps.logger);
   const app = createApp({ ...deps, events });
   const httpServer = createHttpServer(app);
   const io = attachRealtime(httpServer, { ...deps, events });
+  registerSubmissionNotifier({ ...deps, events });
 
   return {
     app,
