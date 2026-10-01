@@ -38,12 +38,16 @@ export function makeFormDetail(
   };
 }
 
-/** Makes `matchMedia` report a desktop (1024px and up) or a smaller screen. */
+/**
+ * Makes `matchMedia` report a desktop (1024px wide, so every `min-width` query up to 1024px
+ * matches) or a phone (none match).
+ */
 export function setScreen(size: 'desktop' | 'mobile') {
+  const width = size === 'desktop' ? 1024 : 375;
   vi.spyOn(window, 'matchMedia').mockImplementation(
     (query) =>
       ({
-        matches: size === 'desktop' && query.includes('min-width: 1024px'),
+        matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? Infinity) <= width,
         media: query,
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),

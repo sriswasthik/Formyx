@@ -143,17 +143,22 @@ describe('publishing from the editor', () => {
     const server = installFakeServer(publishedForm());
     const { user } = renderEditorPage();
 
-    await user.click(await screen.findByRole('button', { name: 'More publishing options' }));
+    // With nothing to publish, the button names the form's state and holds its options.
+    await user.click(await screen.findByRole('button', { name: 'Published: publishing options' }));
+    expect(screen.getByRole('menuitem', { name: 'Open public form' })).toHaveAttribute(
+      'href',
+      '/f/customer-survey-abc12345',
+    );
     await user.click(screen.getByRole('menuitem', { name: 'Close form' }));
 
     expect(await screen.findByText('Form closed')).toBeInTheDocument();
-    expect(screen.getByText('Closed')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'More publishing options' }));
+    await user.click(screen.getByRole('button', { name: 'Closed: publishing options' }));
     await user.click(screen.getByRole('menuitem', { name: 'Reopen form' }));
 
     expect(await screen.findByText('Form reopened')).toBeInTheDocument();
-    expect(screen.queryByText('Closed')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Published: publishing options' }),
+    ).toBeInTheDocument();
     expect(server.actions).toEqual(['close', 'reopen']);
   });
 });

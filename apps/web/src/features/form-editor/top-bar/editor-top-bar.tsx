@@ -14,6 +14,8 @@ export type EditorView = 'build' | 'preview';
 interface EditorTopBarProps {
   /** Save status, shown next to the title. */
   status: React.ReactNode;
+  /** The form's sections (Edit, Responses, Share). */
+  navigation?: React.ReactNode;
   /** Publishing controls, at the end of the bar. */
   actions?: React.ReactNode;
   /** Only on large screens; smaller ones switch views with tabs. */
@@ -43,7 +45,13 @@ function UndoRedo() {
   );
 }
 
-export function EditorTopBar({ status, actions, view, onViewChange }: EditorTopBarProps) {
+export function EditorTopBar({
+  status,
+  navigation,
+  actions,
+  view,
+  onViewChange,
+}: EditorTopBarProps) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-3">
       <ActionTooltip label="All forms">
@@ -63,6 +71,8 @@ export function EditorTopBar({ status, actions, view, onViewChange }: EditorTopB
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        {navigation}
+        {navigation && <Separator orientation="vertical" className="mx-1 hidden h-5 md:block" />}
         <UndoRedo />
         {view && onViewChange && (
           <ToggleGroup

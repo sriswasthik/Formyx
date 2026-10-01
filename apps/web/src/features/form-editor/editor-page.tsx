@@ -12,9 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/session-context';
 import { formKeys } from '@/features/forms/form-list-cache';
+import { FormNav, INLINE_FORM_NAV_QUERY } from '@/features/forms/form-nav';
 import { getForm } from '@/features/forms/forms-api';
+import { ShareDialog } from '@/features/forms/share/share-dialog';
 import { useFormDetail } from '@/features/forms/use-forms';
 import { ApiRequestError } from '@/lib/api';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { ConflictDialog } from './autosave/conflict-dialog';
 import { LeaveGuard } from './autosave/leave-guard';
 import { SaveStatus } from './autosave/save-status';
@@ -27,7 +30,6 @@ import { EditorStoreContext } from './editor-store-context';
 import { PublishControls } from './publish/publish-controls';
 import { findDraftPublishIssues, PublishIssuesContext } from './publish/publish-issues';
 import { PublishIssuesDialog } from './publish/publish-issues-dialog';
-import { ShareDialog } from './publish/share-dialog';
 import { usePublishing } from './publish/use-publishing';
 
 function EditorSkeleton() {
@@ -105,6 +107,9 @@ function FormEditor({ form }: { form: FormDetail }) {
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [share, setShare] = useState({ open: false, justPublished: false });
   const publishButton = useRef<HTMLButtonElement>(null);
+  const shareButton = useRef<HTMLButtonElement>(null);
+  // Share sits in the top bar on wider screens; on phones it is in a menu that has closed.
+  const inlineNav = useMediaQuery(INLINE_FORM_NAV_QUERY);
   const schema = useStore(store, (state) => state.schema);
   const publishIssues = useMemo(
     () => (pointOutIssues ? findDraftPublishIssues(schema) : []),
@@ -181,15 +186,24 @@ function FormEditor({ form }: { form: FormDetail }) {
         <h1 className="sr-only">Edit form</h1>
         <EditorLayout
           form={form}
+          navigation={
+            <FormNav
+              formId={form.id}
+              current="edit"
+              canEdit
+              published={form.publishedSchema !== null}
+              shareRef={shareButton}
+              onShare={() => {
+                setShare({ open: true, justPublished: false });
+              }}
+            />
+          }
           actions={
             <PublishControls
               form={form}
               pending={publishing.pending}
               primaryRef={publishButton}
               onPublish={() => void publish()}
-              onShare={() => {
-                setShare({ open: true, justPublished: false });
-              }}
               onClose={() => void publishing.close()}
               onReopen={() => void publishing.reopen()}
             />
@@ -227,7 +241,7 @@ function FormEditor({ form }: { form: FormDetail }) {
           slug={form.slug}
           closed={form.status === 'CLOSED'}
           justPublished={share.justPublished}
-          returnFocusTo={publishButton}
+          returnFocusTo={inlineNav ? shareButton : publishButton}
         />
         <LeaveGuard autosaver={autosaver} />
       </PublishIssuesContext.Provider>
