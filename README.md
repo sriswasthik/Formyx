@@ -6,12 +6,12 @@ See [CLAUDE.md](./CLAUDE.md) for the product brief, design system and engineerin
 
 ## Stack
 
-| Package           | What                                                                                                          |
-| ----------------- | ------------------------------------------------------------------------------------------------------------- |
-| `apps/web`        | React 18, Vite, TypeScript, Tailwind CSS v4, shadcn/ui (Radix), React Router, TanStack Query, React Hook Form |
-| `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino                                              |
-| `packages/shared` | Zod schemas, types and pure logic shared by web and api                                                       |
-| `e2e`             | Playwright end-to-end tests                                                                                   |
+| Package           | What                                                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`        | React 18, Vite, TypeScript, Tailwind CSS v4, shadcn/ui (Radix), React Router, TanStack Query and Table, React Hook Form, Recharts, Socket.IO client |
+| `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino, Socket.IO, Resend                                                                 |
+| `packages/shared` | Zod schemas, types and pure logic shared by web and api                                                                                             |
+| `e2e`             | Playwright end-to-end tests                                                                                                                         |
 
 ## Getting started
 
@@ -108,6 +108,36 @@ Anyone with the link answers at `/f/:slug`, a separate bundle without editor or 
 | `POST /api/public/forms/:slug/submissions` | Stores a response: `answers`, `completionTimeMs`, `referrer`                |
 
 Submissions are validated against the published snapshot, with problems returned per question (`answers.<fieldId>`). Responses to a closed form get `410 FORM_CLOSED`, and so do responses after its `closeAt` time or once it has `closeAfterResponses` responses. The form row is locked while a response is stored, so simultaneous responses never overshoot the limit, and the response that reaches it closes the form. A hidden honeypot field (`website`) catches bots: they get a normal reply, but nothing is stored. Submissions are rate limited per IP and form (`SUBMISSION_RATE_LIMIT_MAX` per 15 minutes). Responses store the user agent and referrer, never IP addresses.
+
+## Responses, analytics and live updates
+
+`/app/forms/:formId/responses` (code in `apps/web/src/features/responses`) is reached from the form's navigation (Edit · Responses · Share), the dashboard's form menu and the read-only overview. Any member of the workspace can read responses and export them; deleting them takes EDITOR or above.
+
+- **Summary.** Views, responses, completion rate (responses per view) and average completion time over all time; responses per day for the last 7, 30 or 90 days, counted on the viewer's calendar; and a summary of each published question: shares per option, the rating distribution and average, number minimum/average/maximum, and the latest five text answers.
+- **Responses.** A table with a column per published question, sortable by date and searchable across answers (choices match by option label). Rows load 50 at a time with an opaque cursor. A row opens the full response in a side sheet. The tab, search, question filter and open response live in the URL, so links from emails and summaries land in the right place.
+- **Live.** New responses appear on top with a brief tint, and counts and charts update in place; responses deleted elsewhere disappear.
+- **Email.** Each member can turn on "Email me on new responses" for a form; the setting is theirs alone.
+
+| Endpoint                                              | Who       | Does                                                                        |
+| ----------------------------------------------------- | --------- | --------------------------------------------------------------------------- |
+| `GET /api/forms/:formId/analytics`                    | Members   | Totals, responses per day (`?range=7d\|30d\|90d&tz=<IANA zone>`), questions |
+| `GET /api/forms/:formId/submissions`                  | Members   | A page: `?cursor=&limit=&order=newest\|oldest&search=&answered=<fieldId>`   |
+| `GET /api/forms/:formId/submissions/:submissionId`    | Members   | One response                                                                |
+| `GET /api/forms/:formId/submissions/export`           | Members   | Every response as a streamed CSV                                            |
+| `DELETE /api/forms/:formId/submissions/:submissionId` | Editors   | Deletes one response                                                        |
+| `POST /api/forms/:formId/submissions/bulk-delete`     | Editors   | Deletes up to 100 responses: `{ ids }`; ids of other forms are ignored      |
+| `GET`, `PUT /api/forms/:formId/notifications`         | Members   | The caller's own `{ emailOnSubmission }`                                    |
+| `GET /api/realtime/token`                             | Signed in | A 60-second token for the live-updates socket                               |
+
+**Analytics** are computed on the server. Totals and the daily series come from SQL; question summaries fold every response, in batches of 1,000, through `addSubmissionToSummaries` in `packages/shared`, the same function the dashboard uses to count in responses that arrive live. `created_at` columns hold UTC in a `timestamp` column, so raw SQL always converts explicitly (`(created_at AT TIME ZONE 'UTC') AT TIME ZONE $tz`) and never relies on the database session's time zone.
+
+**CSV export** streams in batches with backpressure: RFC 4180 quoting, a `'` before text that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`), CRLF line endings and a BOM so Excel reads UTF-8. Headers are the published question labels; numbers and ratings stay numeric.
+
+**Live updates** use Socket.IO on the API's HTTP server at `/api/socket.io`, so whatever routes `/api` (the Vite proxy, a load balancer) routes the socket too. The web app and API may run on different origins, where the session cookie is not sent, so the browser gets a 60-second token from `GET /api/realtime/token` for each connection attempt and hands it over in the handshake. Realtime tokens have their own issuer and audience: they are refused as sessions, and session tokens are refused by the socket. A socket joins `form:<id>` only after the same membership check as the REST API, then receives `submission:created` and `submissions:deleted`. After a reconnect the page rejoins its rooms and refetches what it may have missed. Set `VITE_REALTIME_URL` when the socket is served from another origin.
+
+**Emails** go through Resend after the response is saved and answered: a listener on an in-process event bus sends one batch to subscribers who are still members, with an idempotency key per response. Listener failures are logged and never reach the respondent. Without `RESEND_API_KEY`, emails are written to the log instead. `APP_URL` is used for the links in emails and `EMAIL_FROM` is the sender; its domain must be verified in Resend.
+
+One API instance is assumed: rate limits and Socket.IO rooms live in memory. Running several needs a shared store such as Redis (and the Socket.IO Redis adapter).
 
 ## Scripts
 
