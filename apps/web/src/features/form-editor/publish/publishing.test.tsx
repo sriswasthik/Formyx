@@ -17,6 +17,7 @@ function publishedForm(): FormDetail {
     status: 'PUBLISHED',
     publishedSchema: form.draftSchema,
     publishedTitle: form.title,
+    publishedTheme: form.theme,
     publishedAt: new Date().toISOString(),
   };
 }
@@ -137,6 +138,17 @@ describe('publishing from the editor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.queryByText('Unpublished changes')).not.toBeInTheDocument();
+  });
+
+  it('counts a new look as an unpublished change', async () => {
+    installFakeServer(publishedForm());
+    const { user } = renderEditorPage();
+
+    await user.click(await screen.findByRole('tab', { name: 'Design' }));
+    await user.click(screen.getByRole('radio', { name: 'Teal' }));
+
+    expect(screen.getByText('Unpublished changes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Publish changes' })).toBeInTheDocument();
   });
 
   it('closes a live form and reopens it', async () => {

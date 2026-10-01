@@ -30,7 +30,11 @@ export function installFakeServer(form: FormDetail): FakeServer {
   const server: FakeServer = { form, patches: [], actions: [], conflictNext: false };
   stubFetch((url, init) => {
     if (init.method === 'PATCH') {
-      const body = bodyOf(init) as { title: string; draftSchema: FormDetail['draftSchema'] };
+      const body = bodyOf(init) as {
+        title: string;
+        draftSchema: FormDetail['draftSchema'];
+        theme?: FormDetail['theme'];
+      };
       server.patches.push(body);
       if (server.conflictNext) {
         server.conflictNext = false;
@@ -40,6 +44,7 @@ export function installFakeServer(form: FormDetail): FakeServer {
         ...server.form,
         title: body.title,
         draftSchema: body.draftSchema,
+        theme: body.theme ?? server.form.theme,
         version: server.form.version + 1,
       };
       return jsonResponse(server.form);
@@ -56,6 +61,7 @@ export function installFakeServer(form: FormDetail): FakeServer {
           status: current.status === 'CLOSED' ? 'CLOSED' : 'PUBLISHED',
           publishedSchema: current.draftSchema,
           publishedTitle: current.title,
+          publishedTheme: current.theme,
           publishedAt: new Date().toISOString(),
         };
       } else {

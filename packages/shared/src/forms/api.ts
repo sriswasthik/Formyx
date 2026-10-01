@@ -46,10 +46,13 @@ export const updateFormInputSchema = z
     version: z.number({ error: 'Send the version you are editing' }).int().min(1),
     title: formTitleSchema.optional(),
     draftSchema: formSchema.optional(),
+    theme: formThemeSchema.optional(),
   })
-  .refine((input) => input.title !== undefined || input.draftSchema !== undefined, {
-    message: 'Send a title or a draftSchema to update',
-  });
+  .refine(
+    (input) =>
+      input.title !== undefined || input.draftSchema !== undefined || input.theme !== undefined,
+    { message: 'Send a title, draftSchema or theme to update' },
+  );
 export type UpdateFormInput = z.infer<typeof updateFormInputSchema>;
 
 /** Query string of `GET /api/workspaces/:workspaceId/forms`. Status is case-insensitive. */
@@ -92,7 +95,10 @@ export const formDetailSchema = formSummarySchema.extend({
   publishedSchema: formSchema.nullable(),
   /** The title as it was last published; renames go live with the next publish. */
   publishedTitle: z.string().nullable(),
+  /** The look being edited. */
   theme: formThemeSchema,
+  /** The look respondents see, as it was last published. */
+  publishedTheme: formThemeSchema.nullable(),
 });
 export type FormDetail = z.infer<typeof formDetailSchema>;
 

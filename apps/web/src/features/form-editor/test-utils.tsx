@@ -34,6 +34,7 @@ export function makeFormDetail(
     publishedSchema: null,
     publishedTitle: null,
     theme: createDefaultTheme(),
+    publishedTheme: null,
     ...overrides,
   };
 }
@@ -69,6 +70,7 @@ export function renderWithEditor(
     title: form.title,
     schema: form.draftSchema,
     version: form.version,
+    theme: form.theme,
   });
   const router = createMemoryRouter(
     [

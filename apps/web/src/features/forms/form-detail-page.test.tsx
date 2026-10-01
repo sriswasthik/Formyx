@@ -33,6 +33,7 @@ const FORM: FormDetail = {
   publishedSchema: null,
   publishedTitle: null,
   theme: createDefaultTheme(),
+  publishedTheme: null,
 };
 
 function Title() {

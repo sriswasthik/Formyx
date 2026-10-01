@@ -84,7 +84,10 @@ model Form {
   publishedSchema Json?              @map("published_schema")
   /// The title as last published, so renames go live with the next publish.
   publishedTitle  String?            @map("published_title")
+  /// The look being edited. Validated with the shared `formThemeSchema`.
   theme           Json
+  /// What respondents see: a snapshot of `theme`, taken each time the form is published.
+  publishedTheme  Json?              @map("published_theme")
   /// Incremented on every draft update. Writers send the version they started from (optimistic concurrency).
   version         Int                @default(1)
   /// When the form was last published.

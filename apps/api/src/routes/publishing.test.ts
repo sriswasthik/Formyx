@@ -1,11 +1,14 @@
 import {
   apiErrorSchema,
+  createDefaultTheme,
   createEmptyForm,
   createField,
   formDetailSchema,
+  publicFormResponseSchema,
   type FormDetail,
   type FormSchema,
 } from '@formyx/shared';
+import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createTestApp } from '../test/create-test-app.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
@@ -85,6 +88,47 @@ describe('POST /api/forms/:formId/publish', () => {
     expect(Date.parse(republished.publishedAt ?? '')).toBeGreaterThanOrEqual(
       Date.parse(published.publishedAt ?? ''),
     );
+  });
+
+  it('publishes the theme with the form, and keeps it while the draft theme changes', async () => {
+    const draft = await createDraft();
+    const dark = { ...createDefaultTheme(), background: 'dark', accentColor: '#337B7E' } as const;
+    const themed = formDetailSchema.parse(
+      (
+        await editor()
+          .patch(`/api/forms/${draft.id}`, { version: draft.version, theme: dark })
+          .expect(200)
+      ).body,
+    );
+    expect(themed).toMatchObject({ theme: dark, publishedTheme: null, version: draft.version + 1 });
+
+    const published = await publish(themed);
+    expect(published.publishedTheme).toEqual(dark);
+
+    const sharp = { ...dark, radius: 'sharp' } as const;
+    const edited = formDetailSchema.parse(
+      (
+        await editor()
+          .patch(`/api/forms/${published.id}`, { version: published.version, theme: sharp })
+          .expect(200)
+      ).body,
+    );
+    expect(edited).toMatchObject({ theme: sharp, publishedTheme: dark });
+
+    // Respondents see what was published, not the draft.
+    const res = await request(app).get(`/api/public/forms/${published.slug}`).expect(200);
+    expect(publicFormResponseSchema.parse(res.body)).toMatchObject({ theme: dark });
+  });
+
+  it('refuses themes it does not offer', async () => {
+    const draft = await createDraft();
+    const res = await editor()
+      .patch(`/api/forms/${draft.id}`, {
+        version: draft.version,
+        theme: { ...createDefaultTheme(), font: 'comic-sans' },
+      })
+      .expect(400);
+    expect(apiErrorSchema.parse(res.body).error.code).toBe('VALIDATION_ERROR');
   });
 
   it('refuses an unfinished draft with 422 and what to fix', async () => {

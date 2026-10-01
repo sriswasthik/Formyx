@@ -59,6 +59,7 @@ function toDetail(form: FormSummary): FormDetail {
     publishedSchema: null,
     publishedTitle: null,
     theme: createDefaultTheme(),
+    publishedTheme: null,
   };
 }
 

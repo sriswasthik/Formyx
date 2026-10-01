@@ -17,6 +17,8 @@ import { EditorDnd } from './dnd/editor-dnd';
 import { useEditorStore } from './editor-store-context';
 import { FieldPalette } from './palette/field-palette';
 import { EditorPreview } from './preview/editor-preview';
+import { DesignPanel } from './design/design-panel';
+import { EditorSidebar } from './editor-sidebar';
 import { SettingsPanel } from './settings/settings-panel';
 import { EditorTopBar, type EditorView } from './top-bar/editor-top-bar';
 import { useEditorShortcuts } from './use-editor-shortcuts';
@@ -41,7 +43,8 @@ function useAddField() {
 }
 
 /** Palette, canvas and settings side by side, or the preview. */
-function DesktopEditor({ form, status, navigation, actions }: EditorLayoutProps) {
+function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
+  const theme = useEditorStore((state) => state.theme);
   const [view, setView] = useState<EditorView>('build');
   const add = useAddField();
   useEditorShortcuts(view === 'build');
@@ -58,7 +61,7 @@ function DesktopEditor({ form, status, navigation, actions }: EditorLayoutProps)
 
       {view === 'preview' ? (
         <main aria-label="Preview" className="min-h-0 flex-1 overflow-y-auto">
-          <EditorPreview theme={form.theme} />
+          <EditorPreview theme={theme} />
         </main>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -70,15 +73,12 @@ function DesktopEditor({ form, status, navigation, actions }: EditorLayoutProps)
           </aside>
           <main aria-label="Form canvas" className="min-w-0 flex-1 overflow-y-auto">
             <EditorCanvas
-              theme={form.theme}
+              theme={theme}
               emptyHint="Drag a question here, or pick one from the list."
             />
           </main>
-          <aside
-            aria-label="Settings"
-            className="w-80 shrink-0 overflow-y-auto border-l bg-background"
-          >
-            <SettingsPanel />
+          <aside aria-label="Settings and design" className="w-80 shrink-0 border-l bg-background">
+            <EditorSidebar />
           </aside>
         </div>
       )}
@@ -86,10 +86,11 @@ function DesktopEditor({ form, status, navigation, actions }: EditorLayoutProps)
   );
 }
 
-type MobileTab = 'build' | 'settings' | 'preview';
+type MobileTab = 'build' | 'design' | 'settings' | 'preview';
 
 /** Phones and tablets: Build / Settings / Preview tabs, and the palette in a bottom sheet. */
-function MobileEditor({ form, status, navigation, actions }: EditorLayoutProps) {
+function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
+  const theme = useEditorStore((state) => state.theme);
   const [tab, setTab] = useState<MobileTab>('build');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const add = useAddField();
@@ -101,13 +102,21 @@ function MobileEditor({ form, status, navigation, actions }: EditorLayoutProps) 
       <Tabs
         value={tab}
         onValueChange={(value) => {
-          if (value === 'build' || value === 'settings' || value === 'preview') setTab(value);
+          if (
+            value === 'build' ||
+            value === 'design' ||
+            value === 'settings' ||
+            value === 'preview'
+          ) {
+            setTab(value);
+          }
         }}
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="shrink-0 border-b bg-background px-3 py-2">
-          <TabsList aria-label="Editor" className="grid w-full grid-cols-3 sm:mx-auto sm:max-w-md">
+          <TabsList aria-label="Editor" className="grid w-full grid-cols-4 sm:mx-auto sm:max-w-md">
             <TabsTrigger value="build">Build</TabsTrigger>
+            <TabsTrigger value="design">Design</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
@@ -116,7 +125,7 @@ function MobileEditor({ form, status, navigation, actions }: EditorLayoutProps) 
         <TabsContent value="build" className="mt-0 flex min-h-0 flex-1 flex-col">
           <main aria-label="Form canvas" className="min-h-0 flex-1 overflow-y-auto">
             <EditorCanvas
-              theme={form.theme}
+              theme={theme}
               emptyHint="Tap Add question to get started."
               onOpenSettings={() => {
                 setTab('settings');
@@ -136,6 +145,12 @@ function MobileEditor({ form, status, navigation, actions }: EditorLayoutProps) 
           </div>
         </TabsContent>
 
+        <TabsContent value="design" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-background">
+          <div className="mx-auto w-full max-w-xl">
+            <DesignPanel />
+          </div>
+        </TabsContent>
+
         <TabsContent value="settings" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-background">
           <div className="mx-auto w-full max-w-xl">
             <SettingsPanel />
@@ -143,7 +158,7 @@ function MobileEditor({ form, status, navigation, actions }: EditorLayoutProps) 
         </TabsContent>
 
         <TabsContent value="preview" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-          <EditorPreview theme={form.theme} />
+          <EditorPreview theme={theme} />
         </TabsContent>
       </Tabs>
 

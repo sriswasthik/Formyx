@@ -26,6 +26,7 @@ const publicSelect = {
   publishedSchema: true,
   publishedTitle: true,
   theme: true,
+  publishedTheme: true,
   _count: { select: { submissions: true } },
 } satisfies Prisma.FormSelect;
 
@@ -113,7 +114,9 @@ export function createPublicFormService(prisma: Database): PublicFormService {
       const form = await find(slug);
       if (!isOpen(form)) return { status: 'closed', slug: form.slug, title: form.title };
 
-      const theme = formThemeSchema.safeParse(form.record.theme);
+      // Respondents see the theme as published; forms published before themes were
+      // snapshotted fall back to the current one.
+      const theme = formThemeSchema.safeParse(form.record.publishedTheme ?? form.record.theme);
       if (!theme.success) {
         throw new Error('Stored theme does not match its schema', { cause: theme.error });
       }

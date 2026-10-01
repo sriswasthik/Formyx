@@ -86,7 +86,7 @@ function FormEditor({ form }: { form: FormDetail }) {
   const queryClient = useQueryClient();
   const [store] = useState(() =>
     createEditorStore(
-      { title: form.title, schema: form.draftSchema, version: form.version },
+      { title: form.title, schema: form.draftSchema, version: form.version, theme: form.theme },
       {
         onConditionsRemoved: (count, undo) => {
           toast.info(count === 1 ? 'A condition was removed' : `${count} conditions were removed`, {

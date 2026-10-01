@@ -1,4 +1,10 @@
-import { createEmptyForm, createField, type Field, type FormSchema } from '@formyx/shared';
+import {
+  createDefaultTheme,
+  createEmptyForm,
+  createField,
+  type Field,
+  type FormSchema,
+} from '@formyx/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { createEditorStore, MAX_HISTORY, MERGE_WINDOW_MS } from './editor-store';
 
@@ -476,5 +482,56 @@ describe('saving', () => {
       future: [],
     });
     expect(state().savedRevision).toBe(state().revision);
+  });
+});
+
+describe('updateTheme', () => {
+  it('starts from the standard theme and changes it as one undoable step', () => {
+    const { state } = setup();
+    expect(state().theme).toEqual(createDefaultTheme());
+
+    state().updateTheme({ background: 'dark', radius: 'sharp' });
+    expect(state().theme).toMatchObject({ background: 'dark', radius: 'sharp' });
+    expect(state().revision).toBe(1);
+
+    state().undo();
+    expect(state().theme).toEqual(createDefaultTheme());
+    state().redo();
+    expect(state().theme.background).toBe('dark');
+  });
+
+  it('removes images set to undefined, and ignores changes that change nothing', () => {
+    const { state } = setup();
+    state().updateTheme({ logoUrl: 'https://res.cloudinary.com/demo/image/upload/logo.png' });
+    state().updateTheme({ logoUrl: undefined });
+    expect(state().theme).not.toHaveProperty('logoUrl');
+
+    const revision = state().revision;
+    state().updateTheme({ font: 'inter' });
+    expect(state().revision).toBe(revision);
+  });
+
+  it('merges dragging through colours into one step', () => {
+    const { state, advance } = setup();
+    state().updateTheme({ accentColor: '#111111' }, { mergeKey: 'accent' });
+    advance(100);
+    state().updateTheme({ accentColor: '#222222' }, { mergeKey: 'accent' });
+
+    expect(state().past).toHaveLength(1);
+    state().undo();
+    expect(state().theme.accentColor).toBe(createDefaultTheme().accentColor);
+  });
+
+  it('is replaced by reset', () => {
+    const { state } = setup();
+    state().updateTheme({ font: 'rounded' });
+    state().reset({
+      title: 'Survey',
+      schema: createEmptyForm(),
+      version: 9,
+      theme: { ...createDefaultTheme(), font: 'serif' },
+    });
+    expect(state().theme.font).toBe('serif');
+    expect(state().past).toEqual([]);
   });
 });

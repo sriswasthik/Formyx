@@ -14,6 +14,7 @@ import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
+import { FormCover, FormLogo } from './branding';
 import { FormThemeScope } from './form-theme';
 
 /** How a handed-over submission went. Problems keep the form open to fix them. */
@@ -120,6 +121,7 @@ export function FormView({
 
   return (
     <FormThemeScope theme={theme} className={cn('flex min-h-full flex-col', className)}>
+      <FormCover theme={theme} />
       <div className="mx-auto w-full max-w-[640px] flex-1 px-6 py-10 sm:py-14">
         {status === 'done' ? (
           <motion.div
@@ -148,6 +150,7 @@ export function FormView({
         ) : (
           <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col">
             <header className="flex flex-col gap-3 pb-8">
+              <FormLogo theme={theme} className="mb-3" />
               <Title className="text-24 font-semibold tracking-tight break-words sm:text-32">
                 {title}
               </Title>

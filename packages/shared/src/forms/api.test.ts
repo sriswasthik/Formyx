@@ -27,7 +27,7 @@ describe('updateFormInputSchema', () => {
   it('needs a version and something to change', () => {
     expect(updateFormInputSchema.safeParse({ title: 'New' }).success).toBe(false);
     expect(updateFormInputSchema.safeParse({ version: 1 }).error?.issues[0]?.message).toBe(
-      'Send a title or a draftSchema to update',
+      'Send a title, draftSchema or theme to update',
     );
     expect(updateFormInputSchema.safeParse({ version: 0, title: 'New' }).success).toBe(false);
   });

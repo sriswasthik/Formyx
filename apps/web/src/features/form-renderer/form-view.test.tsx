@@ -106,6 +106,29 @@ describe('FormView', () => {
     expect(screen.getByRole('textbox', { name: /Name/ })).toHaveValue('');
   });
 
+  it('shows the theme’s cover and logo as decoration, and nothing without them', () => {
+    const { container, unmount } = render(
+      <FormView
+        title="Feedback"
+        schema={schema}
+        theme={{
+          ...createDefaultTheme(),
+          coverUrl: 'https://res.cloudinary.com/demo/image/upload/cover.jpg',
+          logoUrl: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+        }}
+      />,
+    );
+    const images = [...container.querySelectorAll('img')];
+    expect(images.map((image) => [image.getAttribute('src'), image.getAttribute('alt')])).toEqual([
+      ['https://res.cloudinary.com/demo/image/upload/cover.jpg', ''],
+      ['https://res.cloudinary.com/demo/image/upload/logo.png', ''],
+    ]);
+    unmount();
+
+    renderForm();
+    expect(document.querySelector('img')).toBeNull();
+  });
+
   it('shows the description under the title', () => {
     renderForm(undefined, { schema: { ...schema, description: 'Two minutes, tops.' } });
     expect(screen.getByText('Two minutes, tops.')).toBeInTheDocument();
