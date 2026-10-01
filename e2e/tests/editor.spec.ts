@@ -105,10 +105,9 @@ test.describe('on large screens', () => {
 
     // Keyboard: pick up the first question with Space, move it down one, drop it.
     const handle = page.getByRole('button', { name: 'Move question 1' });
-    await handle.focus();
-    await page.keyboard.press('Space');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Space');
+    await handle.press('Space');
+    await handle.press('ArrowDown');
+    await handle.press('Space');
     await expect.poll(firstThree).toEqual([LIKE, RECOMMEND, SATISFIED]);
 
     // Undo both moves, then redo one, with shortcuts and the top bar.
