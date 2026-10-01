@@ -42,11 +42,6 @@ export default defineConfig(({ mode }) => {
                 name: 'motion',
                 test: /[\\/]node_modules[\\/](motion|motion-dom|motion-utils|framer-motion)[\\/]/,
               },
-              {
-                // Recharts and the libraries only it uses: only the responses summary loads them.
-                name: 'charts',
-                test: /[\\/]node_modules[\\/](recharts|victory-vendor|d3-[^\\/]+|@reduxjs[\\/]toolkit|react-redux|redux|reselect)[\\/]/,
-              },
             ],
           },
         },
