@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { Logger } from 'pino';
 import { Resend } from 'resend';
 import type { Env } from '../config/env.js';
@@ -57,12 +59,33 @@ export function createLogMailer(logger: Logger, { includeText = false } = {}): M
   };
 }
 
+/**
+ * Writes each send to `directory` as a JSON file, then hands it on to `next`. For development
+ * and end-to-end tests, which read the files to follow links in emails.
+ */
+export function createOutboxMailer(directory: string, next: Mailer): Mailer {
+  let sequence = 0;
+  return {
+    async send(messages, options) {
+      await mkdir(directory, { recursive: true });
+      sequence += 1;
+      // Sortable by time; the key is only made safe for a file name.
+      const name = `${Date.now()}-${String(sequence).padStart(4, '0')}-${options.idempotencyKey.replace(/[^\w-]+/g, '_')}.json`;
+      await writeFile(join(directory, name), JSON.stringify({ messages }, null, 2));
+      await next.send(messages, options);
+    },
+  };
+}
+
 export function createMailer(
-  env: Pick<Env, 'NODE_ENV' | 'RESEND_API_KEY' | 'EMAIL_FROM'>,
+  env: Pick<Env, 'NODE_ENV' | 'RESEND_API_KEY' | 'EMAIL_FROM' | 'EMAIL_OUTBOX_DIR'>,
   logger: Logger,
 ): Mailer {
   if (env.RESEND_API_KEY) {
     return createResendMailer({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM });
   }
-  return createLogMailer(logger, { includeText: env.NODE_ENV === 'development' });
+  const log = createLogMailer(logger, { includeText: env.NODE_ENV === 'development' });
+  return env.EMAIL_OUTBOX_DIR && env.NODE_ENV !== 'production'
+    ? createOutboxMailer(env.EMAIL_OUTBOX_DIR, log)
+    : log;
 }

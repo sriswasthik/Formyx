@@ -77,6 +77,11 @@ export const envSchema = z.object({
   RESEND_API_KEY: optionalSecret,
   /** Sender of notification emails; its domain must be verified in Resend. */
   EMAIL_FROM: z.string().trim().min(3).default('Formyx <notifications@formyx.app>'),
+  /**
+   * Development and tests without Resend: also writes each email to this folder as JSON, so
+   * links in them (invites) can be followed. Ignored in production.
+   */
+  EMAIL_OUTBOX_DIR: optionalSecret,
   /** Cloudinary account for file uploads. Without all three, uploads are switched off. */
   CLOUDINARY_CLOUD_NAME: optionalSecret,
   CLOUDINARY_API_KEY: optionalSecret,
