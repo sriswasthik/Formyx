@@ -38,7 +38,10 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm --filter @formyx/api dev',
+      // Without `watch`: tests need no reloads, and on Windows `tsx watch` stalls while loading
+      // the Prisma client when stdin is a pipe, as Playwright makes it.
+      command:
+        'pnpm --filter @formyx/api exec tsx --conditions=@formyx/source --env-file-if-exists=.env src/index.ts',
       url: 'http://localhost:4000/api/health',
       reuseExistingServer: !isCI,
       timeout: 60_000,
