@@ -7,6 +7,10 @@ const VARIANTS: Record<FormStatus, BadgeProps['variant']> = {
   CLOSED: 'warning',
 };
 
-export function FormStatusBadge({ status }: { status: FormStatus }) {
-  return <Badge variant={VARIANTS[status]}>{FORM_STATUS_LABELS[status]}</Badge>;
+export function FormStatusBadge({ status, className }: { status: FormStatus; className?: string }) {
+  return (
+    <Badge variant={VARIANTS[status]} className={className}>
+      {FORM_STATUS_LABELS[status]}
+    </Badge>
+  );
 }

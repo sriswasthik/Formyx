@@ -93,13 +93,22 @@ export const routes: RouteObject[] = [
               },
             ],
           },
-          // The editor takes the whole screen, outside the app shell.
+          // A form's own pages take the whole screen, outside the app shell.
           {
             path: 'forms/:formId/edit',
             handle: { title: 'Edit form' } satisfies RouteHandle,
             lazy: async () => {
               const { EditorPage } = await import('@/features/form-editor/editor-page');
               return { Component: EditorPage };
+            },
+          },
+          {
+            path: 'forms/:formId/responses',
+            // Replaced by "<form title> responses" once the form loads.
+            handle: { title: 'Responses' } satisfies RouteHandle,
+            lazy: async () => {
+              const { ResponsesPage } = await import('@/features/responses/responses-page');
+              return { Component: ResponsesPage };
             },
           },
         ],
