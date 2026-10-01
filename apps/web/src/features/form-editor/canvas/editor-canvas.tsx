@@ -2,7 +2,7 @@ import type { FormTheme } from '@formyx/shared';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { useMemo } from 'react';
 import { FormCover, FormLogo } from '@/features/form-renderer/branding';
 import { FormThemeScope } from '@/features/form-renderer/form-theme';
@@ -64,7 +64,7 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
             <div role="list" aria-label="Questions" className="relative mt-8 flex flex-col gap-3">
               <AnimatePresence initial={false} mode="popLayout">
                 {ids.map((id, index) => (
-                  <motion.div
+                  <m.div
                     key={id}
                     role="listitem"
                     initial={{ opacity: 0, scale: 0.98 }}
@@ -79,7 +79,7 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
                       showDropIndicator={dropIndex === index}
                       onOpenSettings={onOpenSettings}
                     />
-                  </motion.div>
+                  </m.div>
                 ))}
               </AnimatePresence>
               {ids.length > 0 && dropIndex === ids.length && (

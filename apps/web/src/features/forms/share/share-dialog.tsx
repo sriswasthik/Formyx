@@ -1,5 +1,5 @@
 import { Check, Code, Copy, Download, ExternalLink, Link2 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,7 @@ function useCopy(what: string, onFail: () => void) {
 function CopyLabel({ copied, label }: { copied: boolean; label: string }) {
   return (
     <AnimatePresence initial={false} mode="wait">
-      <motion.span
+      <m.span
         key={copied ? 'copied' : 'copy'}
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -67,7 +67,7 @@ function CopyLabel({ copied, label }: { copied: boolean; label: string }) {
       >
         {copied ? <Check aria-hidden className="text-success" /> : <Copy aria-hidden />}
         {copied ? 'Copied' : label}
-      </motion.span>
+      </m.span>
     </AnimatePresence>
   );
 }

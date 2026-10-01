@@ -1,4 +1,4 @@
-import { LayoutGroup, motion } from 'motion/react';
+import { LayoutGroup, m } from 'motion/react';
 import { NavLink } from 'react-router';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,7 @@ export function SidebarNav({ id, onNavigate }: SidebarNavProps) {
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <motion.span
+                      <m.span
                         layoutId="sidebar-active-item"
                         aria-hidden
                         className="absolute inset-0 rounded-md bg-pressed"

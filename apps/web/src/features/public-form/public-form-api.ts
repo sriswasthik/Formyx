@@ -7,14 +7,25 @@ import {
 } from '@formyx/shared';
 import { z } from 'zod';
 import type { FileUploader } from '@/features/form-renderer/file-uploads';
-import { apiRequest, jsonRequest } from '@/lib/api';
+import { apiRequest, jsonRequest, readApiResponse } from '@/lib/api';
 import { getUploadSignature, uploadToStorage } from '@/lib/uploads';
 
 const publicFormPath = (slug: string) => `/public/forms/${encodeURIComponent(slug)}`;
 
+/** The request index.html started for `slug`, if any; it can be used once. */
+function takePrefetched(slug: string): Promise<Response> | null {
+  const prefetch = window.__formyxPrefetch;
+  if (prefetch?.slug !== slug) return null;
+  delete window.__formyxPrefetch;
+  return prefetch.response;
+}
+
 /** The published form, or that it is closed. Fails with 404 if it was never published. */
 export function getPublicForm(slug: string): Promise<PublicFormResponse> {
-  return apiRequest(publicFormPath(slug), publicFormResponseSchema);
+  const prefetched = takePrefetched(slug);
+  return prefetched
+    ? readApiResponse(prefetched, publicFormResponseSchema)
+    : apiRequest(publicFormPath(slug), publicFormResponseSchema);
 }
 
 export async function recordFormView(slug: string): Promise<void> {

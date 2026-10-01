@@ -151,7 +151,8 @@
   --color-black: #000000;
 
   --font-sans:
-    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Type scale from CLAUDE.md: text-12 … text-40. */
@@ -231,6 +232,19 @@
 /* ------------------------------------------------------------------------ */
 /* Base                                                                      */
 /* ------------------------------------------------------------------------ */
+
+/*
+ * Arial, resized to set text as wide and as high as Inter (measured: Inter is 6.73% wider), so
+ * the page barely moves when Inter arrives after the first paint.
+ */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 106.73%;
+  ascent-override: 90.77%;
+  descent-override: 22.6%;
+  line-gap-override: 0%;
+}
 
 @layer base {
   *,

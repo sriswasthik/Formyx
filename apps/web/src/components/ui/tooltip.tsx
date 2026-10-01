@@ -3,7 +3,21 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export const TooltipProvider = TooltipPrimitive.Provider;
-export const Tooltip = TooltipPrimitive.Root;
+
+/**
+ * One tooltip with its own provider, so the app needs no provider at its root and pages
+ * without tooltips (such as public forms) never download them.
+ */
+export function Tooltip({
+  delayDuration = 300,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root>) {
+  return (
+    <TooltipPrimitive.Provider delayDuration={delayDuration}>
+      <TooltipPrimitive.Root {...props} />
+    </TooltipPrimitive.Provider>
+  );
+}
 export const TooltipTrigger = TooltipPrimitive.Trigger;
 
 export const TooltipContent = React.forwardRef<

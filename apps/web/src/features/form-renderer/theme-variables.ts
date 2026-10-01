@@ -8,7 +8,7 @@ const RADIUS: Record<FormTheme['radius'], string> = {
 };
 
 export const FORM_FONT_STACKS: Record<FormFont, string> = {
-  inter: "'Inter Variable', ui-sans-serif, system-ui, sans-serif",
+  inter: "'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, sans-serif",
   serif: "'Source Serif 4 Variable', ui-serif, Georgia, Cambria, serif",
   rounded: "'Nunito Variable', ui-rounded, 'SF Pro Rounded', ui-sans-serif, system-ui, sans-serif",
 };

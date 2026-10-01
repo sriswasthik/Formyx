@@ -1,5 +1,5 @@
 import { averageCompletionTimeMs, completionRate, type AnalyticsTotals } from '@formyx/shared';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
@@ -41,7 +41,7 @@ export function StatCards({ totals }: { totals: AnalyticsTotals }) {
           <dt className="text-13 text-muted-foreground">{stat.label}</dt>
           <dd className="mt-1 text-24 font-semibold tracking-tight tabular-nums">
             {/* A changed number (say, a live response) settles in rather than snapping. */}
-            <motion.span
+            <m.span
               key={stat.value}
               initial={{ opacity: 0.4 }}
               animate={{ opacity: 1 }}
@@ -49,7 +49,7 @@ export function StatCards({ totals }: { totals: AnalyticsTotals }) {
               className="inline-block"
             >
               {stat.value}
-            </motion.span>
+            </m.span>
           </dd>
           <dd className="mt-1 text-12 text-muted-foreground">{stat.detail}</dd>
         </Card>

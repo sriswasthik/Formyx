@@ -1,7 +1,7 @@
 import { answerableFields, type FormDetail } from '@formyx/shared';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { Download, Inbox, RotateCw, Search, SearchX, Share2, Trash2, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
@@ -240,7 +240,7 @@ export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
 
       <AnimatePresence initial={false}>
         {selectedIds.length > 0 && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -273,7 +273,7 @@ export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
                 Delete
               </Button>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

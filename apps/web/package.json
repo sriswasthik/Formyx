@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size": "node scripts/bundle-report.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

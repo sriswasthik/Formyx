@@ -8,3 +8,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  /** The public form request index.html starts before the app loads (see public-form-api.ts). */
+  __formyxPrefetch?: { slug: string; response: Promise<Response> };
+}

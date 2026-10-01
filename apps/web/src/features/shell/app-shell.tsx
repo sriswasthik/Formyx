@@ -1,5 +1,5 @@
 import { Menu } from 'lucide-react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useCurrentTitle } from '@/app/page-title';
@@ -66,7 +66,7 @@ export function AppShell() {
             tabIndex={-1}
             className="flex-1 px-6 py-6 outline-none md:px-8 md:py-8 lg:px-10"
           >
-            <motion.div
+            <m.div
               key={pathname}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -74,7 +74,7 @@ export function AppShell() {
               className="mx-auto w-full max-w-5xl"
             >
               <Outlet />
-            </motion.div>
+            </m.div>
           </main>
         </div>
       </div>

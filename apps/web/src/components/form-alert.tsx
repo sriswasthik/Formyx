@@ -1,12 +1,12 @@
 import { CircleAlert } from 'lucide-react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import type * as React from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 
 /** A problem with the form as a whole (not one field), announced to screen readers. */
 export function FormAlert({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
+    <m.div
       role="alert"
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
@@ -15,6 +15,6 @@ export function FormAlert({ children }: { children: React.ReactNode }) {
     >
       <CircleAlert className="mt-0.5 shrink-0" aria-hidden />
       <p>{children}</p>
-    </motion.div>
+    </m.div>
   );
 }

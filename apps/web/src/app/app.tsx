@@ -1,16 +1,19 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { LucideProvider } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
-import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { useThemeSync } from '@/features/theme/theme-store';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { createQueryClient } from './query-client';
 import { routes } from './routes';
 
 const router = createBrowserRouter(routes);
+
+// Toasts load after the page: public forms never show one, so they never pay for them.
+const Toaster = lazy(() =>
+  import('@/components/ui/sonner').then((module) => ({ default: module.Toaster })),
+);
 
 export function App() {
   const [queryClient] = useState(createQueryClient);
@@ -24,10 +27,10 @@ export function App() {
         transition={{ duration: DURATION.base, ease: EASE_STANDARD }}
       >
         <LucideProvider size={16} strokeWidth={1.75}>
-          <TooltipProvider delayDuration={300}>
-            <RouterProvider router={router} />
+          <RouterProvider router={router} />
+          <Suspense fallback={null}>
             <Toaster />
-          </TooltipProvider>
+          </Suspense>
         </LucideProvider>
       </MotionConfig>
     </QueryClientProvider>

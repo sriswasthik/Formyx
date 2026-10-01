@@ -1,5 +1,5 @@
 import { Activity, GitBranch, MousePointerClick, type LucideIcon } from 'lucide-react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 
 interface Feature {
@@ -43,7 +43,7 @@ export function FeatureSection() {
         </div>
         <ul className="mt-12 grid gap-4 md:mt-16 md:grid-cols-3 md:gap-6">
           {FEATURES.map(({ icon: Icon, title, description }, index) => (
-            <motion.li
+            <m.li
               key={title}
               initial={{ opacity: 0, y: 8 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -56,7 +56,7 @@ export function FeatureSection() {
               </div>
               <h3 className="mt-5 text-16 font-semibold tracking-tight">{title}</h3>
               <p className="mt-2 text-14 text-muted-foreground">{description}</p>
-            </motion.li>
+            </m.li>
           ))}
         </ul>
       </div>

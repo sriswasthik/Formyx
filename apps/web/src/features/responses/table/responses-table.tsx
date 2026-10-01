@@ -7,7 +7,7 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { createContext, useContext, useMemo } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
@@ -218,7 +218,7 @@ export function ResponsesTable({
               const isNew = arrived.has(row.id);
               const selected = row.getIsSelected();
               return (
-                <motion.tr
+                <m.tr
                   key={row.id}
                   // Only rows that arrive live slide in; the rest are simply there.
                   initial={isNew ? { opacity: 0, y: -4 } : false}
@@ -241,7 +241,7 @@ export function ResponsesTable({
                       <table.FlexRender cell={cell} />
                     </td>
                   ))}
-                </motion.tr>
+                </m.tr>
               );
             })}
           </tbody>

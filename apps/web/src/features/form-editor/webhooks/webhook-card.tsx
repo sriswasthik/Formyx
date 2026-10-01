@@ -1,6 +1,6 @@
 import type { Webhook } from '@formyx/shared';
 import { ChevronDown, Send, Trash2 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -108,7 +108,7 @@ export function WebhookCard({ formId, webhook, secret, onSecretSaved }: WebhookC
 
       <AnimatePresence initial={false}>
         {logOpen && (
-          <motion.div
+          <m.div
             id={logId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -117,7 +117,7 @@ export function WebhookCard({ formId, webhook, secret, onSecretSaved }: WebhookC
             className="overflow-hidden border-t"
           >
             <DeliveryLog formId={formId} webhookId={webhook.id} />
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

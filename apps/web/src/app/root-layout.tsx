@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet, ScrollRestoration } from 'react-router';
 import { isEmbedded } from '@/lib/embed';
+import { AppMotion } from './app-motion';
 import { useCurrentTitle } from './page-title';
 import { formatDocumentTitle } from './route-handle';
 
@@ -12,10 +13,10 @@ export function RootLayout() {
   }, [title]);
 
   return (
-    <>
+    <AppMotion>
       <Outlet />
       <ScrollRestoration />
-    </>
+    </AppMotion>
   );
 }
 
