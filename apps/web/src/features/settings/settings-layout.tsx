@@ -9,7 +9,7 @@ const SECTIONS = [
 /** Settings pages under one heading, with links between them. */
 export function SettingsLayout() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-3xl flex-col gap-6">
       <nav aria-label="Settings">
         <ul className="flex h-10 gap-5 border-b">
           {SECTIONS.map(({ to, label, end }) => (
