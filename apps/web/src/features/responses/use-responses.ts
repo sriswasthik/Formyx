@@ -61,12 +61,16 @@ function findLoadedResponse(
   return undefined;
 }
 
-export function useResponse(formId: string, responseId: string | null) {
+/**
+ * One response. `active: false` keeps what is cached on screen without fetching it again,
+ * e.g. while a closing sheet slides away from a response that was just deleted.
+ */
+export function useResponse(formId: string, responseId: string | null, active = true) {
   const queryClient = useQueryClient();
   return useQuery({
     queryKey: responseKeys.detail(formId, responseId ?? ''),
     queryFn: () => getResponse(formId, responseId ?? ''),
-    enabled: responseId !== null,
+    enabled: active && responseId !== null,
     initialData: () =>
       responseId ? findLoadedResponse(queryClient, formId, responseId) : undefined,
   });
@@ -110,7 +114,11 @@ export function removeCachedResponses(
   queryClient.setQueriesData<ResponsePages>({ queryKey: responseKeys.lists(formId) }, (data) =>
     data ? removeResponses(data, gone) : data,
   );
-  for (const id of ids) queryClient.removeQueries({ queryKey: responseKeys.detail(formId, id) });
+  // Only responses nobody is looking at: removing one an open sheet still watches would make
+  // it fetch the response again, which is gone. The sheet is closing anyway.
+  for (const id of ids) {
+    queryClient.removeQueries({ queryKey: responseKeys.detail(formId, id), type: 'inactive' });
+  }
 }
 
 export function useDeleteResponses(form: Pick<FormDetail, 'id' | 'workspaceId'>) {
@@ -141,7 +149,8 @@ export function useDeleteResponses(form: Pick<FormDetail, 'id' | 'workspaceId'>)
     // Totals, analytics and the form's count all follow from the server's view.
     onSettled: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: responseKeys.all(form.id) }),
+        queryClient.invalidateQueries({ queryKey: lists }),
+        queryClient.invalidateQueries({ queryKey: responseKeys.analytics(form.id) }),
         queryClient.invalidateQueries({ queryKey: formKeys.detail(form.id), exact: true }),
       ]),
   });

@@ -60,12 +60,14 @@ function SheetBody({
   formId,
   fields,
   responseId,
+  open,
 }: {
   formId: string;
   fields: Field[];
   responseId: string;
+  open: boolean;
 }) {
-  const query = useResponse(formId, responseId);
+  const query = useResponse(formId, responseId, open);
 
   if (query.isPending) {
     return (
@@ -139,12 +141,14 @@ export function ResponseSheet({
   // Keep showing the last response while the sheet slides away.
   const [shownId, setShownId] = useState(responseId);
   if (responseId !== null && responseId !== shownId) setShownId(responseId);
-  const query = useResponse(formId, shownId);
+  const open = responseId !== null;
+  // Closed, the sheet only shows what it has while it slides away: nothing is fetched again.
+  const query = useResponse(formId, shownId, open);
   const createdAt = query.data?.createdAt;
 
   return (
     <Sheet
-      open={responseId !== null}
+      open={open}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
@@ -163,7 +167,9 @@ export function ResponseSheet({
           </SheetDescription>
         </SheetHeader>
         <div className="flex-1 p-5">
-          {shownId && <SheetBody formId={formId} fields={fields} responseId={shownId} />}
+          {shownId && (
+            <SheetBody formId={formId} fields={fields} responseId={shownId} open={open} />
+          )}
         </div>
         {onDelete && query.data && (
           <SheetFooter className="border-t">

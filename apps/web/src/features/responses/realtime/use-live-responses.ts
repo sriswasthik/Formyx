@@ -74,7 +74,9 @@ export function useLiveResponses(
 
       onDeleted: ({ ids }) => {
         removeCachedResponses(queryClient, formId, ids);
-        void queryClient.invalidateQueries({ queryKey: responseKeys.all(formId) });
+        // Lists and analytics only: the deleted responses themselves are gone for good.
+        void queryClient.invalidateQueries({ queryKey: responseKeys.lists(formId) });
+        void queryClient.invalidateQueries({ queryKey: responseKeys.analytics(formId) });
         void queryClient.invalidateQueries({ queryKey: formKeys.detail(formId), exact: true });
       },
 
