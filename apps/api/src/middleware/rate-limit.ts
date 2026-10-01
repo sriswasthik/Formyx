@@ -62,3 +62,68 @@ export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_M
     view: publicLimiter(VIEW_LIMIT, 'Too many requests. Try again in a few minutes.'),
   };
 }
+
+/** Signatures for respondents' uploads: a few per file question, with room for retries. */
+const UPLOAD_SIGNATURE_LIMIT = 60;
+
+/** Per-IP, per-form limit on signing respondents' uploads, which needs no account. */
+export function createUploadRateLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: UPLOAD_SIGNATURE_LIMIT,
+    keyGenerator: (req) => {
+      const form = typeof req.query.form === 'string' ? req.query.form : '';
+      return `${ipKeyGenerator(req.ip ?? '')}:${form}`;
+    },
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new AppError(429, 'RATE_LIMITED', 'Too many uploads. Try again in a few minutes.'));
+    },
+  });
+}
+
+function limitedTo(limit: number, keyGenerator: (req: Request) => string, message: string) {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit,
+    keyGenerator,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new AppError(429, 'RATE_LIMITED', message));
+    },
+  });
+}
+
+/** Per-user limit on invite emails, new or sent again: owners cannot be used to spam. */
+export function createInviteRateLimiter(env: Pick<Env, 'INVITE_RATE_LIMIT_MAX'>) {
+  return limitedTo(
+    env.INVITE_RATE_LIMIT_MAX,
+    // Runs after requireAuth, so there is always a user.
+    (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
+    'Too many invites. Try again in a few minutes.',
+  );
+}
+
+/** Opening and accepting invite links, per IP. */
+const INVITE_LINK_LIMIT = 60;
+
+export function createInviteLinkRateLimiter() {
+  return limitedTo(
+    INVITE_LINK_LIMIT,
+    (req) => ipKeyGenerator(req.ip ?? ''),
+    'Too many requests. Try again in a few minutes.',
+  );
+}
+
+/** "Send test event" makes a request to any URL an editor gives, so it is limited per user. */
+const WEBHOOK_TEST_LIMIT = 30;
+
+export function createWebhookTestRateLimiter() {
+  return limitedTo(
+    WEBHOOK_TEST_LIMIT,
+    (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
+    'Too many test events. Try again in a few minutes.',
+  );
+}

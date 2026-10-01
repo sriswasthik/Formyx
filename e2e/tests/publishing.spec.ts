@@ -118,8 +118,10 @@ test.describe('on large screens', () => {
 
     // Reopening is refused while the limit still holds.
     await page.reload();
-    await expect(page.getByText('Closed', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'More publishing options' }).click();
+    // Nothing left to publish, so the button names the form's state and holds its options.
+    const options = page.getByRole('button', { name: 'Closed: publishing options' });
+    await expect(options).toBeVisible();
+    await options.click();
     await page.getByRole('menuitem', { name: 'Reopen form' }).click();
     await expect(page.getByText(/reached its response limit/)).toBeVisible();
   });

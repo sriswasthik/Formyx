@@ -1,3 +1,5 @@
+export * from './analytics.js';
+export * from './answer-format.js';
 export * from './answers.js';
 export * from './api.js';
 export * from './condition-summary.js';
@@ -5,9 +7,11 @@ export * from './conditions.js';
 export * from './factories.js';
 export * from './field-types.js';
 export * from './fields.js';
+export * from './files.js';
 export * from './form-schema.js';
 export * from './ids.js';
 export * from './publish.js';
+export * from './responses.js';
 export * from './submission.js';
 export * from './templates.js';
 export * from './theme.js';

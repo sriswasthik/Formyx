@@ -12,6 +12,12 @@ export const ERROR_CODES = [
   'FORM_CLOSED',
   /** The draft is not ready to publish; `details` lists what to fix. */
   'FORM_INCOMPLETE',
+  /** The invite link was used, revoked or has expired; `details.status` says which. */
+  'INVITE_UNAVAILABLE',
+  /** The change would leave a workspace without an owner. */
+  'LAST_OWNER',
+  /** File uploads are not set up on this server. */
+  'UPLOADS_UNAVAILABLE',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

@@ -18,7 +18,19 @@ describe('parseEnv', () => {
       BCRYPT_COST: 12,
       AUTH_RATE_LIMIT_MAX: 10,
       SUBMISSION_RATE_LIMIT_MAX: 10,
+      INVITE_RATE_LIMIT_MAX: 20,
+      WEBHOOK_ALLOW_PRIVATE_URLS: false,
+      APP_URL: 'http://localhost:5173',
+      EMAIL_FROM: 'Formyx <notifications@formyx.app>',
+      CLOUDINARY_FOLDER: 'formyx',
     });
+    expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
+  });
+
+  it('normalises APP_URL and treats a blank RESEND_API_KEY as unset', () => {
+    const env = parseEnv({ ...REQUIRED, APP_URL: 'https://formyx.app/', RESEND_API_KEY: ' ' });
+    expect(env.APP_URL).toBe('https://formyx.app');
+    expect(env.RESEND_API_KEY).toBeUndefined();
   });
 
   it('coerces PORT and parses a comma-separated, normalised origin list', () => {
@@ -62,6 +74,7 @@ describe('parseEnv', () => {
     [{ BCRYPT_COST: '3' }, 'BCRYPT_COST'],
     [{ AUTH_RATE_LIMIT_MAX: '0' }, 'AUTH_RATE_LIMIT_MAX'],
     [{ SUBMISSION_RATE_LIMIT_MAX: '0' }, 'SUBMISSION_RATE_LIMIT_MAX'],
+    [{ APP_URL: 'formyx.app' }, 'APP_URL'],
   ])('rejects %j and names the variable', (overrides, variable) => {
     const source = { ...REQUIRED, ...overrides };
     expect(() => parseEnv(source)).toThrow(EnvError);

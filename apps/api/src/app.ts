@@ -4,7 +4,11 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import type { Env } from './config/env.js';
+import type { EventBus } from './lib/events.js';
+import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
+import type { UploadStorage } from './lib/upload-storage.js';
+import type { WebhookDispatcher } from './webhooks/dispatcher.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
@@ -14,6 +18,14 @@ export interface AppDependencies {
   env: Env;
   logger: Logger;
   prisma: Database;
+  /** Where routes announce what happened, e.g. a saved response. */
+  events: EventBus;
+  /** File storage; `null` when uploads are not set up. */
+  storage: UploadStorage | null;
+  /** Sends emails a request asks for, such as invites. */
+  mailer: Mailer;
+  /** Delivers webhook events; routes use it for test events. */
+  webhooks: WebhookDispatcher;
 }
 
 export function createApp(deps: AppDependencies): Express {

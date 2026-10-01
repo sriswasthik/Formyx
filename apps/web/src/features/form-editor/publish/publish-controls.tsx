@@ -1,5 +1,12 @@
 import type { FormDetail } from '@formyx/shared';
-import { ChevronDown, CirclePause, CirclePlay, LoaderCircle, Send, Share2 } from 'lucide-react';
+import {
+  ChevronDown,
+  CirclePause,
+  CirclePlay,
+  ExternalLink,
+  LoaderCircle,
+  Send,
+} from 'lucide-react';
 import { useState, type Ref } from 'react';
 import { ActionTooltip } from '@/components/action-tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -8,8 +15,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { publicFormPath } from '@/features/forms/form-paths';
+import { cn } from '@/lib/utils';
 import type { PublishAction } from './use-publishing';
 import { useHasUnpublishedChanges } from './use-unpublished-changes';
 
@@ -19,18 +29,52 @@ interface PublishControlsProps {
   /** The main button, so dialogs opened from it can give focus back. */
   primaryRef?: Ref<HTMLButtonElement>;
   onPublish: () => void;
-  onShare: () => void;
   onClose: () => void;
   onReopen: () => void;
 }
 
-/** Publish, then share; and closing or reopening a live form. */
+interface MenuProps {
+  form: FormDetail;
+  closed: boolean;
+  onClose: () => void;
+  onReopen: () => void;
+}
+
+/** Closing or reopening a live form, and a look at what respondents see. */
+function LiveFormMenuItems({ form, closed, onClose, onReopen }: MenuProps) {
+  return (
+    <>
+      {closed ? (
+        <DropdownMenuItem onSelect={onReopen}>
+          <CirclePlay aria-hidden />
+          Reopen form
+        </DropdownMenuItem>
+      ) : (
+        <DropdownMenuItem onSelect={onClose}>
+          <CirclePause aria-hidden />
+          Close form
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem asChild>
+        <a href={publicFormPath(form.slug)} target="_blank" rel="noreferrer">
+          <ExternalLink aria-hidden />
+          Open public form
+        </a>
+      </DropdownMenuItem>
+    </>
+  );
+}
+
+/**
+ * Publishing a draft, or the changes made since; once everything is live, the form's state
+ * (published or closed) with closing and reopening. Sharing lives in the form's navigation.
+ */
 export function PublishControls({
   form,
   pending,
   primaryRef,
   onPublish,
-  onShare,
   onClose,
   onReopen,
 }: PublishControlsProps) {
@@ -39,13 +83,46 @@ export function PublishControls({
   const live = form.publishedSchema !== null;
   const closed = form.status === 'CLOSED';
   const busy = pending !== null;
+  const menuProps = { form, closed, onClose, onReopen };
 
-  const primary = !live
-    ? { label: 'Publish', icon: Send, onClick: onPublish }
-    : changed
-      ? { label: 'Publish changes', icon: Send, onClick: onPublish }
-      : { label: 'Share', icon: Share2, onClick: onShare };
-  const Icon = pending === 'publish' ? LoaderCircle : primary.icon;
+  if (live && !changed) {
+    // Nothing to publish: the button names the form's state and holds what can be done with it.
+    return (
+      <DropdownMenu
+        open={menuOpen}
+        onOpenChange={(open) => {
+          setMenuOpen(open && !busy);
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <Button
+            ref={primaryRef}
+            variant="secondary"
+            size="sm"
+            aria-disabled={busy || undefined}
+            aria-label={closed ? 'Closed: publishing options' : 'Published: publishing options'}
+          >
+            {busy ? (
+              <LoaderCircle aria-hidden className="motion-safe:animate-spin" />
+            ) : (
+              <span
+                aria-hidden
+                className={cn('size-2 rounded-full', closed ? 'bg-control' : 'bg-success')}
+              />
+            )}
+            <span className="hidden sm:inline">{closed ? 'Closed' : 'Published'}</span>
+            <ChevronDown aria-hidden className="text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <LiveFormMenuItems {...menuProps} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  const label = live ? 'Publish changes' : 'Publish';
+  const Icon = pending === 'publish' ? LoaderCircle : Send;
 
   return (
     <div className="flex items-center gap-2">
@@ -54,7 +131,7 @@ export function PublishControls({
           Closed
         </Badge>
       )}
-      {changed && (
+      {changed && live && (
         <Badge variant="warning" className="hidden md:inline-flex">
           Unpublished changes
         </Badge>
@@ -68,12 +145,12 @@ export function PublishControls({
           className={live ? 'relative rounded-r-none' : 'relative'}
           aria-disabled={busy || undefined}
           onClick={() => {
-            if (!busy) primary.onClick();
+            if (!busy) onPublish();
           }}
         >
           <Icon aria-hidden className={pending === 'publish' ? 'motion-safe:animate-spin' : ''} />
-          <span className="sr-only sm:not-sr-only">{primary.label}</span>
-          {changed && (
+          <span className="sr-only sm:not-sr-only">{label}</span>
+          {changed && live && (
             // Small screens hide the badge; a dot on the button says the same.
             <span
               aria-hidden
@@ -101,23 +178,7 @@ export function PublishControls({
               </DropdownMenuTrigger>
             </ActionTooltip>
             <DropdownMenuContent align="end" className="w-48">
-              {changed && (
-                <DropdownMenuItem onSelect={onShare}>
-                  <Share2 aria-hidden />
-                  Share
-                </DropdownMenuItem>
-              )}
-              {closed ? (
-                <DropdownMenuItem onSelect={onReopen}>
-                  <CirclePlay aria-hidden />
-                  Reopen form
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onSelect={onClose}>
-                  <CirclePause aria-hidden />
-                  Close form
-                </DropdownMenuItem>
-              )}
+              <LiveFormMenuItems {...menuProps} />
             </DropdownMenuContent>
           </DropdownMenu>
         )}

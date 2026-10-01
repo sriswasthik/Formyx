@@ -221,6 +221,11 @@
 
   --shadow-popover: var(--popover-shadow);
   --shadow-dialog: var(--dialog-shadow);
+
+  /* Table rows. Opaque, so sticky cells hide what scrolls beneath them. */
+  --color-row-hover: color-mix(in oklab, var(--foreground) 3%, var(--card));
+  --color-row-selected: color-mix(in oklab, var(--accent) 9%, var(--card));
+  --color-row-arrived: color-mix(in oklab, var(--accent) 16%, var(--card));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -279,6 +284,26 @@
 
   ::selection {
     background-color: var(--accent-subtle);
+  }
+}
+
+/* A response that just arrived live: its row starts tinted and fades back. */
+@keyframes row-arrived {
+  /* Holds long enough to be noticed, then fades back. */
+  0%,
+  35% {
+    background-color: var(--color-row-arrived);
+  }
+}
+
+.row-arrived > td {
+  animation: row-arrived 2000ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No fade: the tint simply stays while the row counts as new. */
+  .row-arrived > td {
+    background-color: var(--color-row-arrived);
   }
 }
 

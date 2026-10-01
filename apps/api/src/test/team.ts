@@ -37,5 +37,7 @@ export function requestAs(app: Express, userId: string) {
       return body ? req.send(body) : req;
     },
     patch: (url: string, body: object) => request(app).patch(url).set('Cookie', cookie).send(body),
+    put: (url: string, body: object) => request(app).put(url).set('Cookie', cookie).send(body),
+    delete: (url: string) => request(app).delete(url).set('Cookie', cookie),
   };
 }

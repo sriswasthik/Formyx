@@ -14,6 +14,8 @@ import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
+import { FormCover, FormLogo } from './branding';
+import { FileUploadsContext, type FileUploader, type FileUploads } from './file-uploads';
 import { FormThemeScope } from './form-theme';
 
 /** How a handed-over submission went. Problems keep the form open to fix them. */
@@ -41,6 +43,8 @@ interface FormViewProps {
   footer?: ReactNode;
   /** Offers "Submit another response" after the thank-you message. */
   allowAnotherResponse?: boolean;
+  /** Uploads respondents' files. Without it, file questions turn files away. */
+  uploadFile?: FileUploader | undefined;
   className?: string;
 }
 
@@ -62,6 +66,7 @@ export function FormView({
   hiddenFields,
   footer,
   allowAnotherResponse = true,
+  uploadFile,
   className,
 }: FormViewProps) {
   const idPrefix = useId();
@@ -70,6 +75,8 @@ export function FormView({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('filling');
+  /** Questions whose file is still on its way to storage. */
+  const [uploading, setUploadingIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const visibleIds = useMemo(() => evaluateVisibility(schema, answers), [schema, answers]);
   const errorCount = Object.keys(errors).length;
@@ -85,6 +92,25 @@ export function FormView({
     });
   }, []);
 
+  const setUploading = useCallback((fieldId: string, busy: boolean) => {
+    setUploadingIds((current) => {
+      if (current.has(fieldId) === busy) return current;
+      const next = new Set(current);
+      if (busy) next.add(fieldId);
+      else next.delete(fieldId);
+      return next;
+    });
+  }, []);
+
+  const reportProblem = useCallback((fieldId: string, message: string) => {
+    setErrors((current) => ({ ...current, [fieldId]: message }));
+  }, []);
+
+  const fileUploads = useMemo<FileUploads>(
+    () => ({ upload: uploadFile ?? null, setUploading, reportProblem }),
+    [uploadFile, setUploading, reportProblem],
+  );
+
   const showErrors = (problems: Record<string, string>) => {
     setErrors(problems);
     const firstInvalid = schema.fields.find((field) => field.id in problems);
@@ -94,6 +120,11 @@ export function FormView({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const problems = validateAnswers(schema, answers);
+    for (const field of schema.fields) {
+      if (uploading.has(field.id) && visibleIds.has(field.id)) {
+        problems[field.id] = 'Wait for the file to finish uploading';
+      }
+    }
     if (Object.keys(problems).length > 0) {
       setFormError(null);
       showErrors(problems);
@@ -120,6 +151,7 @@ export function FormView({
 
   return (
     <FormThemeScope theme={theme} className={cn('flex min-h-full flex-col', className)}>
+      <FormCover theme={theme} />
       <div className="mx-auto w-full max-w-[640px] flex-1 px-6 py-10 sm:py-14">
         {status === 'done' ? (
           <motion.div
@@ -146,59 +178,66 @@ export function FormView({
             )}
           </motion.div>
         ) : (
-          <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col">
-            <header className="flex flex-col gap-3 pb-8">
-              <Title className="text-24 font-semibold tracking-tight break-words sm:text-32">
-                {title}
-              </Title>
-              {schema.description && (
-                <p className="text-16 break-words whitespace-pre-wrap text-(--form-muted)">
-                  {schema.description}
-                </p>
-              )}
-            </header>
-            <AnimatePresence initial={false}>
-              {schema.fields
-                .filter((field) => visibleIds.has(field.id))
-                .map((field) => (
-                  <motion.div
-                    key={field.id}
-                    // Clipped only while opening or closing, so focus rings show otherwise.
-                    initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
-                    animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
-                    exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-                    transition={reveal}
-                  >
-                    <div className="pb-8">
-                      <FieldRenderer
-                        field={field}
-                        mode="respondent"
-                        idPrefix={idPrefix}
-                        value={answers[field.id]}
-                        error={errors[field.id]}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </motion.div>
-                ))}
-            </AnimatePresence>
-            {hiddenFields}
-            <div className="flex flex-col items-start gap-3">
-              <button type="submit" className={primaryButton} disabled={status === 'submitting'}>
-                {status === 'submitting' && (
-                  <LoaderCircle className="motion-safe:animate-spin" aria-hidden />
+          <FileUploadsContext.Provider value={fileUploads}>
+            <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col">
+              <header className="flex flex-col gap-3 pb-8">
+                <FormLogo theme={theme} className="mb-3" />
+                <Title className="text-24 font-semibold tracking-tight break-words sm:text-32">
+                  {title}
+                </Title>
+                {schema.description && (
+                  <p className="text-16 break-words whitespace-pre-wrap text-(--form-muted)">
+                    {schema.description}
+                  </p>
                 )}
-                {schema.settings.submitButtonText}
-              </button>
-              <p role="alert" className="text-14 text-(--form-danger) empty:hidden">
-                {formError ??
-                  (errorCount > 0 &&
-                    (errorCount === 1
-                      ? '1 question needs your attention.'
-                      : `${errorCount} questions need your attention.`))}
-              </p>
-            </div>
-          </form>
+              </header>
+              <AnimatePresence initial={false}>
+                {schema.fields
+                  .filter((field) => visibleIds.has(field.id))
+                  .map((field) => (
+                    <motion.div
+                      key={field.id}
+                      // Clipped only while opening or closing, so focus rings show otherwise.
+                      initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                      animate={{
+                        height: 'auto',
+                        opacity: 1,
+                        transitionEnd: { overflow: 'visible' },
+                      }}
+                      exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                      transition={reveal}
+                    >
+                      <div className="pb-8">
+                        <FieldRenderer
+                          field={field}
+                          mode="respondent"
+                          idPrefix={idPrefix}
+                          value={answers[field.id]}
+                          error={errors[field.id]}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+              </AnimatePresence>
+              {hiddenFields}
+              <div className="flex flex-col items-start gap-3">
+                <button type="submit" className={primaryButton} disabled={status === 'submitting'}>
+                  {status === 'submitting' && (
+                    <LoaderCircle className="motion-safe:animate-spin" aria-hidden />
+                  )}
+                  {schema.settings.submitButtonText}
+                </button>
+                <p role="alert" className="text-14 text-(--form-danger) empty:hidden">
+                  {formError ??
+                    (errorCount > 0 &&
+                      (errorCount === 1
+                        ? '1 question needs your attention.'
+                        : `${errorCount} questions need your attention.`))}
+                </p>
+              </div>
+            </form>
+          </FileUploadsContext.Provider>
         )}
       </div>
       {footer}

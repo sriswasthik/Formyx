@@ -1,5 +1,11 @@
-import { FIELD_TYPE_LABELS, hasRole, isAnswerableFieldType, type FormDetail } from '@formyx/shared';
-import { ArrowLeft, Eye, FileQuestion, Lock, RotateCw } from 'lucide-react';
+import {
+  FIELD_TYPE_LABELS,
+  formResponsesPath,
+  hasRole,
+  isAnswerableFieldType,
+  type FormDetail,
+} from '@formyx/shared';
+import { ArrowLeft, Eye, FileQuestion, Inbox, Lock, RotateCw } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { EmptyState } from '@/components/empty-state';
@@ -159,10 +165,18 @@ export function FormDetailPage() {
         </p>
       </div>
 
-      <p className="flex items-center gap-2 rounded-lg border bg-surface px-4 py-3 text-14 text-muted-foreground">
-        <Eye aria-hidden className="shrink-0" />
-        You can view this form. Editors of the workspace can change it.
-      </p>
+      <div className="flex flex-col gap-3 rounded-lg border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-center gap-2 text-14 text-muted-foreground">
+          <Eye aria-hidden className="shrink-0" />
+          You can view this form. Editors of the workspace can change it.
+        </p>
+        <Button asChild variant="secondary" size="sm" className="w-fit shrink-0">
+          <Link to={formResponsesPath(form.id)}>
+            <Inbox aria-hidden />
+            View responses
+          </Link>
+        </Button>
+      </div>
 
       {form.draftSchema.fields.length > 0 && <QuestionList form={form} />}
     </div>

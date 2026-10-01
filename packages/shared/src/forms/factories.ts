@@ -48,7 +48,6 @@ export function createDefaultSettings(): FormSettings {
   return {
     submitButtonText: 'Submit',
     successMessage: 'Thanks! Your response has been recorded.',
-    notifyOnSubmit: false,
   };
 }
 

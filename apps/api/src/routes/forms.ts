@@ -5,23 +5,41 @@ import {
   updateFormInputSchema,
   type FormDetail,
   type FormListResponse,
+  type FormTheme,
 } from '@formyx/shared';
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { routeParam } from '../lib/route-param.js';
 import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createFormService } from '../services/form-service.js';
+import { createUploadChecks } from '../services/upload-checks.js';
 
 /**
  * Anyone in the workspace can read its forms; changing them takes EDITOR or above.
  * Routes are declared with full paths because they span two resources.
  */
 export function createFormsRouter(
-  { prisma }: AppDependencies,
+  { prisma, env, storage }: AppDependencies,
   { requireAuth, requireWorkspaceRole, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
   const forms = createFormService(prisma);
+  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
+
+  /** Checks logos and cover images that are new to this form were uploaded for it. */
+  async function checkThemeImages(formId: string, theme: FormTheme): Promise<void> {
+    const urls = [theme.logoUrl, theme.coverUrl].filter((url) => url !== undefined);
+    if (urls.length === 0) return;
+    const current = await forms.get(formId);
+    const known = new Set(
+      [current.theme, current.publishedTheme].flatMap((known) =>
+        known ? [known.logoUrl, known.coverUrl] : [],
+      ),
+    );
+    for (const url of urls) {
+      if (!known.has(url)) await uploads.verifyThemeImage(formId, url);
+    }
+  }
 
   // Form data is private to the workspace: keep it out of shared caches.
   router.use(['/workspaces/:workspaceId/forms', '/forms'], (_req, res, next) => {
@@ -64,7 +82,9 @@ export function createFormsRouter(
 
   router.patch('/forms/:formId', requireAuth, requireFormRole('EDITOR'), async (req, res) => {
     const input = updateFormInputSchema.parse(req.body);
-    const form: FormDetail = await forms.update(routeParam(req, 'formId'), input);
+    const formId = routeParam(req, 'formId');
+    if (input.theme) await checkThemeImages(formId, input.theme);
+    const form: FormDetail = await forms.update(formId, input);
     res.json(form);
   });
 

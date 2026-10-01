@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { issuesUnder, useDraftIssues } from '../draft-issues';
 import { useEditorStore } from '../editor-store-context';
+import { WebhooksSection } from '../webhooks/webhooks-section';
 import { fromDateTimeLocal, toDateTimeLocal } from './date-time';
 import { NumberInput } from './number-input';
 import { SettingsSection } from './settings-section';
@@ -109,6 +110,7 @@ export function FormSettingsPanel() {
           Limits apply to the published form, so publish after changing them.
         </p>
       </SettingsSection>
+      <WebhooksSection />
     </div>
   );
 }

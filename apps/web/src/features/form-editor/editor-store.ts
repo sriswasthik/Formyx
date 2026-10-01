@@ -1,4 +1,5 @@
 import {
+  createDefaultTheme,
   createField,
   createId,
   removeBrokenConditions,
@@ -6,6 +7,7 @@ import {
   type FieldType,
   type FormSchema,
   type FormSettings,
+  type FormTheme,
 } from '@formyx/shared';
 import { current, original, type Draft } from 'immer';
 import { immer } from 'zustand/middleware/immer';
@@ -19,6 +21,7 @@ export const MERGE_WINDOW_MS = 1000;
 export interface EditorSnapshot {
   title: string;
   schema: FormSchema;
+  theme: FormTheme;
   selectedFieldId: string | null;
 }
 
@@ -29,6 +32,9 @@ type EditableKey = Exclude<KeysOfUnion<Field>, 'id' | 'type'>;
 export type FieldPatch = {
   [K in EditableKey]?: Extract<Field, Partial<Record<K, unknown>>>[K] | undefined;
 };
+
+/** Theme settings to change. `undefined` removes the logo or cover image. */
+export type ThemePatch = { [K in keyof FormTheme]?: FormTheme[K] | undefined };
 
 /** Settings to change. `undefined` removes an optional setting (e.g. `closeAt`). */
 export type SettingsPatch = { [K in keyof FormSettings]?: FormSettings[K] | undefined };
@@ -45,7 +51,7 @@ export interface EditorState extends EditorSnapshot {
   past: EditorSnapshot[];
   future: EditorSnapshot[];
   lastChange: { key: string; at: number } | null;
-  /** Bumped by every change to the title or schema, including undo and redo. */
+  /** Bumped by every change to the title, schema or theme, including undo and redo. */
   revision: number;
   /** The revision last saved; the draft has unsaved changes while they differ. */
   savedRevision: number;
@@ -65,11 +71,22 @@ export interface EditorState extends EditorSnapshot {
   setTitle: (title: string, options?: ChangeOptions) => void;
   /** Sets the text shown under the title; an empty string removes it. */
   setDescription: (description: string, options?: ChangeOptions) => void;
+  /** Changes how the form looks. */
+  updateTheme: (patch: ThemePatch, options?: ChangeOptions) => void;
   undo: () => void;
   redo: () => void;
   markSaved: (revision: number, version: number) => void;
   /** Starts over from the server's copy, e.g. after a conflict; clears history. */
-  reset: (form: { title: string; schema: FormSchema; version: number }) => void;
+  reset: (form: EditorSource) => void;
+}
+
+/** What an editor starts from: the form as the server has it. */
+export interface EditorSource {
+  title: string;
+  schema: FormSchema;
+  version: number;
+  /** Defaults to the standard theme. */
+  theme?: FormTheme;
 }
 
 export interface EditorStoreOptions {
@@ -86,8 +103,8 @@ export type EditorStore = StoreApi<EditorState>;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-function snapshotOf({ title, schema, selectedFieldId }: EditorSnapshot): EditorSnapshot {
-  return { title, schema, selectedFieldId };
+function snapshotOf({ title, schema, theme, selectedFieldId }: EditorSnapshot): EditorSnapshot {
+  return { title, schema, theme, selectedFieldId };
 }
 
 function isSame(a: unknown, b: unknown): boolean {
@@ -109,7 +126,7 @@ function copyField(field: Field): Field {
 const STRUCTURAL_KEYS: readonly EditableKey[] = ['options', 'ratingScale'];
 
 export function createEditorStore(
-  initial: { title: string; schema: FormSchema; version: number },
+  initial: EditorSource,
   { onConditionsRemoved, now = Date.now }: EditorStoreOptions = {},
 ): EditorStore {
   return createStore<EditorState>()(
@@ -161,6 +178,7 @@ export function createEditorStore(
       const restore = (state: Draft<EditorState>, snapshot: EditorSnapshot) => {
         state.title = snapshot.title;
         state.schema = snapshot.schema;
+        state.theme = snapshot.theme;
         state.selectedFieldId = snapshot.schema.fields.some(
           (field) => field.id === snapshot.selectedFieldId,
         )
@@ -175,6 +193,7 @@ export function createEditorStore(
       return {
         title: initial.title,
         schema: initial.schema,
+        theme: initial.theme ?? createDefaultTheme(),
         selectedFieldId: null,
         past: [],
         future: [],
@@ -292,6 +311,21 @@ export function createEditorStore(
           }, options);
         },
 
+        updateTheme: (patch, options) => {
+          const theme = get().theme;
+          const changed = (Object.keys(patch) as (keyof FormTheme)[]).some(
+            (key) => theme[key] !== patch[key],
+          );
+          if (!changed) return;
+          change((state) => {
+            const draft = state.theme as Record<string, unknown>;
+            for (const [key, value] of Object.entries(patch) as [string, unknown][]) {
+              if (value === undefined) Reflect.deleteProperty(draft, key);
+              else draft[key] = value;
+            }
+          }, options);
+        },
+
         undo: () => {
           set((state) => {
             const base = original(state);
@@ -321,10 +355,11 @@ export function createEditorStore(
           });
         },
 
-        reset: ({ title, schema, version }) => {
+        reset: ({ title, schema, version, theme }) => {
           set((state) => {
             state.title = title;
             state.schema = schema;
+            state.theme = theme ?? createDefaultTheme();
             state.version = version;
             state.selectedFieldId = null;
             state.past = [];

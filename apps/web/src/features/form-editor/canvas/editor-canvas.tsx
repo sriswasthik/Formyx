@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo } from 'react';
+import { FormCover, FormLogo } from '@/features/form-renderer/branding';
 import { FormThemeScope } from '@/features/form-renderer/form-theme';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -43,8 +44,13 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
         if (!(event.target as Element).closest('[data-canvas-field]')) selectField(null);
       }}
     >
-      <FormThemeScope theme={theme} className="mx-auto w-full max-w-2xl rounded-xl border">
+      <FormThemeScope
+        theme={theme}
+        className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl border"
+      >
+        <FormCover theme={theme} />
         <div ref={setNodeRef} className="px-6 py-10 sm:px-12 sm:py-12">
+          <FormLogo theme={theme} className="mb-6" />
           <h2 className="text-24 font-semibold tracking-tight break-words sm:text-32">
             {title || 'Untitled form'}
           </h2>

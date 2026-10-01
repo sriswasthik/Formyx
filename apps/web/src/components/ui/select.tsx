@@ -98,10 +98,18 @@ SelectLabel.displayName = 'SelectLabel';
 
 export const SelectItem = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Item ref={ref} className={cn(menuItem, 'pr-8', className)} {...props}>
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & {
+    /** A line under the label, in the list only (the trigger shows just the label). */
+    description?: string;
+  }
+>(({ className, children, description, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(menuItem, 'pr-8', description && 'flex-col items-start gap-0.5', className)}
+    {...props}
+  >
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    {description && <span className="text-12 text-muted-foreground">{description}</span>}
     <span className="absolute right-2 flex size-4 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
         <Check className="text-foreground!" aria-hidden />

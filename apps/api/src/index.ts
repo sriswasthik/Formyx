@@ -1,7 +1,9 @@
-import { createApp } from './app.js';
 import { EnvError, parseEnv, type Env } from './config/env.js';
 import { createLogger } from './lib/logger.js';
+import { createMailer } from './lib/mailer.js';
 import { createPrismaClient } from './lib/prisma.js';
+import { createUploadStorage } from './lib/upload-storage.js';
+import { createServer } from './server.js';
 
 function loadEnv(): Env {
   try {
@@ -18,37 +20,57 @@ function loadEnv(): Env {
 const env = loadEnv();
 const logger = createLogger(env);
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
-const app = createApp({ env, logger, prisma });
+if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
+  logger.warn('RESEND_API_KEY is not set: notification emails will be logged, not sent');
+}
+if (env.NODE_ENV === 'production' && env.WEBHOOK_ALLOW_PRIVATE_URLS) {
+  logger.warn('WEBHOOK_ALLOW_PRIVATE_URLS is on: webhooks can reach private networks');
+}
+const storage = createUploadStorage(env);
+if (!storage) logger.info('Cloudinary is not configured: file uploads are switched off');
+const server = createServer({
+  env,
+  logger,
+  prisma,
+  mailer: createMailer(env, logger),
+  storage,
+});
 
-const server = app.listen(env.PORT, (error) => {
-  if (error) {
-    logger.fatal({ err: error }, 'Failed to start server');
-    process.exit(1);
-  }
+server.httpServer.once('error', (error) => {
+  logger.fatal({ err: error }, 'Failed to start server');
+  process.exit(1);
+});
+server.httpServer.listen(env.PORT, () => {
   logger.info(`API listening on http://localhost:${env.PORT}`);
 });
 
-function shutdown(signal: NodeJS.Signals) {
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, 'Shutting down');
-  server.close((error) => {
-    if (error) logger.error({ err: error }, 'Error while closing server');
-    prisma
-      .$disconnect()
-      .catch((disconnectError: unknown) => {
-        logger.error({ err: disconnectError }, 'Error while disconnecting from the database');
-      })
-      .finally(() => {
-        process.exit(error ? 1 : 0);
-      });
-  });
   setTimeout(() => {
     logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 10_000).unref();
+
+  let exitCode = 0;
+  try {
+    await server.close();
+  } catch (error) {
+    logger.error({ err: error }, 'Error while closing server');
+    exitCode = 1;
+  }
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    logger.error({ err: error }, 'Error while disconnecting from the database');
+  }
+  process.exit(exitCode);
 }
 
-process.once('SIGINT', shutdown);
-process.once('SIGTERM', shutdown);
+const onSignal = (signal: NodeJS.Signals) => {
+  void shutdown(signal);
+};
+process.once('SIGINT', onSignal);
+process.once('SIGTERM', onSignal);
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ err: reason }, 'Unhandled promise rejection');
   process.exit(1);

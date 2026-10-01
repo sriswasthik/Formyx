@@ -35,6 +35,13 @@ const trustProxy = z
     return trimmed;
   });
 
+/** An optional setting where an empty value means "not set". */
+const optionalSecret = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
@@ -51,6 +58,40 @@ export const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   /** Allowed submissions per IP per form per 15 minutes. */
   SUBMISSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  /** Allowed invite emails (new or sent again) per user per 15 minutes. */
+  INVITE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
+  /**
+   * Lets webhooks use plain http and reach localhost and private networks. For development
+   * only: on a server it would let anyone with a form send requests inside your network.
+   */
+  WEBHOOK_ALLOW_PRIVATE_URLS: z
+    .enum(['true', 'false'], { error: 'Use true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** Where the web app lives, for links in emails. */
+  APP_URL: z
+    .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
+    .default('http://localhost:5173')
+    .transform((url) => new URL(url).origin),
+  /** Sends notification emails through Resend. Without it, emails are logged instead of sent. */
+  RESEND_API_KEY: optionalSecret,
+  /** Sender of notification emails; its domain must be verified in Resend. */
+  EMAIL_FROM: z.string().trim().min(3).default('Formyx <notifications@formyx.app>'),
+  /**
+   * Development and tests without Resend: also writes each email to this folder as JSON, so
+   * links in them (invites) can be followed. Ignored in production.
+   */
+  EMAIL_OUTBOX_DIR: optionalSecret,
+  /** Cloudinary account for file uploads. Without all three, uploads are switched off. */
+  CLOUDINARY_CLOUD_NAME: optionalSecret,
+  CLOUDINARY_API_KEY: optionalSecret,
+  CLOUDINARY_API_SECRET: optionalSecret,
+  /** Top-level Cloudinary folder for everything this app uploads. */
+  CLOUDINARY_FOLDER: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9_-]+$/i, 'Use letters, digits, - and _')
+    .default('formyx'),
 });
 
 export type Env = z.infer<typeof envSchema>;

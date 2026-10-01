@@ -91,6 +91,7 @@ export class Autosaver {
       title: form.title,
       schema: form.draftSchema,
       version: form.version,
+      theme: form.theme,
     });
     this.setState({ kind: 'saved' });
   }
@@ -130,7 +131,7 @@ export class Autosaver {
     if (this.state.kind === 'conflict') return false;
     if (this.inFlight) return this.inFlight;
 
-    const { title, schema, version, revision } = this.options.store.getState();
+    const { title, schema, theme, version, revision } = this.options.store.getState();
     const issues = findDraftIssues({ title, schema }).length;
     if (issues > 0) {
       this.setState({ kind: 'invalid', issues });
@@ -139,7 +140,7 @@ export class Autosaver {
 
     this.setState({ kind: 'saving' });
     this.inFlight = this.options
-      .save({ version, title, draftSchema: schema })
+      .save({ version, title, draftSchema: schema, theme })
       .then((form) => {
         this.options.store.getState().markSaved(revision, form.version);
         this.options.onSaved?.(form);

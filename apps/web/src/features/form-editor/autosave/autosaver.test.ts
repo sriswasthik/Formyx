@@ -26,6 +26,7 @@ function detail(input: UpdateFormInput, version: number): FormDetail {
     publishedSchema: null,
     publishedTitle: null,
     theme: createDefaultTheme(),
+    publishedTheme: null,
   };
 }
 
@@ -85,6 +86,7 @@ describe('Autosaver', () => {
       version: 1,
       title: 'Survey 26',
       draftSchema: store.getState().schema,
+      theme: store.getState().theme,
     });
     expect(state()).toBe('saving');
 

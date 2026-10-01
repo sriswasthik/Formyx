@@ -20,6 +20,7 @@ import {
 import type { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
+import { escapeLikePattern } from '../lib/like-pattern.js';
 import type { Database } from '../lib/prisma.js';
 
 const SLUG_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -45,6 +46,7 @@ const detailSelect = {
   publishedSchema: true,
   publishedTitle: true,
   theme: true,
+  publishedTheme: true,
 } satisfies Prisma.FormSelect;
 
 type SummaryRecord = Prisma.FormGetPayload<{ select: typeof summarySelect }>;
@@ -89,6 +91,10 @@ function toDetail(form: DetailRecord): FormDetail {
     publishedSchema: parsePublishedSchema(form.publishedSchema),
     publishedTitle: form.publishedTitle,
     theme: parseStored(formThemeSchema, form.theme, 'theme'),
+    publishedTheme:
+      form.publishedTheme === null
+        ? null
+        : parseStored(formThemeSchema, form.publishedTheme, 'publishedTheme'),
   };
 }
 
@@ -99,11 +105,6 @@ export function formSlug(title: string): string {
     (byte) => SLUG_ALPHABET[byte % SLUG_ALPHABET.length],
   ).join('');
   return `${slugify(title, 40) || 'form'}-${suffix}`;
-}
-
-/** Prisma's `contains` becomes ILIKE without escaping, so `%` and `_` would act as wildcards. */
-function escapeLikePattern(text: string): string {
-  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -211,11 +212,11 @@ export function createFormService(prisma: Database): FormService {
 
     get,
 
-    async update(formId, { version, title, draftSchema }) {
+    async update(formId, { version, title, draftSchema, theme }) {
       // Compare-and-set: the write only matches while the form is still at `version`.
       const { count } = await prisma.form.updateMany({
         where: { id: formId, version },
-        data: { title, draftSchema, version: { increment: 1 } },
+        data: { title, draftSchema, theme, version: { increment: 1 } },
       });
 
       if (count === 0) {
@@ -248,7 +249,7 @@ export function createFormService(prisma: Database): FormService {
     async publish(formId, { version }) {
       const form = await prisma.form.findUnique({
         where: { id: formId },
-        select: { version: true, title: true, status: true, draftSchema: true },
+        select: { version: true, title: true, status: true, draftSchema: true, theme: true },
       });
       if (!form) throw notFound();
       if (form.version !== version) throw versionConflict(form.version);
@@ -267,6 +268,7 @@ export function createFormService(prisma: Database): FormService {
         data: {
           publishedSchema: draft,
           publishedTitle: form.title,
+          publishedTheme: parseStored(formThemeSchema, form.theme, 'theme'),
           publishedAt: new Date(),
           ...(form.status === 'DRAFT' && { status: 'PUBLISHED' }),
         },

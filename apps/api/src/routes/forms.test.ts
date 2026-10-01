@@ -1,5 +1,6 @@
 import {
   apiErrorSchema,
+  createDefaultTheme,
   createEmptyForm,
   createField,
   formDetailSchema,
@@ -89,7 +90,8 @@ describe('POST /api/workspaces/:workspaceId/forms', () => {
       publishedAt: null,
       publishedSchema: null,
       draftSchema: createEmptyForm(),
-      theme: { accentColor: '#2E5AAC', font: 'inter', radius: 'medium', background: '#FFFFFF' },
+      theme: createDefaultTheme(),
+      publishedTheme: null,
     });
     expect(form.slug).toMatch(/^untitled-form-[a-z0-9]{8}$/);
 

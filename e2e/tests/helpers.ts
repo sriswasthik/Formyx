@@ -1,3 +1,4 @@
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 
@@ -13,6 +14,37 @@ export const AUTH_CREDENTIALS_PATH = join(
 );
 
 export const E2E_PASSWORD = 'e2e-password-1234';
+
+/**
+ * Where the API saves the emails it sends during tests (`EMAIL_OUTBOX_DIR`). An API that was
+ * already running when the tests started keeps its own settings, so start it fresh.
+ */
+export const OUTBOX_DIR = join(import.meta.dirname, '..', 'playwright', '.outbox');
+
+interface OutboxFile {
+  messages: { to: string; subject: string; text: string }[];
+}
+
+/** The newest email sent to `to`, waiting for it to arrive. */
+export async function latestEmailTo(to: string): Promise<{ subject: string; text: string }> {
+  let found: { subject: string; text: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const names = await readdir(OUTBOX_DIR).catch(() => []);
+        for (const name of names.sort().reverse()) {
+          const file = JSON.parse(await readFile(join(OUTBOX_DIR, name), 'utf8')) as OutboxFile;
+          found = file.messages.find((message) => message.to === to);
+          if (found) return true;
+        }
+        return false;
+      },
+      { message: `An email to ${to}`, timeout: 10_000 },
+    )
+    .toBe(true);
+  if (!found) throw new Error(`No email to ${to}`);
+  return found;
+}
 
 /** A fresh address per call, so runs never collide with accounts from earlier runs. */
 export function uniqueEmail(prefix: string): string {

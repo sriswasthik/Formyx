@@ -7,7 +7,12 @@ import { defaultClientConditions, defineConfig, loadEnv } from 'vite';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '');
   const proxy = {
-    '/api': { target: env.API_PROXY_TARGET || 'http://localhost:4000', changeOrigin: true },
+    // `ws` carries the live-updates socket, which lives under /api too.
+    '/api': {
+      target: env.API_PROXY_TARGET || 'http://localhost:4000',
+      changeOrigin: true,
+      ws: true,
+    },
   };
 
   return {

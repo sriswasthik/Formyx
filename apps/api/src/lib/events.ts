@@ -1,0 +1,53 @@
+import type { SubmissionRecord } from '@formyx/shared';
+import type { Logger } from 'pino';
+
+/** Things that happened, for whoever wants to react: live updates, notification emails. */
+export interface DomainEvents {
+  'submission.created': { formId: string; submission: SubmissionRecord };
+  'submissions.deleted': { formId: string; ids: string[] };
+}
+
+type Listener<K extends keyof DomainEvents> = (event: DomainEvents[K]) => void | Promise<void>;
+
+export interface EventBus {
+  /** Returns a function that removes the listener. */
+  on<K extends keyof DomainEvents>(type: K, listener: Listener<K>): () => void;
+  /**
+   * Tells every listener, after the current request has had its turn: emitting never waits
+   * for listeners, and a listener that throws or rejects is logged, never passed back.
+   */
+  emit<K extends keyof DomainEvents>(type: K, event: DomainEvents[K]): void;
+}
+
+export function createEventBus(logger: Logger): EventBus {
+  const listeners = new Map<keyof DomainEvents, Set<Listener<never>>>();
+
+  const report = (type: keyof DomainEvents, error: unknown) => {
+    logger.error({ err: error, event: type }, 'An event listener failed');
+  };
+
+  return {
+    on(type, listener) {
+      const set = listeners.get(type) ?? new Set();
+      listeners.set(type, set);
+      set.add(listener);
+      return () => {
+        set.delete(listener);
+      };
+    },
+
+    emit(type, event) {
+      for (const listener of listeners.get(type) ?? []) {
+        setImmediate(() => {
+          try {
+            Promise.resolve((listener as Listener<typeof type>)(event)).catch((error: unknown) => {
+              report(type, error);
+            });
+          } catch (error) {
+            report(type, error);
+          }
+        });
+      }
+    },
+  };
+}

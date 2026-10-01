@@ -59,6 +59,7 @@ function toDetail(form: FormSummary): FormDetail {
     publishedSchema: null,
     publishedTitle: null,
     theme: createDefaultTheme(),
+    publishedTheme: null,
   };
 }
 
@@ -503,7 +504,7 @@ describe('FormsPage: viewers', () => {
     await user.click(screen.getByRole('button', { name: 'Actions for Customer feedback' }));
 
     const items = await screen.findAllByRole('menuitem');
-    expect(items.map((item) => item.textContent)).toEqual(['Open']);
+    expect(items.map((item) => item.textContent)).toEqual(['Open', 'Responses']);
   });
 
   it('are not offered templates in an empty workspace', async () => {

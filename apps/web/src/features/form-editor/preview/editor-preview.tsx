@@ -2,6 +2,7 @@ import type { FormTheme } from '@formyx/shared';
 import { Eye, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { previewUpload } from '@/features/form-renderer/file-uploads';
 import { FormView } from '@/features/form-renderer/form-view';
 import { useEditorStore } from '../editor-store-context';
 
@@ -36,6 +37,7 @@ export function EditorPreview({ theme }: { theme: FormTheme }) {
         schema={schema}
         theme={theme}
         titleAs="h2"
+        uploadFile={previewUpload}
         className="flex-1"
       />
     </div>

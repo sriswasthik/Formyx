@@ -9,6 +9,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { fakeSignature, stubStorageUploads } from '@/test/fake-storage';
 import {
   createTestQueryClient,
   jsonResponse,
@@ -53,13 +54,18 @@ interface Request {
 }
 
 /** Serves `FORM` (or `load`'s answer) and records every request. */
-function serve(options: { load?: () => Response; submit?: () => Response } = {}): Request[] {
+function serve(
+  options: { load?: () => Response; submit?: () => Response; sign?: () => Response } = {},
+): Request[] {
   const requests: Request[] = [];
   stubFetch((path, init) => {
     const method = init.method ?? 'GET';
     const body = typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
     requests.push({ method, path, body });
     if (path.endsWith('/view')) return new Response(null, { status: 204 });
+    if (path.startsWith('/api/uploads/signature')) {
+      return options.sign?.() ?? jsonResponse(fakeSignature('formyx/forms/form_1/fld_cv'));
+    }
     if (path.endsWith('/submissions')) {
       return options.submit?.() ?? jsonResponse({ id: 'sub_1' }, 201);
     }
@@ -250,5 +256,73 @@ describe('PublicFormPage', () => {
     fail = false;
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: 'Party RSVP' })).toBeInTheDocument();
+  });
+});
+
+describe('PublicFormPage with a file question', () => {
+  const cv = {
+    ...createField('file'),
+    label: 'Your CV',
+    required: true,
+    fileConfig: { maxSizeMb: 5, allowedTypes: ['pdf' as const] },
+  };
+  const JOBS: PublicForm = {
+    ...FORM,
+    slug: 'jobs-abc12345',
+    title: 'Apply',
+    schema: { ...createEmptyForm(), fields: [cv] },
+  };
+
+  async function chooseCv(sign?: () => Response) {
+    const requests = serve({ load: () => jsonResponse(JOBS), ...(sign && { sign }) });
+    const user = renderPage(JOBS.slug);
+    await user.upload(
+      await screen.findByLabelText(/Your CV/),
+      new File(['%PDF-1.7'], 'cv.pdf', { type: 'application/pdf' }),
+    );
+    return { requests, user };
+  }
+
+  it('uploads the file straight to storage, then sends it with the answers', async () => {
+    const uploads = stubStorageUploads({ autoRespond: true });
+    const { requests, user } = await chooseCv();
+
+    await screen.findByRole('button', { name: 'Remove cv.pdf' });
+    expect(requests.map((request) => request.path)).toContain(
+      `/api/uploads/signature?purpose=answer&form=${JOBS.slug}&field=${cv.id}`,
+    );
+    expect(uploads[0]?.fields.folder).toBe('formyx/forms/form_1/fld_cv');
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await screen.findByText(JOBS.schema.settings.successMessage);
+    expect(submissionsOf(requests)[0]?.body).toMatchObject({
+      answers: {
+        [cv.id]: {
+          url: 'https://res.cloudinary.com/formyx-test/raw/upload/v1/formyx/forms/form_1/fld_cv/stored_cv.pdf',
+          publicId: 'formyx/forms/form_1/fld_cv/stored_cv.pdf',
+          name: 'cv.pdf',
+          size: 8,
+          type: 'application/pdf',
+        },
+      },
+    });
+  });
+
+  it('explains when uploads are not available', async () => {
+    const uploads = stubStorageUploads();
+    await chooseCv(() =>
+      jsonResponse(
+        { error: { code: 'UPLOADS_UNAVAILABLE', message: 'File uploads are not available.' } },
+        503,
+      ),
+    );
+
+    expect(
+      await screen.findByText('File uploads aren’t available right now.', {
+        selector: 'p:not([role])',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(uploads).toEqual([]);
   });
 });

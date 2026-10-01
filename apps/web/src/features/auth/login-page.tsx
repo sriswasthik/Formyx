@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router';
 import { AuthLayout, AuthLink } from './auth-layout';
 import { LoginForm } from './login-form';
+import { getRedirectEmail } from './redirect';
 
 export function LoginPage() {
   // Keep the "where were they going" state when switching between log in and sign up.
@@ -19,7 +20,7 @@ export function LoginPage() {
         </>
       }
     >
-      <LoginForm />
+      <LoginForm defaultEmail={getRedirectEmail(state)} />
     </AuthLayout>
   );
 }

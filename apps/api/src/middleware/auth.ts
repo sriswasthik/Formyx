@@ -46,8 +46,31 @@ export interface AuthGuards {
   requireFormRole: (minRole: Role) => RequestHandler;
 }
 
+export interface FormAccess {
+  workspaceId: string;
+  /** The user's role in the form's workspace; `null` when they are not a member. */
+  role: Role | null;
+}
+
+/** Who `userId` is to the form, in one query; `null` if the form does not exist. */
+export async function findFormAccess(
+  prisma: Database,
+  formId: string,
+  userId: string,
+): Promise<FormAccess | null> {
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    select: {
+      workspaceId: true,
+      workspace: { select: { memberships: { where: { userId }, select: { role: true } } } },
+    },
+  });
+  if (!form) return null;
+  return { workspaceId: form.workspaceId, role: form.workspace.memberships[0]?.role ?? null };
+}
+
 /** Throws unless `role` (`null` for non-members) grants at least `minRole`. */
-function assertRole(role: Role | null, minRole: Role): asserts role is Role {
+export function assertRole(role: Role | null, minRole: Role): asserts role is Role {
   if (!role) {
     throw new AppError(403, 'FORBIDDEN', 'You are not a member of this workspace');
   }
@@ -100,21 +123,14 @@ export function createAuthGuards({
       const { userId } = getAuth(req);
       const formId = routeParam(req, 'formId');
 
-      // One query for the form's workspace and the caller's membership in it.
-      const form = await prisma.form.findUnique({
-        where: { id: formId },
-        select: {
-          workspaceId: true,
-          workspace: { select: { memberships: { where: { userId }, select: { role: true } } } },
-        },
-      });
-      if (!form) {
+      const access = await findFormAccess(prisma, formId, userId);
+      if (!access) {
         throw new AppError(404, 'NOT_FOUND', 'Form not found');
       }
-      const role = form.workspace.memberships[0]?.role ?? null;
+      const { workspaceId, role } = access;
       assertRole(role, minRole);
 
-      req.membership = { workspaceId: form.workspaceId, role };
+      req.membership = { workspaceId, role };
       next();
     };
   };

@@ -77,3 +77,12 @@ export async function apiRequest<T>(
   }
   return parsed.data;
 }
+
+/** What to tell people when a change was refused, in the server's words where it has some. */
+export function changeErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError) {
+    if (error.code === 'NETWORK_ERROR') return 'Check your connection and try again.';
+    if (error.status >= 400 && error.status < 500) return error.message;
+  }
+  return 'Something went wrong. Please try again.';
+}

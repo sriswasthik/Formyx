@@ -5,7 +5,7 @@ import { parseThemePreference } from '@/features/theme/theme';
 import { useThemeStore } from '@/features/theme/theme-store';
 import { THEME_OPTIONS } from '@/features/theme/theme-options';
 
-export function SettingsPage() {
+export function PreferencesPage() {
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
 
