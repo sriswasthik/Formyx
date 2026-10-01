@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { fileAnswerSchema } from './files.js';
 import { NODE_ID_PATTERN } from './ids.js';
 
 /**
@@ -38,8 +39,16 @@ export const listSubmissionsQuerySchema = z.object({
 });
 export type ListSubmissionsQuery = z.input<typeof listSubmissionsQuerySchema>;
 
-/** A stored answer: text, a number, or option ids for multiple choice. */
-export const storedAnswerSchema = z.union([z.string(), z.number(), z.array(z.string())]);
+/**
+ * A stored answer: text, a number, option ids for multiple choice, or an uploaded file.
+ * (File answers stored before uploads existed are just the file's name.)
+ */
+export const storedAnswerSchema = z.union([
+  z.string(),
+  z.number(),
+  z.array(z.string()),
+  fileAnswerSchema,
+]);
 
 export const submissionMetadataSchema = z.object({
   userAgent: z.string().nullable(),

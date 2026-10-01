@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnswerValue, Answers } from './answers.js';
 import { createEmptyForm, createField } from './factories.js';
 import type { Field } from './fields.js';
+import { BYTES_PER_MB, type FileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
 import {
   answerErrorsFromIssues,
@@ -13,6 +14,16 @@ import {
   validateAnswer,
   validateAnswers,
 } from './submission.js';
+
+function upload(name: string, size: number): FileAnswer {
+  return {
+    url: `https://res.cloudinary.com/demo/raw/upload/v1/formyx/${name}`,
+    publicId: `formyx/${name}`,
+    name,
+    size,
+    type: 'application/octet-stream',
+  };
+}
 
 const text = createField('short_text');
 const number = createField('number');
@@ -121,7 +132,20 @@ describe('validateAnswer', () => {
     ['one unknown checkbox', multi, [multiA, 'opt_unknown'], 'Choose from the options'],
     ['checkboxes that are not a list', multi, multiA, 'Choose from the options'],
     ['known checkboxes', multi, [multiA], null],
-    ['file name', createField('file'), 'cv.pdf', null],
+    ['an uploaded file', createField('file'), upload('cv.pdf', 2 * BYTES_PER_MB), null],
+    ['a bare file name', createField('file'), 'cv.pdf', 'Upload the file again'],
+    [
+      'a file over the limit',
+      createField('file'),
+      upload('cv.pdf', 11 * BYTES_PER_MB),
+      'This file is too big. The limit is 10 MB',
+    ],
+    [
+      'a type the question does not take',
+      createField('file'),
+      upload('notes.docx', 1000),
+      'This type of file isn’t accepted here',
+    ],
   ])('%s', (_case, field, value, expected) => {
     expect(validateAnswer(field, value)).toBe(expected);
   });

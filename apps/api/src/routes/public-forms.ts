@@ -10,14 +10,24 @@ import type { AppDependencies } from '../app.js';
 import { routeParam } from '../lib/route-param.js';
 import { createPublicRateLimiters } from '../middleware/rate-limit.js';
 import { createPublicFormService } from '../services/public-form-service.js';
+import { createUploadChecks } from '../services/upload-checks.js';
 
 /**
  * Published forms, for anyone with the link: no account needed. Only the published snapshot
  * is ever sent, never the draft.
  */
-export function createPublicFormsRouter({ env, logger, prisma, events }: AppDependencies): Router {
+export function createPublicFormsRouter({
+  env,
+  logger,
+  prisma,
+  events,
+  storage,
+}: AppDependencies): Router {
   const router = Router();
-  const forms = createPublicFormService(prisma);
+  const forms = createPublicFormService(
+    prisma,
+    createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER }),
+  );
   const limit = createPublicRateLimiters(env);
 
   // Closing a form must take effect at once, so nothing may cache these responses.

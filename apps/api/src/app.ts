@@ -6,6 +6,7 @@ import type { Logger } from 'pino';
 import type { Env } from './config/env.js';
 import type { EventBus } from './lib/events.js';
 import type { Database } from './lib/prisma.js';
+import type { UploadStorage } from './lib/upload-storage.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
@@ -17,6 +18,8 @@ export interface AppDependencies {
   prisma: Database;
   /** Where routes announce what happened, e.g. a saved response. */
   events: EventBus;
+  /** File storage; `null` when uploads are not set up. */
+  storage: UploadStorage | null;
 }
 
 export function createApp(deps: AppDependencies): Express {

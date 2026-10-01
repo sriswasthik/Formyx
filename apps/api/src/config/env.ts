@@ -35,6 +35,13 @@ const trustProxy = z
     return trimmed;
   });
 
+/** An optional setting where an empty value means "not set". */
+const optionalSecret = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
@@ -57,13 +64,19 @@ export const envSchema = z.object({
     .default('http://localhost:5173')
     .transform((url) => new URL(url).origin),
   /** Sends notification emails through Resend. Without it, emails are logged instead of sent. */
-  RESEND_API_KEY: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => value || undefined),
+  RESEND_API_KEY: optionalSecret,
   /** Sender of notification emails; its domain must be verified in Resend. */
   EMAIL_FROM: z.string().trim().min(3).default('Formyx <notifications@formyx.app>'),
+  /** Cloudinary account for file uploads. Without all three, uploads are switched off. */
+  CLOUDINARY_CLOUD_NAME: optionalSecret,
+  CLOUDINARY_API_KEY: optionalSecret,
+  CLOUDINARY_API_SECRET: optionalSecret,
+  /** Top-level Cloudinary folder for everything this app uploads. */
+  CLOUDINARY_FOLDER: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9_-]+$/i, 'Use letters, digits, - and _')
+    .default('formyx'),
 });
 
 export type Env = z.infer<typeof envSchema>;

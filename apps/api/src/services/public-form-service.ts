@@ -14,6 +14,7 @@ import type { z } from 'zod';
 import type { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
+import type { UploadChecks } from './upload-checks.js';
 import { parsePublishedSchema } from './form-service.js';
 
 const USER_AGENT_MAX_LENGTH = 512;
@@ -49,6 +50,8 @@ export interface SubmissionContext {
 export interface PublicFormService {
   /** The published form, or that it is closed; 404 if it was never published. */
   get(slug: string): Promise<PublicFormResponse>;
+  /** The id and published questions of a form taking responses; 404 or 410 otherwise. */
+  openForm(slug: string): Promise<{ id: string; schema: FormSchema }>;
   /** Counts a visit to an open form. */
   recordView(slug: string): Promise<void>;
   /**
@@ -104,7 +107,10 @@ function assertOpen(form: LiveForm): void {
   if (!isOpen(form)) throw closed(form.title);
 }
 
-export function createPublicFormService(prisma: Database): PublicFormService {
+export function createPublicFormService(
+  prisma: Database,
+  uploads: Pick<UploadChecks, 'verifyAnswers'>,
+): PublicFormService {
   async function find(slug: string): Promise<LiveForm> {
     return toLiveForm(await prisma.form.findUnique({ where: { slug }, select: publicSelect }));
   }
@@ -129,13 +135,25 @@ export function createPublicFormService(prisma: Database): PublicFormService {
       };
     },
 
+    async openForm(slug) {
+      const form = await find(slug);
+      assertOpen(form);
+      return { id: form.id, schema: form.schema };
+    },
+
     async recordView(slug) {
       const form = await find(slug);
       assertOpen(form);
       await prisma.formView.create({ data: { formId: form.id } });
     },
 
-    submit(slug, input, context) {
+    async submit(slug, input, context) {
+      // Uploaded files are checked with storage first, outside the transaction, so no network
+      // call ever holds the form's lock.
+      const live = await find(slug);
+      assertOpen(live);
+      const checked = await uploads.verifyAnswers(live, input.answers);
+
       return prisma.$transaction(async (tx) => {
         // Lock the form so concurrent submissions queue up: the response limit is checked
         // and the response stored as one step, so the limit can never be overshot.
@@ -149,7 +167,7 @@ export function createPublicFormService(prisma: Database): PublicFormService {
         );
         assertOpen(form);
 
-        const answers = sanitizeAnswers(form.schema, input.answers);
+        const answers = sanitizeAnswers(form.schema, checked);
         const result = buildSubmissionValidator(form.schema, answers).safeParse(answers);
         if (!result.success) throw invalidAnswers(result.error);
 

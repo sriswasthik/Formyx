@@ -1,6 +1,9 @@
 import { ACCENT_PRESETS, createField } from '@formyx/shared';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { fakeSignature, storedFile, stubStorageUploads } from '@/test/fake-storage';
+import { jsonResponse, stubFetch } from '@/test/session';
 import { EditorCanvas } from '../canvas/editor-canvas';
 import { useEditorStore } from '../editor-store-context';
 import { makeFormDetail, renderWithEditor } from '../test-utils';
@@ -106,6 +109,58 @@ describe('DesignPanel', () => {
     expect(style.getPropertyValue('--form-bg')).toBe('#18181B');
     expect(style.getPropertyValue('--form-radius')).toBe('0px');
     expect(style.fontFamily).toMatch(/Source Serif 4/);
+  });
+});
+
+describe('DesignPanel images', () => {
+  /** The section for one image, and its (hidden) file input. */
+  function imageSection(title: 'Logo' | 'Cover image') {
+    const section = screen.getByRole('heading', { name: title }).closest('section');
+    const input = section?.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!section || !input) throw new Error(`No ${title} section`);
+    return { section: within(section), input };
+  }
+
+  it('uploads a logo for this form, shows it, and removes it', async () => {
+    const fetchMock = stubFetch(() => jsonResponse(fakeSignature('formyx/themes/form_1')));
+    stubStorageUploads({ autoRespond: true });
+    const { user, store, container } = renderPanel();
+    const logo = imageSection('Logo');
+    const file = new File(['png'], 'logo.png', { type: 'image/png' });
+
+    await user.click(logo.section.getByRole('button', { name: 'Upload logo' }));
+    await user.upload(logo.input, file);
+
+    const expected = storedFile('formyx/themes/form_1', file).secure_url;
+    expect(await logo.section.findByRole('img', { name: 'Current logo' })).toHaveAttribute(
+      'src',
+      expected,
+    );
+    expect(store.getState().theme.logoUrl).toBe(expected);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/uploads/signature?purpose=logo&formId=form_1');
+    // The canvas shows it too, as decoration.
+    expect(container.querySelector(`img[alt=""][src="${expected}"]`)).not.toBeNull();
+
+    await user.click(logo.section.getByRole('button', { name: 'Remove' }));
+    expect(store.getState().theme.logoUrl).toBeUndefined();
+    expect(logo.section.getByRole('button', { name: 'Upload logo' })).toHaveFocus();
+  });
+
+  it('turns away files that are not images, before uploading', async () => {
+    const fetchMock = stubFetch(() => jsonResponse(fakeSignature('formyx/themes/form_1')));
+    const uploads = stubStorageUploads({ autoRespond: true });
+    renderPanel();
+    const cover = imageSection('Cover image');
+
+    await userEvent
+      .setup({ applyAccept: false })
+      .upload(cover.input, new File(['%PDF'], 'cover.pdf', { type: 'application/pdf' }));
+
+    expect(cover.section.getByRole('alert')).toHaveTextContent(
+      'Choose a PNG, JPG, WebP or GIF image.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(uploads).toEqual([]);
   });
 });
 

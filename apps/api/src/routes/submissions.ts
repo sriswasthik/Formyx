@@ -4,6 +4,7 @@ import {
   answerableFields,
   deleteSubmissionsInputSchema,
   formatAnswer,
+  isFileAnswer,
   listSubmissionsQuerySchema,
   slugify,
   type DeleteSubmissionsResponse,
@@ -25,7 +26,10 @@ const EXPORT_BATCH_SIZE = 500;
 
 function csvValue(field: Field, value: unknown): CsvValue {
   // Numbers and ratings stay numeric, so spreadsheets can sum and chart them.
-  return typeof value === 'number' ? value : formatAnswer(field, value);
+  if (typeof value === 'number') return value;
+  // Files export as a link to download them.
+  if (isFileAnswer(value)) return value.url;
+  return formatAnswer(field, value);
 }
 
 /** The export, a chunk per batch of responses: a header row, then newest first. */

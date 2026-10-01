@@ -14,6 +14,7 @@ import { useEditorStore } from '../editor-store-context';
 import { SettingsSection } from '../settings/settings-section';
 import { AccentPicker } from './accent-picker';
 import { OptionCards } from './option-cards';
+import { ThemeImageField } from './theme-image-field';
 
 const fontOptions = FORM_FONTS.map((font) => ({
   value: font,
@@ -102,6 +103,24 @@ export function DesignPanel() {
           options={backgroundOptions}
           onChange={(background) => {
             updateTheme({ background });
+          }}
+        />
+      </SettingsSection>
+      <SettingsSection title="Logo">
+        <ThemeImageField
+          kind="logo"
+          url={theme.logoUrl}
+          onChange={(logoUrl) => {
+            updateTheme({ logoUrl });
+          }}
+        />
+      </SettingsSection>
+      <SettingsSection title="Cover image">
+        <ThemeImageField
+          kind="cover"
+          url={theme.coverUrl}
+          onChange={(coverUrl) => {
+            updateTheme({ coverUrl });
           }}
         />
       </SettingsSection>

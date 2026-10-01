@@ -12,6 +12,8 @@ export const ERROR_CODES = [
   'FORM_CLOSED',
   /** The draft is not ready to publish; `details` lists what to fix. */
   'FORM_INCOMPLETE',
+  /** File uploads are not set up on this server. */
+  'UPLOADS_UNAVAILABLE',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

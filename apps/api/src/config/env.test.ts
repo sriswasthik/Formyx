@@ -20,6 +20,7 @@ describe('parseEnv', () => {
       SUBMISSION_RATE_LIMIT_MAX: 10,
       APP_URL: 'http://localhost:5173',
       EMAIL_FROM: 'Formyx <notifications@formyx.app>',
+      CLOUDINARY_FOLDER: 'formyx',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
   });

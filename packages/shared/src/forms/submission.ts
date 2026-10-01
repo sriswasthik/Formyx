@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ValidationIssue } from '../errors.js';
 import { evaluateVisibility, type AnswerValue, type Answers } from './answers.js';
 import { MAX_OPTIONS, type Field } from './fields.js';
+import { fileAnswerSchema, fileProblem, isFileAnswer, type FileAnswer } from './files.js';
 import { MAX_FIELDS, type FormSchema } from './form-schema.js';
 import { NODE_ID_PATTERN } from './ids.js';
 
@@ -11,7 +12,6 @@ const REQUIRED = 'This question is required';
 export const ANSWER_MAX_LENGTH = { short_text: 1000, long_text: 10_000 } as const;
 
 const EMAIL_MAX_LENGTH = 254;
-const FILE_NAME_MAX_LENGTH = 255;
 const PHONE_PATTERN = /^\+?[\d\s().-]{5,25}$/;
 const DECIMAL_PATTERN = /^[-+]?(\d+(\.\d*)?|\.\d+)(e[-+]?\d+)?$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -105,8 +105,14 @@ function answerValueSchema(field: Field): z.ZodType<Exclude<AnswerValue, null>> 
         .transform((chosen) => [...new Set(chosen)]);
     }
     case 'file':
-      // Uploads arrive in a later sprint. Until then the answer is the chosen file's name.
-      return z.string({ error: 'Choose a file' }).trim().max(FILE_NAME_MAX_LENGTH);
+      // The upload itself is checked against storage on the server; this checks what the
+      // browser says about it against the question's limits.
+      return z
+        .custom<FileAnswer>(isFileAnswer, 'Upload the file again')
+        .superRefine((file, ctx) => {
+          const problem = fileProblem(file, field.fileConfig);
+          if (problem) ctx.addIssue({ code: 'custom', message: problem });
+        });
     case 'statement':
       return null;
   }
@@ -182,6 +188,7 @@ export const HONEYPOT_FIELD = 'website';
 export const MAX_COMPLETION_TIME_MS = 24 * 60 * 60 * 1000;
 
 const answerValueInput = z.union([
+  fileAnswerSchema,
   z.string().max(ANSWER_MAX_LENGTH.long_text * 2),
   z.number(),
   z.array(z.string().max(64)).max(MAX_OPTIONS),

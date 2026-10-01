@@ -7,13 +7,13 @@ import {
 } from '@formyx/shared';
 import { useQuery } from '@tanstack/react-query';
 import { FileQuestion, Lock, WifiOff } from 'lucide-react';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { FormView, type SubmitOutcome } from '@/features/form-renderer/form-view';
 import { ApiRequestError } from '@/lib/api';
-import { getPublicForm, submitResponse } from './public-form-api';
+import { answerUploader, getPublicForm, submitResponse } from './public-form-api';
 import { MadeWithFormyx, PublicFormMessage, PublicFormSkeleton } from './public-form-states';
 import { recordViewOnce } from './record-view';
 
@@ -56,6 +56,7 @@ function FormClosed({ title }: { title: string }) {
 function LiveForm({ form, onClosed }: { form: PublicForm; onClosed: () => void }) {
   const [openedAt] = useState(() => Date.now());
   const honeypot = useRef<HTMLInputElement>(null);
+  const uploadFile = useMemo(() => answerUploader(form.slug), [form.slug]);
 
   useEffect(() => {
     recordViewOnce(form.slug);
@@ -99,6 +100,7 @@ function LiveForm({ form, onClosed }: { form: PublicForm; onClosed: () => void }
       theme={form.theme}
       onSubmit={submit}
       allowAnotherResponse={false}
+      uploadFile={uploadFile}
       hiddenFields={<Honeypot inputRef={honeypot} />}
       footer={<MadeWithFormyx />}
       className="relative min-h-dvh"

@@ -1,5 +1,13 @@
-import { formatAnswer, optionLabel, REMOVED_OPTION_LABEL, type Field } from '@formyx/shared';
-import { Paperclip } from 'lucide-react';
+import {
+  formatAnswer,
+  formatFileSize,
+  isFileAnswer,
+  optionLabel,
+  REMOVED_OPTION_LABEL,
+  type Field,
+  type FileAnswer,
+} from '@formyx/shared';
+import { Download, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCalendarDate, formatNumber } from '../format';
 import { answerText } from './answer-text';
@@ -15,10 +23,37 @@ function Empty() {
   );
 }
 
+/** Opens an uploaded file in a new tab (`download` only applies to same-origin links). */
+function fileLinkProps(file: FileAnswer) {
+  return {
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    download: file.name,
+    'aria-label': `Download ${file.name}, ${formatFileSize(file.size)}`,
+  } as const;
+}
+
 /** A table cell's worth of an answer: one line, cut short when long. */
 export function AnswerCell({ field, value }: { field: Field; value: unknown }) {
   const text = answerText(field, value);
   if (!text) return <Empty />;
+  if (field.type === 'file' && isFileAnswer(value)) {
+    return (
+      <a
+        {...fileLinkProps(value)}
+        href={value.url}
+        title={value.name}
+        className="-mx-1 flex max-w-64 items-center gap-1.5 rounded-md px-1 text-accent transition-colors duration-150 hover:bg-hover hover:underline"
+        onClick={(event) => {
+          // Downloading the file is not opening the response.
+          event.stopPropagation();
+        }}
+      >
+        <Paperclip aria-hidden className="shrink-0" />
+        <span className="truncate">{value.name}</span>
+      </a>
+    );
+  }
   const numeric = field.type === 'number' || field.type === 'rating';
   return (
     <span title={text} className={cn('block max-w-64 truncate', numeric && 'tabular-nums')}>
@@ -102,6 +137,23 @@ export function AnswerDetail({ field, value }: { field: Field; value: unknown })
       if (typeof value !== 'number') break;
       return <p className="text-14 tabular-nums">{formatNumber(value, 6)}</p>;
     case 'file':
+      if (isFileAnswer(value)) {
+        return (
+          <a
+            {...fileLinkProps(value)}
+            href={value.url}
+            className="flex max-w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-14 transition-colors duration-150 hover:border-border-strong hover:bg-hover active:bg-pressed"
+          >
+            <Paperclip aria-hidden className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-medium">{value.name}</span>
+            <span className="shrink-0 text-13 text-muted-foreground tabular-nums">
+              {formatFileSize(value.size)}
+            </span>
+            <Download aria-hidden className="shrink-0 text-muted-foreground" />
+          </a>
+        );
+      }
+      // Answers from before uploads were stored kept only the file's name.
       return (
         <p className="flex items-center gap-2 text-14 break-all">
           <Paperclip aria-hidden className="shrink-0 text-muted-foreground" />

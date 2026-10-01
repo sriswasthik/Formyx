@@ -372,6 +372,26 @@ describe('analyticsQuerySchema', () => {
   });
 });
 
+describe('file questions', () => {
+  it('list the latest files by name', () => {
+    const upload: Field = { ...createField('file'), id: 'cv', label: 'CV' };
+    const summaries = createQuestionSummaries({ ...createEmptyForm(), fields: [upload] });
+    addSubmissionToSummaries(
+      summaries,
+      response({
+        cv: {
+          url: 'https://res.cloudinary.com/demo/raw/upload/v1/cv.pdf',
+          publicId: 'cv',
+          name: 'cv.pdf',
+          size: 10,
+          type: 'application/pdf',
+        },
+      }),
+    );
+    expect(find(summaries, 'cv', 'text').latest.map((answer) => answer.value)).toEqual(['cv.pdf']);
+  });
+});
+
 describe('summary types', () => {
   it('summarise text-like questions by their answers', () => {
     const email: Field = { ...createField('email'), id: 'email', label: 'Email' };

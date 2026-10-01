@@ -5,6 +5,7 @@ import { createApp } from '../app.js';
 import { parseEnv } from '../config/env.js';
 import { createEventBus } from '../lib/events.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
+import type { UploadStorage } from '../lib/upload-storage.js';
 import { createServer, type FormyxServer } from '../server.js';
 import { testDatabaseUrl, testPrisma } from './database.js';
 
@@ -28,13 +29,20 @@ function testEnv(env: Record<string, string>) {
   });
 }
 
-/** The Express app alone: enough for request/response tests. Events go nowhere. */
-export function createTestApp(env: Record<string, string> = {}) {
+/**
+ * The Express app alone: enough for request/response tests. Events go nowhere, and uploads
+ * are off unless a `storage` is given (see `createFakeCloudinary`).
+ */
+export function createTestApp(
+  env: Record<string, string> = {},
+  { storage = null }: { storage?: UploadStorage | null } = {},
+) {
   return createApp({
     env: testEnv(env),
     logger: silentLogger,
     prisma: testPrisma,
     events: createEventBus(silentLogger),
+    storage,
   });
 }
 
@@ -57,8 +65,13 @@ export interface TestServer extends FormyxServer {
 export async function startTestServer({
   mailer = createFakeMailer(),
   logger = silentLogger,
-}: { mailer?: Mailer; logger?: typeof silentLogger } = {}): Promise<TestServer> {
-  const server = createServer({ env: testEnv({}), logger, prisma: testPrisma, mailer });
+  storage = null,
+}: {
+  mailer?: Mailer;
+  logger?: typeof silentLogger;
+  storage?: UploadStorage | null;
+} = {}): Promise<TestServer> {
+  const server = createServer({ env: testEnv({}), logger, prisma: testPrisma, mailer, storage });
   await new Promise<void>((resolve) => {
     server.httpServer.listen(0, '127.0.0.1', resolve);
   });

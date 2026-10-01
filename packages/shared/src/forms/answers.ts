@@ -1,21 +1,25 @@
 import { operatorNeedsValue, type Condition } from './conditions.js';
 import { isAnswerableFieldType } from './field-types.js';
 import type { Field } from './fields.js';
+import type { FileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
 
 /**
  * An answer to one question: text for text, email, phone and date (YYYY-MM-DD) questions,
  * a number for number and rating questions, an option id for single choice and dropdown,
- * and a list of option ids for multiple choice. `null` means "not answered".
+ * a list of option ids for multiple choice, and the uploaded file for file questions.
+ * `null` means "not answered".
  */
-export type AnswerValue = string | number | string[] | null;
+export type AnswerValue = string | number | string[] | FileAnswer | null;
 export type Answers = Readonly<Record<string, AnswerValue | undefined>>;
 
 export function isAnswered(value: AnswerValue | undefined): boolean {
   if (value === null || value === undefined) return false;
   if (typeof value === 'string') return value.trim() !== '';
   if (Array.isArray(value)) return value.length > 0;
-  return Number.isFinite(value);
+  if (typeof value === 'number') return Number.isFinite(value);
+  // An uploaded file.
+  return true;
 }
 
 function asNumber(value: AnswerValue | undefined): number | null {

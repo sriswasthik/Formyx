@@ -62,3 +62,23 @@ export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_M
     view: publicLimiter(VIEW_LIMIT, 'Too many requests. Try again in a few minutes.'),
   };
 }
+
+/** Signatures for respondents' uploads: a few per file question, with room for retries. */
+const UPLOAD_SIGNATURE_LIMIT = 60;
+
+/** Per-IP, per-form limit on signing respondents' uploads, which needs no account. */
+export function createUploadRateLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: UPLOAD_SIGNATURE_LIMIT,
+    keyGenerator: (req) => {
+      const form = typeof req.query.form === 'string' ? req.query.form : '';
+      return `${ipKeyGenerator(req.ip ?? '')}:${form}`;
+    },
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new AppError(429, 'RATE_LIMITED', 'Too many uploads. Try again in a few minutes.'));
+    },
+  });
+}

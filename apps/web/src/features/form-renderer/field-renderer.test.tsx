@@ -115,22 +115,19 @@ describe('FieldRenderer in respondent mode', () => {
     expect(onValue).toHaveBeenLastCalledWith(3);
   });
 
-  it('describes allowed files and keeps the chosen file name', async () => {
-    const { onValue, user } = setup({
+  it('describes the files a file question takes', () => {
+    setup({
       ...createField('file'),
       label: 'CV',
       fileConfig: { maxSizeMb: 5, allowedTypes: ['pdf', 'document'] },
     });
 
     expect(screen.getByText('PDF or documents, up to 5 MB')).toBeInTheDocument();
-    await user.upload(
-      screen.getByLabelText(/CV/),
-      new File(['x'], 'cv.pdf', { type: 'application/pdf' }),
+    expect(screen.getByLabelText(/CV/)).toHaveAttribute(
+      'accept',
+      '.pdf,application/pdf,.doc,.docx,.odt,.rtf,.txt',
     );
-
-    expect(onValue).toHaveBeenLastCalledWith('cv.pdf');
-    await user.click(screen.getByRole('button', { name: 'Remove cv.pdf' }));
-    expect(onValue).toHaveBeenLastCalledWith(null);
+    // Uploading is covered with the whole form, in file-control.test.tsx.
   });
 
   it('renders statements as text with no input', () => {

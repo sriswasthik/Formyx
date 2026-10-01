@@ -5,3 +5,4 @@ export * from './health.js';
 export * from './realtime.js';
 export * from './roles.js';
 export * from './slug.js';
+export * from './uploads.js';

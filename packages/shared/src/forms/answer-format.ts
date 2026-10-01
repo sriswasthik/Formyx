@@ -1,5 +1,6 @@
 import { isAnswerableFieldType } from './field-types.js';
 import type { Field } from './fields.js';
+import { isFileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
 
 /** The questions of `schema` that collect an answer: everything except statements. */
@@ -18,7 +19,7 @@ export function optionLabel(field: Field, id: string): string {
 
 /**
  * An answer as plain text: option labels for choices, numbers and ratings as digits, dates
- * as stored (YYYY-MM-DD). Empty for no answer. Stored answers were validated against the
+ * as stored (YYYY-MM-DD), files by name. Empty for no answer. Stored answers were validated against the
  * form as it was then, so a value that no longer fits its question is still shown as text.
  */
 export function formatAnswer(field: Field, value: unknown): string {
@@ -39,6 +40,7 @@ export function formatAnswer(field: Field, value: unknown): string {
 
 function stringify(value: unknown): string {
   if (typeof value === 'string') return value;
+  if (isFileAnswer(value)) return value.name;
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '';
   if (Array.isArray(value)) return value.map(stringify).join(', ');
   return '';

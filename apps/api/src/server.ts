@@ -6,6 +6,7 @@ import type { Env } from './config/env.js';
 import { createEventBus, type EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
+import type { UploadStorage } from './lib/upload-storage.js';
 import { registerSubmissionNotifier } from './notifications/submission-notifier.js';
 import { attachRealtime, type RealtimeServer } from './realtime/realtime-server.js';
 
@@ -14,6 +15,7 @@ export interface ServerDependencies {
   logger: Logger;
   prisma: Database;
   mailer: Mailer;
+  storage: UploadStorage | null;
 }
 
 export interface FormyxServer {

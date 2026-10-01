@@ -30,6 +30,18 @@ describe('formatAnswer', () => {
     expect(formatAnswer(createField('date'), '2026-09-30')).toBe('2026-09-30');
   });
 
+  it('shows uploaded files by name, and old file answers as stored', () => {
+    const file = {
+      url: 'https://res.cloudinary.com/demo/raw/upload/v1/formyx/cv.pdf',
+      publicId: 'formyx/cv',
+      name: 'cv.pdf',
+      size: 1200,
+      type: 'application/pdf',
+    };
+    expect(formatAnswer(createField('file'), file)).toBe('cv.pdf');
+    expect(formatAnswer(createField('file'), 'old-cv.pdf')).toBe('old-cv.pdf');
+  });
+
   it('is empty without an answer', () => {
     expect(formatAnswer(createField('short_text'), undefined)).toBe('');
     expect(formatAnswer(single, null)).toBe('');

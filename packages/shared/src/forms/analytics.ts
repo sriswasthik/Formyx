@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { answerableFields } from './answer-format.js';
 import { CHOICE_FIELD_TYPES } from './field-types.js';
 import type { Field } from './fields.js';
+import { isFileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
 
 /*
@@ -248,7 +249,9 @@ function addText(summary: TextSummary, value: unknown, submission: AnalyzableSub
       ? value.trim()
       : typeof value === 'number' && Number.isFinite(value)
         ? String(value)
-        : '';
+        : isFileAnswer(value)
+          ? value.name
+          : '';
   if (text === '') return;
 
   summary.answered += 1;

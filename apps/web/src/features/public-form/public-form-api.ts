@@ -6,7 +6,9 @@ import {
   type SubmissionResponse,
 } from '@formyx/shared';
 import { z } from 'zod';
+import type { FileUploader } from '@/features/form-renderer/file-uploads';
 import { apiRequest, jsonRequest } from '@/lib/api';
+import { getUploadSignature, uploadToStorage } from '@/lib/uploads';
 
 const publicFormPath = (slug: string) => `/public/forms/${encodeURIComponent(slug)}`;
 
@@ -25,4 +27,19 @@ export function submitResponse(slug: string, input: SubmissionInput): Promise<Su
     submissionResponseSchema,
     jsonRequest('POST', input),
   );
+}
+
+/** Uploads respondents' files for the published form `slug`, straight to storage. */
+export function answerUploader(slug: string): FileUploader {
+  return async (field, file, options) => {
+    const signature = await getUploadSignature({ purpose: 'answer', form: slug, field: field.id });
+    const stored = await uploadToStorage(signature, file, options);
+    return {
+      url: stored.secure_url,
+      publicId: stored.public_id,
+      name: file.name.slice(0, 255),
+      size: stored.bytes,
+      type: file.type.slice(0, 255),
+    };
+  };
 }

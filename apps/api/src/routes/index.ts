@@ -9,6 +9,7 @@ import { createNotificationsRouter } from './notifications.js';
 import { createPublicFormsRouter } from './public-forms.js';
 import { createRealtimeRouter } from './realtime.js';
 import { createSubmissionsRouter } from './submissions.js';
+import { createUploadsRouter } from './uploads.js';
 
 export function createApiRouter(deps: AppDependencies): Router {
   const router = Router();
@@ -18,6 +19,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use('/auth', createAuthRouter(deps, guards));
   router.use('/realtime', createRealtimeRouter(deps, guards));
   router.use('/public/forms', createPublicFormsRouter(deps));
+  router.use('/uploads', createUploadsRouter(deps, guards));
   // The forms router goes first: it marks everything under /forms as not cacheable.
   router.use(createFormsRouter(deps, guards));
   router.use(createSubmissionsRouter(deps, guards));

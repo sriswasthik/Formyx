@@ -2,6 +2,7 @@ import { EnvError, parseEnv, type Env } from './config/env.js';
 import { createLogger } from './lib/logger.js';
 import { createMailer } from './lib/mailer.js';
 import { createPrismaClient } from './lib/prisma.js';
+import { createUploadStorage } from './lib/upload-storage.js';
 import { createServer } from './server.js';
 
 function loadEnv(): Env {
@@ -22,7 +23,15 @@ const prisma = createPrismaClient(env.DATABASE_URL, logger);
 if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
   logger.warn('RESEND_API_KEY is not set: notification emails will be logged, not sent');
 }
-const server = createServer({ env, logger, prisma, mailer: createMailer(env, logger) });
+const storage = createUploadStorage(env);
+if (!storage) logger.info('Cloudinary is not configured: file uploads are switched off');
+const server = createServer({
+  env,
+  logger,
+  prisma,
+  mailer: createMailer(env, logger),
+  storage,
+});
 
 server.httpServer.once('error', (error) => {
   logger.fatal({ err: error }, 'Failed to start server');

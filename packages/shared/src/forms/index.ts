@@ -7,6 +7,7 @@ export * from './conditions.js';
 export * from './factories.js';
 export * from './field-types.js';
 export * from './fields.js';
+export * from './files.js';
 export * from './form-schema.js';
 export * from './ids.js';
 export * from './publish.js';
