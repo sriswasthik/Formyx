@@ -31,3 +31,5 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+e2e/playwright/.outbox/
