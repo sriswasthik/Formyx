@@ -1,8 +1,7 @@
-import { createApp } from './app.js';
 import { EnvError, parseEnv, type Env } from './config/env.js';
-import { createEventBus } from './lib/events.js';
 import { createLogger } from './lib/logger.js';
 import { createPrismaClient } from './lib/prisma.js';
+import { createServer } from './server.js';
 
 function loadEnv(): Env {
   try {
@@ -19,37 +18,43 @@ function loadEnv(): Env {
 const env = loadEnv();
 const logger = createLogger(env);
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
-const app = createApp({ env, logger, prisma, events: createEventBus(logger) });
+const server = createServer({ env, logger, prisma });
 
-const server = app.listen(env.PORT, (error) => {
-  if (error) {
-    logger.fatal({ err: error }, 'Failed to start server');
-    process.exit(1);
-  }
+server.httpServer.once('error', (error) => {
+  logger.fatal({ err: error }, 'Failed to start server');
+  process.exit(1);
+});
+server.httpServer.listen(env.PORT, () => {
   logger.info(`API listening on http://localhost:${env.PORT}`);
 });
 
-function shutdown(signal: NodeJS.Signals) {
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, 'Shutting down');
-  server.close((error) => {
-    if (error) logger.error({ err: error }, 'Error while closing server');
-    prisma
-      .$disconnect()
-      .catch((disconnectError: unknown) => {
-        logger.error({ err: disconnectError }, 'Error while disconnecting from the database');
-      })
-      .finally(() => {
-        process.exit(error ? 1 : 0);
-      });
-  });
   setTimeout(() => {
     logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 10_000).unref();
+
+  let exitCode = 0;
+  try {
+    await server.close();
+  } catch (error) {
+    logger.error({ err: error }, 'Error while closing server');
+    exitCode = 1;
+  }
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    logger.error({ err: error }, 'Error while disconnecting from the database');
+  }
+  process.exit(exitCode);
 }
 
-process.once('SIGINT', shutdown);
-process.once('SIGTERM', shutdown);
+const onSignal = (signal: NodeJS.Signals) => {
+  void shutdown(signal);
+};
+process.once('SIGINT', onSignal);
+process.once('SIGTERM', onSignal);
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ err: reason }, 'Unhandled promise rejection');
   process.exit(1);
