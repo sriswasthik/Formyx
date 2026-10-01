@@ -126,7 +126,7 @@ export const CanvasField = memo(function CanvasField({
               id={`logic-${id}`}
               className="mb-2 flex min-w-0 items-center gap-2 text-12 text-(--form-muted)"
             >
-              <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-(--form-accent-subtle) px-1.5 font-medium text-(--form-accent) [&_svg]:size-3">
+              <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-(--form-accent-subtle) px-1.5 font-medium text-(--form-fg) [&_svg]:size-3 [&_svg]:text-(--form-accent)">
                 <Split aria-hidden />
                 Logic<span className="sr-only">:</span>
               </span>{' '}

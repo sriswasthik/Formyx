@@ -20,7 +20,7 @@ const tabsListVariants = cva('inline-flex items-center', {
 
 const tabsTriggerVariants = cva(
   [
-    'inline-flex items-center justify-center gap-2 text-14 font-medium whitespace-nowrap text-muted-foreground',
+    'inline-flex items-center justify-center gap-2 text-14 font-medium whitespace-nowrap',
     'transition-[color,background-color,box-shadow] duration-150 ease-standard',
     'hover:not-disabled:text-foreground disabled:opacity-50',
     'data-[state=active]:text-foreground',
@@ -28,10 +28,11 @@ const tabsTriggerVariants = cva(
   {
     variants: {
       variant: {
+        // Inactive tabs sit on a muted fill, where muted text is too faint.
         segmented:
-          'h-7 rounded-md px-3 data-[state=active]:bg-background data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.08)] dark:data-[state=active]:bg-pressed',
+          'h-7 rounded-md px-3 text-subtle-foreground data-[state=active]:bg-background data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.08)] dark:data-[state=active]:bg-pressed',
         underline:
-          'relative -mb-px h-10 border-b-2 border-transparent px-0.5 data-[state=active]:border-foreground',
+          'relative -mb-px h-10 border-b-2 border-transparent px-0.5 text-muted-foreground data-[state=active]:border-foreground',
       },
     },
   },
