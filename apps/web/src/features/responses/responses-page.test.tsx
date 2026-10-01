@@ -190,10 +190,12 @@ function renderPage({ me = ADA, path = '/app/forms/form_1/responses' } = {}) {
 }
 
 // The chart loads lazily in the app. Loading it here, once, keeps the cost of compiling Recharts
-// out of the tests' own time limits.
+// out of the tests' own time limits; under a full, parallel run that can take a while.
+const CHART_IMPORT_TIMEOUT_MS = 60_000;
+
 beforeAll(async () => {
   await import('./summary/per-day-area-chart');
-});
+}, CHART_IMPORT_TIMEOUT_MS);
 
 beforeEach(() => {
   live.listeners.clear();
