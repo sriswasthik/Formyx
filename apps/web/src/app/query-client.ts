@@ -1,5 +1,4 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { meQueryKey, replaceSession } from '@/features/auth/session-cache';
 import { ApiRequestError } from '@/lib/api';
 
@@ -13,7 +12,10 @@ export function createQueryClient() {
     // Nobody was signed in (e.g. a failed log-in attempt): nothing to end.
     if (!isUnauthorized(error) || !queryClient.getQueryData(meQueryKey)) return;
     replaceSession(queryClient, null);
-    toast.info('Your session has ended', { description: 'Log in again to continue.' });
+    // Imported here, not up front: public forms, which never sign in, do without it.
+    void import('sonner').then(({ toast }) => {
+      toast.info('Your session has ended', { description: 'Log in again to continue.' });
+    });
   };
 
   const queryClient = new QueryClient({

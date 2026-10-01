@@ -8,6 +8,7 @@ import {
 } from '@formyx/shared';
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
+import { demoRestricted, isDemoForm, isDemoUser } from '../demo/restrictions.js';
 import { AppError } from '../lib/app-error.js';
 import { answerFolder, themeFolder } from '../lib/upload-storage.js';
 import { assertRole, findFormAccess, getAuth, type AuthGuards } from '../middleware/auth.js';
@@ -45,6 +46,9 @@ export function createUploadsRouter(
       let body: UploadSignature;
       if (query.purpose === 'answer') {
         const form = await forms.openForm(query.form);
+        if (await isDemoForm(prisma, form.id)) {
+          throw demoRestricted('File uploads are switched off on demo forms.');
+        }
         const field = form.schema.fields.find((candidate) => candidate.id === query.field);
         if (field?.type !== 'file') {
           throw new AppError(404, 'NOT_FOUND', 'This question does not take files');
@@ -55,9 +59,11 @@ export function createUploadsRouter(
           maxBytes: field.fileConfig.maxSizeMb * BYTES_PER_MB,
         });
       } else {
-        const access = await findFormAccess(prisma, query.formId, getAuth(req).userId);
+        const { userId } = getAuth(req);
+        const access = await findFormAccess(prisma, query.formId, userId);
         if (!access) throw new AppError(404, 'NOT_FOUND', 'Form not found');
         assertRole(access.role, 'EDITOR');
+        if (await isDemoUser(prisma, userId)) throw demoRestricted();
         body = storage.signUpload({
           folder: themeFolder(root, query.formId),
           allowedFormats: THEME_IMAGE_FORMATS,

@@ -3,6 +3,9 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { defaultClientConditions, defineConfig, loadEnv } from 'vite';
+import { fontPreload } from './build/font-preload.ts';
+import { routePreload } from './build/route-preload.ts';
+import { vercelOutput } from './build/vercel-output.ts';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '');
@@ -15,8 +18,26 @@ export default defineConfig(({ mode }) => {
     },
   };
 
+  // Where the site is served, for absolute links in index.html (link previews need them).
+  const appUrl = (env.VITE_APP_URL || 'http://localhost:5173').replace(/\/+$/, '');
+
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'formyx:app-url',
+        transformIndexHtml: (html) => html.replaceAll('%APP_URL%', appUrl),
+      },
+      // Inter, Latin letters: the font almost every page needs first.
+      fontPreload(/^assets\/inter-latin-wght-normal-[\w-]+\.woff2$/),
+      // Public forms are the page most often opened cold, on any connection.
+      routePreload([
+        { pathPrefix: '/f/', module: 'src/features/public-form/public-form-page.tsx' },
+      ]),
+      // Only on Vercel: routes, the /api proxy and security headers (see build/vercel-output.ts).
+      vercelOutput(),
+    ],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
       // Resolve workspace packages (e.g. @formyx/shared) to their TypeScript source.
@@ -25,22 +46,18 @@ export default defineConfig(({ mode }) => {
     server: { port: 5173, strictPort: true, proxy },
     preview: { port: 4173, strictPort: true, proxy },
     build: {
+      // Read by scripts/bundle-report.mjs to size each route.
+      manifest: true,
       rolldownOptions: {
         output: {
-          // Long-lived vendor chunks cache across deploys; app code changes more often.
+          // React changes least and every page needs it: its own long-cached chunk. Other
+          // libraries are left in the chunks of the pages that use them, so a page never
+          // downloads, say, every Radix component because one of them is needed.
           codeSplitting: {
             groups: [
               {
                 name: 'react',
                 test: /[\\/]node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/,
-              },
-              {
-                name: 'radix',
-                test: /[\\/]node_modules[\\/](@radix-ui|radix-ui|@floating-ui)[\\/]/,
-              },
-              {
-                name: 'motion',
-                test: /[\\/]node_modules[\\/](motion|motion-dom|motion-utils|framer-motion)[\\/]/,
               },
             ],
           },
@@ -50,7 +67,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}'],
+      include: ['src/**/*.test.{ts,tsx}', 'build/**/*.test.ts'],
       restoreMocks: true,
       // Editor tests render the whole editor and type like a person, waiting out autosave's
       // one-second delay. They take a second or two, so 5s leaves no room on a busy machine.

@@ -1,5 +1,4 @@
 import { Navigate, type RouteObject } from 'react-router';
-import { LandingPage } from '@/features/landing/landing-page';
 import { NotFoundPage } from './not-found-page';
 import { RootLayout, RouteFallback } from './root-layout';
 import type { RouteHandle } from './route-handle';
@@ -24,8 +23,15 @@ export const routes: RouteObject[] = [
     errorElement: <RouteErrorPage />,
     HydrateFallback: RouteFallback,
     children: [
-      // The public landing page ships in the entry chunk for the fastest first paint.
-      { index: true, element: <LandingPage /> },
+      // Every page is its own chunk, so the entry stays small for whichever page comes first,
+      // above all public forms.
+      {
+        index: true,
+        lazy: async () => {
+          const { LandingPage } = await import('@/features/landing/landing-page');
+          return { Component: LandingPage };
+        },
+      },
       // Log in and sign up: signed-in visitors are sent on to the app.
       {
         lazy: async () => {

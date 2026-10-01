@@ -120,7 +120,7 @@ export function uploadErrorMessage(error: unknown): string {
   if (error instanceof ApiRequestError) {
     if (error.code === 'UPLOADS_UNAVAILABLE') return 'File uploads aren’t available right now.';
     if (error.code === 'FORM_CLOSED') return 'This form is no longer accepting responses.';
-    if (error.code === 'RATE_LIMITED') return error.message;
+    if (error.code === 'RATE_LIMITED' || error.code === 'DEMO_RESTRICTED') return error.message;
   }
   return 'The upload could not start. Check your connection and try again.';
 }

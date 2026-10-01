@@ -1,5 +1,5 @@
 import type { FormSummary } from '@formyx/shared';
-import { AnimatePresence, motion, type Variants } from 'motion/react';
+import { AnimatePresence, m, type Variants } from 'motion/react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import type { FormActionHandler } from './form-actions-menu';
@@ -31,7 +31,7 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
   const Item = isGrid ? FormCard : FormRow;
 
   const list = (
-    <motion.ul
+    <m.ul
       // A new key replays the entrance when switching views.
       key={view}
       aria-label="Forms"
@@ -42,7 +42,7 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
     >
       <AnimatePresence mode="popLayout">
         {forms.map((form) => (
-          <motion.li
+          <m.li
             key={form.id}
             layout="position"
             variants={item}
@@ -50,10 +50,10 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
             className={cn(!isGrid && 'last:rounded-b-xl')}
           >
             <Item form={form} now={now} canEdit={canEdit} onAction={onAction} />
-          </motion.li>
+          </m.li>
         ))}
       </AnimatePresence>
-    </motion.ul>
+    </m.ul>
   );
 
   if (isGrid) return list;

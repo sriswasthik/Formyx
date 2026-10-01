@@ -1,10 +1,12 @@
 import { Menu } from 'lucide-react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useCurrentTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useSession } from '@/features/auth/session-context';
+import { DemoBanner } from '@/features/demo/demo-banner';
 import { ThemeToggle } from '@/features/theme/theme-toggle';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { Sidebar } from './sidebar';
@@ -14,6 +16,7 @@ export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
   const { pathname } = useLocation();
   const title = useCurrentTitle();
+  const { user } = useSession();
 
   const closeNav = () => {
     setNavOpen(false);
@@ -44,6 +47,7 @@ export function AppShell() {
         </SheetContent>
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {user.isDemo && <DemoBanner />}
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-8 lg:px-10">
             <SheetTrigger asChild>
               <Button
@@ -66,7 +70,7 @@ export function AppShell() {
             tabIndex={-1}
             className="flex-1 px-6 py-6 outline-none md:px-8 md:py-8 lg:px-10"
           >
-            <motion.div
+            <m.div
               key={pathname}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -74,7 +78,7 @@ export function AppShell() {
               className="mx-auto w-full max-w-5xl"
             >
               <Outlet />
-            </motion.div>
+            </m.div>
           </main>
         </div>
       </div>

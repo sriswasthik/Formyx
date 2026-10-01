@@ -9,7 +9,7 @@ import {
   type TextSummary,
 } from '@formyx/shared';
 import { ArrowRight } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { useId } from 'react';
 import { Link } from 'react-router';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
@@ -44,7 +44,7 @@ function ShareRow({
       </div>
       {/* Square where the bar starts, rounded where the value ends. */}
       <div aria-hidden className="h-2 w-full rounded-r-[4px] bg-muted">
-        <motion.div
+        <m.div
           className={cn('h-full rounded-r-[4px]', muted ? 'bg-control' : 'bg-accent')}
           initial={{ width: 0 }}
           animate={{ width: `${share * 100}%` }}

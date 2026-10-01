@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { Slot } from 'radix-ui';
 import type * as React from 'react';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,7 @@ export function FormField({ id, label, error, hint, children }: FormFieldProps) 
         {children}
       </Slot.Root>
       {error ? (
-        <motion.p
+        <m.p
           key="error"
           id={messageId}
           initial={{ opacity: 0, y: -4 }}
@@ -40,7 +40,7 @@ export function FormField({ id, label, error, hint, children }: FormFieldProps) 
           className="text-13 text-danger-text"
         >
           {error}
-        </motion.p>
+        </m.p>
       ) : (
         hint && (
           <p id={messageId} className="text-13 text-muted-foreground">

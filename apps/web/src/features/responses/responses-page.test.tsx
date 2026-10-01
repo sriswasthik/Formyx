@@ -12,7 +12,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProtectedRoute } from '@/features/auth/protected-route';
 import { setScreen } from '@/features/form-editor/test-utils';
 import {
@@ -188,6 +188,14 @@ function renderPage({ me = ADA, path = '/app/forms/form_1/responses' } = {}) {
   renderWithProviders(<RouterProvider router={router} />, queryClient);
   return { router, queryClient, user: userEvent.setup() };
 }
+
+// The chart loads lazily in the app. Loading it here, once, keeps the cost of compiling Recharts
+// out of the tests' own time limits; under a full, parallel run that can take a while.
+const CHART_IMPORT_TIMEOUT_MS = 60_000;
+
+beforeAll(async () => {
+  await import('./summary/per-day-area-chart');
+}, CHART_IMPORT_TIMEOUT_MS);
 
 beforeEach(() => {
   live.listeners.clear();

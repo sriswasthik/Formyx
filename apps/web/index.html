@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formyx: forms people enjoy filling in</title>
     <meta
       name="description"
       content="Formyx is a form builder for drag-and-drop forms, conditional logic and live responses."
@@ -10,18 +11,56 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Formyx</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Link previews. %APP_URL% is the site's address (VITE_APP_URL), filled in at build. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Formyx" />
+    <meta property="og:title" content="Formyx: forms people enjoy filling in" />
+    <meta
+      property="og:description"
+      content="Build forms with drag and drop, add conditional logic and watch responses arrive live."
+    />
+    <meta property="og:image" content="%APP_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Formyx: forms people enjoy filling in. A form with a name field and a choice question."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <script>
       // Apply the saved theme before first paint to avoid a flash of the wrong theme.
-      // Keep in sync with src/features/theme/theme.ts.
+      // Keep in sync with src/features/theme/theme.ts and src/lib/embed.ts.
       (function () {
+        var root = document.documentElement;
+        // A public form asks for its questions now, while the app's code downloads, rather than
+        // after it has started. src/features/public-form/public-form-api.ts picks this up.
+        try {
+          var form = /^\/f\/([^/?#]+)/.exec(location.pathname);
+          if (form && window.fetch) {
+            window.__formyxPrefetch = {
+              slug: decodeURIComponent(form[1]),
+              response: fetch('/api/public/forms/' + form[1], {
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+              }),
+            };
+          }
+        } catch (_) {}
+        // A form embedded in another site (/f/:slug?embed=1) has a transparent page and
+        // ignores the app's dark mode: the form's own theme decides its colours.
+        if (/^\/f\//.test(location.pathname) && /[?&]embed=1(&|$)/.test(location.search)) {
+          root.setAttribute('data-embed', '');
+          root.style.colorScheme = 'normal';
+          return;
+        }
         try {
           var stored = localStorage.getItem('formyx-theme');
           var dark =
             stored === 'dark' ||
             (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.classList.toggle('dark', dark);
-          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+          root.classList.toggle('dark', dark);
+          root.style.colorScheme = dark ? 'dark' : 'light';
         } catch (_) {}
       })();
     </script>

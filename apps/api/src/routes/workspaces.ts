@@ -23,7 +23,7 @@ import { createWorkspaceService } from '../services/workspace-service.js';
  */
 export function createWorkspacesRouter(
   { prisma, env, logger, mailer }: AppDependencies,
-  { requireAuth, requireWorkspaceRole }: AuthGuards,
+  { requireAuth, requireRealAccount, requireWorkspaceRole }: AuthGuards,
 ): Router {
   const router = Router();
   const workspaces = createWorkspaceService(prisma);
@@ -37,7 +37,7 @@ export function createWorkspacesRouter(
     next();
   });
 
-  router.post('/workspaces', requireAuth, async (req, res) => {
+  router.post('/workspaces', requireAuth, requireRealAccount, async (req, res) => {
     const { name } = workspaceInputSchema.parse(req.body);
     const body: WorkspaceSummary = await workspaces.create(getAuth(req).userId, name);
     res.status(201).json(body);
@@ -46,6 +46,7 @@ export function createWorkspacesRouter(
   router.patch(
     '/workspaces/:workspaceId',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('OWNER'),
     async (req, res) => {
       const { name } = workspaceInputSchema.parse(req.body);
@@ -58,6 +59,7 @@ export function createWorkspacesRouter(
   router.delete(
     '/workspaces/:workspaceId',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('OWNER'),
     async (req, res) => {
       await workspaces.remove(getMembership(req).workspaceId);
@@ -80,6 +82,7 @@ export function createWorkspacesRouter(
   router.patch(
     '/workspaces/:workspaceId/members/:userId',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('OWNER'),
     async (req, res) => {
       const { role } = updateMemberInputSchema.parse(req.body);
@@ -95,6 +98,7 @@ export function createWorkspacesRouter(
   router.delete(
     '/workspaces/:workspaceId/members/:userId',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('VIEWER'),
     async (req, res) => {
       const { workspaceId, role } = getMembership(req);
@@ -121,6 +125,7 @@ export function createWorkspacesRouter(
   router.post(
     '/workspaces/:workspaceId/invites',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('OWNER'),
     limitInvites,
     async (req, res) => {
@@ -137,6 +142,7 @@ export function createWorkspacesRouter(
   router.post(
     '/workspaces/:workspaceId/invites/:inviteId/resend',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('OWNER'),
     limitInvites,
     async (req, res) => {
@@ -151,6 +157,7 @@ export function createWorkspacesRouter(
   router.delete(
     '/workspaces/:workspaceId/invites/:inviteId',
     requireAuth,
+    requireRealAccount,
     requireWorkspaceRole('OWNER'),
     async (req, res) => {
       await invites.revoke(getMembership(req).workspaceId, routeParam(req, 'inviteId'));
@@ -164,13 +171,19 @@ export function createWorkspacesRouter(
     res.json(body);
   });
 
-  router.post('/invites/:token/accept', limitInviteLinks, requireAuth, async (req, res) => {
-    const body: WorkspaceSummary = await invites.accept(
-      routeParam(req, 'token'),
-      getAuth(req).userId,
-    );
-    res.json(body);
-  });
+  router.post(
+    '/invites/:token/accept',
+    limitInviteLinks,
+    requireAuth,
+    requireRealAccount,
+    async (req, res) => {
+      const body: WorkspaceSummary = await invites.accept(
+        routeParam(req, 'token'),
+        getAuth(req).userId,
+      );
+      res.json(body);
+    },
+  );
 
   return router;
 }

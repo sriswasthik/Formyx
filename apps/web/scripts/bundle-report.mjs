@@ -1,0 +1,75 @@
+/* eslint-disable no-console -- a command-line report: printing is its job. */
+// Reports how much each route downloads (JS and CSS, gzipped) after `vite build`, and fails
+// when the public form, which respondents load on any connection, grows past its budget.
+// Usage: pnpm --filter @formyx/web build && pnpm --filter @formyx/web size
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
+
+const DIST = join(import.meta.dirname, '..', 'dist');
+/** What opening a public form may download before it shows, gzipped. */
+// Measured at 180 KB in Sprint 8 (from 255 KB); the headroom is for small additions only.
+const PUBLIC_FORM_BUDGET_KB = 190;
+
+const ROUTES = {
+  'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',
+  'Landing (/)': 'src/features/landing/landing-page.tsx',
+  'Log in': 'src/features/auth/login-page.tsx',
+  'Forms dashboard': 'src/features/forms/forms-page.tsx',
+  Editor: 'src/features/form-editor/editor-page.tsx',
+  Responses: 'src/features/responses/responses-page.tsx',
+  'Workspace settings': 'src/features/settings/workspace/workspace-settings-page.tsx',
+};
+
+const manifest = JSON.parse(readFileSync(join(DIST, '.vite', 'manifest.json'), 'utf8'));
+const gzipCache = new Map();
+
+function gzipKb(file) {
+  if (!gzipCache.has(file)) {
+    gzipCache.set(file, gzipSync(readFileSync(join(DIST, file)), { level: 9 }).length / 1024);
+  }
+  return gzipCache.get(file);
+}
+
+/** Every chunk a module needs before it runs: itself and its static imports, recursively. */
+function closure(key, seen = new Set()) {
+  if (seen.has(key)) return seen;
+  const chunk = manifest[key];
+  if (!chunk) throw new Error(`Not in the build manifest: ${key}`);
+  seen.add(key);
+  for (const imported of chunk.imports ?? []) closure(imported, seen);
+  return seen;
+}
+
+function routeSize(routeKey) {
+  // A route bundled into the entry has no chunk of its own: the entry is all it loads.
+  const own = manifest[routeKey] ? closure(routeKey) : [];
+  const keys = new Set([...closure('index.html'), ...own]);
+  let js = 0;
+  let css = 0;
+  for (const key of keys) {
+    js += gzipKb(manifest[key].file);
+    for (const file of manifest[key].css ?? []) css += gzipKb(file);
+  }
+  return { js, css, total: js + css };
+}
+
+const rows = Object.entries(ROUTES).map(([name, key]) => ({ name, ...routeSize(key) }));
+const pad = (value, width) => String(value).padStart(width);
+console.log(`${'Route'.padEnd(26)}${pad('JS', 9)}${pad('CSS', 9)}${pad('Total', 10)}  (KB, gzip)`);
+for (const { name, js, css, total } of rows) {
+  console.log(
+    `${name.padEnd(26)}${pad(js.toFixed(1), 9)}${pad(css.toFixed(1), 9)}${pad(total.toFixed(1), 10)}`,
+  );
+}
+
+const publicForm = rows[0];
+if (publicForm.total > PUBLIC_FORM_BUDGET_KB) {
+  console.error(
+    `\nThe public form loads ${publicForm.total.toFixed(1)} KB, over its ${PUBLIC_FORM_BUDGET_KB} KB budget.`,
+  );
+  process.exit(1);
+}
+console.log(
+  `\nPublic form: ${publicForm.total.toFixed(1)} KB of its ${PUBLIC_FORM_BUDGET_KB} KB budget.`,
+);

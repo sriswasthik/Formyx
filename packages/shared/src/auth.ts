@@ -68,6 +68,8 @@ export const sessionUserSchema = z.object({
   name: z.string(),
   email: z.string(),
   createdAt: z.iso.datetime(),
+  /** True for the shared demo account, whose data resets nightly and which has limits. */
+  isDemo: z.boolean().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

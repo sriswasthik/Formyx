@@ -68,6 +68,14 @@ export const envSchema = z.object({
     .enum(['true', 'false'], { error: 'Use true or false' })
     .default('false')
     .transform((value) => value === 'true'),
+  /**
+   * Turns on the shared demo account ("Try the demo" on the landing page). It is set up on the
+   * first visit; reset it nightly with `pnpm demo:reset`.
+   */
+  DEMO_ENABLED: z
+    .enum(['true', 'false'], { error: 'Use true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
   /** Where the web app lives, for links in emails. */
   APP_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

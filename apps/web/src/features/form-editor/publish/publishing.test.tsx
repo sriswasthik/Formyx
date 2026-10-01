@@ -58,6 +58,24 @@ describe('publishing from the editor', () => {
     });
   });
 
+  it('offers code to embed the form in another site', async () => {
+    installFakeServer(publishedForm());
+    const { user } = renderEditorPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Share' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Share your form' });
+    await user.click(within(dialog).getByRole('tab', { name: 'Embed' }));
+
+    const snippet = [
+      '<div data-formyx="customer-survey-abc12345"></div>',
+      `<script src="${window.location.origin}/embed.js" async></script>`,
+    ].join('\n');
+    expect(within(dialog).getByRole('textbox', { name: 'Embed code' })).toHaveValue(snippet);
+    await user.click(within(dialog).getByRole('button', { name: 'Copy code' }));
+    expect(await navigator.clipboard.readText()).toBe(snippet);
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Embed code copied');
+  });
+
   it('saves the latest edits before publishing them', async () => {
     const server = installFakeServer(makeFormDetail([named]));
     const { user } = renderEditorPage();

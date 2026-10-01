@@ -1,5 +1,5 @@
-import { Check, Copy, Download, ExternalLink } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { Check, Code, Copy, Download, ExternalLink, Link2 } from 'lucide-react';
+import { AnimatePresence, m } from 'motion/react';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -13,15 +13,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { publicFormUrl } from '@/features/forms/form-paths';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
+import { embedSnippet } from './embed-snippet';
 import { useQrCode } from './use-qr-code';
 
 const COPIED_FOR_MS = 2000;
 
-function CopyLink({ url, buttonRef }: { url: string; buttonRef: RefObject<HTMLButtonElement> }) {
+/**
+ * Copies text, and says "Copied" for a moment. If the clipboard is unavailable, `onFail`
+ * selects the text so people can copy it themselves.
+ */
+function useCopy(what: string, onFail: () => void) {
   const [copied, setCopied] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!copied) return;
@@ -33,15 +38,43 @@ function CopyLink({ url, buttonRef }: { url: string; buttonRef: RefObject<HTMLBu
     };
   }, [copied]);
 
-  const copy = async () => {
+  const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
     } catch {
-      inputRef.current?.select();
-      toast.error('Could not copy the link', { description: 'It is selected: copy it yourself.' });
+      onFail();
+      toast.error(`Could not copy the ${what}`, {
+        description: 'It is selected: copy it yourself.',
+      });
     }
   };
+
+  return { copied, copy };
+}
+
+/** The button's label, swapping to "Copied" with a short fade. */
+function CopyLabel({ copied, label }: { copied: boolean; label: string }) {
+  return (
+    <AnimatePresence initial={false} mode="wait">
+      <m.span
+        key={copied ? 'copied' : 'copy'}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: DURATION.fast, ease: EASE_STANDARD }}
+        className="flex items-center gap-2"
+      >
+        {copied ? <Check aria-hidden className="text-success" /> : <Copy aria-hidden />}
+        {copied ? 'Copied' : label}
+      </m.span>
+    </AnimatePresence>
+  );
+}
+
+function CopyLink({ url, buttonRef }: { url: string; buttonRef: RefObject<HTMLButtonElement> }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { copied, copy } = useCopy('link', () => inputRef.current?.select());
 
   return (
     <div className="flex gap-2">
@@ -59,21 +92,9 @@ function CopyLink({ url, buttonRef }: { url: string; buttonRef: RefObject<HTMLBu
         ref={buttonRef}
         variant="secondary"
         className="w-28 shrink-0"
-        onClick={() => void copy()}
+        onClick={() => void copy(url)}
       >
-        <AnimatePresence initial={false} mode="wait">
-          <motion.span
-            key={copied ? 'copied' : 'copy'}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: DURATION.fast, ease: EASE_STANDARD }}
-            className="flex items-center gap-2"
-          >
-            {copied ? <Check aria-hidden className="text-success" /> : <Copy aria-hidden />}
-            {copied ? 'Copied' : 'Copy link'}
-          </motion.span>
-        </AnimatePresence>
+        <CopyLabel copied={copied} label="Copy link" />
       </Button>
       <span role="status" className="sr-only">
         {copied ? 'Link copied' : ''}
@@ -122,6 +143,41 @@ function QrCode({ url, slug }: { url: string; slug: string }) {
   );
 }
 
+function EmbedCode({ slug }: { slug: string }) {
+  const codeRef = useRef<HTMLTextAreaElement>(null);
+  const { copied, copy } = useCopy('code', () => codeRef.current?.select());
+  const snippet = embedSnippet(slug);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-14 text-muted-foreground">
+        Paste this where the form should appear on your site. It grows and shrinks to fit, and sends
+        a <code className="font-mono text-13">formyx:submitted</code> event when someone responds.
+      </p>
+      <textarea
+        ref={codeRef}
+        readOnly
+        aria-label="Embed code"
+        value={snippet}
+        rows={3}
+        spellCheck={false}
+        className="w-full resize-none rounded-lg border border-input bg-muted px-3 py-2.5 font-mono text-13 leading-relaxed break-all text-foreground"
+        onFocus={(event) => {
+          event.currentTarget.select();
+        }}
+      />
+      <div>
+        <Button variant="secondary" className="w-32" onClick={() => void copy(snippet)}>
+          <CopyLabel copied={copied} label="Copy code" />
+        </Button>
+        <span role="status" className="sr-only">
+          {copied ? 'Embed code copied' : ''}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -133,7 +189,7 @@ interface ShareDialogProps {
   returnFocusTo?: RefObject<HTMLElement>;
 }
 
-/** The public link to copy or open, and a QR code for it. */
+/** The public link to copy or open, a QR code for it, and code to embed the form. */
 export function ShareDialog({
   open,
   onOpenChange,
@@ -168,8 +224,25 @@ export function ShareDialog({
               : 'Anyone with the link can respond. No account needed.'}
           </DialogDescription>
         </DialogHeader>
-        <CopyLink url={url} buttonRef={copyButton} />
-        <QrCode key={url} url={url} slug={slug} />
+        <Tabs defaultValue="link">
+          <TabsList aria-label="Ways to share">
+            <TabsTrigger value="link">
+              <Link2 aria-hidden />
+              Link
+            </TabsTrigger>
+            <TabsTrigger value="embed">
+              <Code aria-hidden />
+              Embed
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="link" className="flex flex-col gap-4">
+            <CopyLink url={url} buttonRef={copyButton} />
+            <QrCode key={url} url={url} slug={slug} />
+          </TabsContent>
+          <TabsContent value="embed">
+            <EmbedCode slug={slug} />
+          </TabsContent>
+        </Tabs>
         <DialogFooter>
           <Button asChild variant="secondary">
             <a href={url} target="_blank" rel="noopener noreferrer">

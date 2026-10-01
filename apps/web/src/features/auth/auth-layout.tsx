@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import type * as React from 'react';
 import { Link } from 'react-router';
 import { Logo } from '@/components/logo';
@@ -22,7 +22,7 @@ export function AuthLayout({ title, description, footer, children }: AuthLayoutP
         <ThemeToggle />
       </header>
       <main className="flex flex-1 justify-center px-6 pb-16 sm:items-center sm:pb-24">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
@@ -39,7 +39,7 @@ export function AuthLayout({ title, description, footer, children }: AuthLayoutP
             <CardContent>{children}</CardContent>
           </Card>
           <p className="mt-6 text-center text-14 text-muted-foreground">{footer}</p>
-        </motion.div>
+        </m.div>
       </main>
     </div>
   );

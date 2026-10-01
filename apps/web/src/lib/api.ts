@@ -36,17 +36,30 @@ export function jsonRequest(method: 'POST' | 'PATCH' | 'PUT', body: unknown): Re
  * Calls the API (`/api${path}`), validates the JSON response with `schema`
  * and throws an `ApiRequestError` for anything unexpected.
  */
-export async function apiRequest<T>(
+export function apiRequest<T>(
   path: string,
   schema: z.ZodType<T>,
   init: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
+  return readApiResponse(
+    fetch(`/api${path}`, { credentials: 'include', ...init, headers }),
+    schema,
+  );
+}
 
+/**
+ * The checks of `apiRequest`, for a request already on its way (e.g. one index.html started
+ * before the app loaded).
+ */
+export async function readApiResponse<T>(
+  request: Promise<Response>,
+  schema: z.ZodType<T>,
+): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`/api${path}`, { credentials: 'include', ...init, headers });
+    response = await request;
   } catch (cause) {
     throw new ApiRequestError(0, 'NETWORK_ERROR', 'Could not reach the server', { cause });
   }

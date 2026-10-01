@@ -62,6 +62,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Fails if what a public form downloads grows past its budget; prints every route.
+      - name: Bundle size
+        run: pnpm --filter @formyx/web size
+
   e2e:
     name: End-to-end (Playwright)
     runs-on: ubuntu-latest

@@ -56,6 +56,14 @@ export default defineConfig(
     languageOptions: { globals: globals.node },
   },
 
+  // Scripts other sites load (public/embed.js): plain browser JavaScript, written to run in
+  // older browsers too, so no for...of over NodeLists.
+  {
+    files: ['apps/web/public/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+    rules: { '@typescript-eslint/prefer-for-of': 'off' },
+  },
+
   // Node packages.
   {
     files: ['apps/api/**/*.ts', 'packages/shared/**/*.ts', 'e2e/**/*.ts', '**/*.config.ts'],

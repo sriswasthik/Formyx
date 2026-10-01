@@ -27,6 +27,9 @@ model User {
   /// Stored trimmed and lowercased, so the unique index is effectively case-insensitive.
   email         String             @unique
   passwordHash  String             @map("password_hash")
+  /// The shared demo account (see src/demo). It signs in without a password, its data is
+  /// reset every night, and anything that reaches outside Formyx is switched off for it.
+  isDemo        Boolean            @default(false) @map("is_demo")
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
   memberships   Membership[]

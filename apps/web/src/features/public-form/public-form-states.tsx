@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { Link } from 'react-router';
 import { FormThemeScope } from '@/features/form-renderer/form-theme';
+import { isEmbedded } from '@/lib/embed';
 import { cn } from '@/lib/utils';
 
 /** A quiet credit under every public page. Uses the form's colours when inside one. */
@@ -36,9 +37,15 @@ export function PublicFormMessage({
   description,
   action,
 }: PublicFormMessageProps) {
+  const embedded = isEmbedded();
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+    <div className={cn('flex flex-col', !embedded && 'min-h-dvh bg-background')}>
+      <main
+        className={cn(
+          'flex flex-1 flex-col items-center justify-center px-6 text-center',
+          embedded ? 'py-10' : 'py-16',
+        )}
+      >
         <span className="flex size-10 items-center justify-center rounded-full border bg-surface text-muted-foreground">
           <Icon aria-hidden />
         </span>
@@ -51,7 +58,7 @@ export function PublicFormMessage({
         <p className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</p>
         {action && <div className="mt-6">{action}</div>}
       </main>
-      <MadeWithFormyx />
+      {!embedded && <MadeWithFormyx />}
     </div>
   );
 }
@@ -70,7 +77,10 @@ function Bar({ className }: { className: string }) {
 /** Stands in for the form while it loads, on the default form background. */
 export function PublicFormSkeleton() {
   return (
-    <FormThemeScope theme={createDefaultTheme()} className="min-h-dvh">
+    <FormThemeScope
+      theme={createDefaultTheme()}
+      className={isEmbedded() ? 'rounded-(--form-radius)' : 'min-h-dvh'}
+    >
       <div
         role="status"
         aria-label="Loading the form"

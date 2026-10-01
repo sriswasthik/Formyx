@@ -1,17 +1,89 @@
 # Formyx
 
-A full-stack form builder: build forms with drag and drop, add conditional logic, publish them with a shareable link and watch responses arrive live.
+Formyx is a full-stack form builder in the spirit of Tally and Typeform. Build a form by dragging questions into place, show or hide questions with conditional logic, publish it as a link or embed it in any site, and watch responses arrive live with a summary of every question.
 
-See [CLAUDE.md](./CLAUDE.md) for the product brief, design system and engineering rules.
+Forms are JSON documents validated by one shared Zod schema, rendered from that schema everywhere (editor canvas, preview, public page, embeds) and checked with the same rules in the browser and on the server.
 
-## Stack
+**Try it:** the landing page's "Try the demo" signs you in to a shared workspace with three forms and a month of responses. No sign-up needed.
+
+<!-- Screenshots and a GIF go in docs/images/. Replace each placeholder below with the image. -->
+
+| Editor                                             | Responses                                             | Public form                                             |
+| -------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| _Screenshot placeholder: `docs/images/editor.png`_ | _Screenshot placeholder: `docs/images/responses.png`_ | _Screenshot placeholder: `docs/images/public-form.png`_ |
+
+_GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a phone while the response appears on the dashboard._
+
+## Features
+
+- **Editor.** Drag and drop questions (mouse, touch and keyboard), 12 question types, templates, undo and redo, autosave with conflict detection, keyboard shortcuts, and a tabbed layout on small screens.
+- **Conditional logic.** Show a question only when earlier answers match, with comparisons that fit each question type, combined with all or any.
+- **Themes.** Accent colour, font, corners, background, logo and cover image, previewed as you go and published with the form.
+- **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code or an embed snippet; close and reopen forms, or close them automatically after a date or a number of responses.
+- **Embeds.** One `<script>` and a `<div>` put a form in any page. It resizes itself and tells the page when someone submits.
+- **Responses.** A live summary (views, completion rate, time to complete, responses per day, per-question charts), a searchable table, a detail view, bulk delete and CSV export.
+- **Live updates.** New responses appear on the dashboard as they arrive, over Socket.IO.
+- **Teams.** Workspaces with owner, editor and viewer roles, and email invites.
+- **Integrations.** Signed webhooks with retries and a delivery log, response emails through Resend, and file uploads straight to Cloudinary.
+- **Quality.** Light and dark modes, WCAG 2.2 AA checked with axe, reduced motion respected, and a public form that loads in under a second on desktop.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    App["Web app<br/>React SPA"]
+    Host["Any website<br/>embed.js and an iframe"]
+  end
+  subgraph Vercel
+    Static["Static build<br/>CSP, SPA fallback"]
+    Proxy["/api/* proxy"]
+  end
+  subgraph Render
+    API["API<br/>Express, Socket.IO"]
+    Cron["Nightly demo reset"]
+  end
+  DB[("PostgreSQL<br/>Neon")]
+  Cloudinary[("Cloudinary")]
+
+  App -- "HTML and JS" --> Static
+  App -- "REST with the session cookie" --> Proxy --> API
+  App -- "WebSocket with a 60-second token" --> API
+  App -- "signed uploads" --> Cloudinary
+  Host -- "iframe /f/:slug?embed=1" --> Static
+  API --> DB
+  Cron --> DB
+  API -- "checks uploads" --> Cloudinary
+  API -- "response emails, invites" --> Resend
+  API -- "signed webhooks" --> Hooks["Your endpoints"]
+```
 
 | Package           | What                                                                                                                                                |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`        | React 18, Vite, TypeScript, Tailwind CSS v4, shadcn/ui (Radix), React Router, TanStack Query and Table, React Hook Form, Recharts, Socket.IO client |
 | `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino, Socket.IO, Resend, Cloudinary                                                     |
-| `packages/shared` | Zod schemas, types and pure logic shared by web and api                                                                                             |
-| `e2e`             | Playwright end-to-end tests                                                                                                                         |
+| `packages/shared` | Zod schemas, types and pure logic shared by web and api: the form schema, validation, conditional logic, analytics                                  |
+| `e2e`             | Playwright end-to-end and accessibility tests                                                                                                       |
+
+## Key decisions and trade-offs
+
+**Forms are JSON documents, not tables of questions.** A form's questions, logic and settings are one `FormSchema` document (a `jsonb` column) validated by a Zod schema in `packages/shared`. The builder edits it, the renderer draws it and the validator reads it, so a new question type is a change to one schema and a few components, not a migration. The document carries a `version` for future changes to its shape. The cost: the database cannot query individual questions, so per-question analytics fold responses in application code, in batches of 1,000.
+
+**Draft and published snapshot.** Editors change `draftSchema`; publishing copies it to `publishedSchema` (and the theme and title alongside). Respondents only ever see the snapshot, so a half-finished edit can never break a live form, and every response is validated against exactly what the respondent saw. Answers are keyed by question id, so renaming a question keeps its answers together. The cost is a second copy per form and an explicit "Publish" step, which the editor makes visible with an "Unpublished changes" state.
+
+**One validation, in the browser and on the server.** `evaluateVisibility`, `buildSubmissionValidator` and `sanitizeAnswers` decide which questions show and what may be sent. The public form uses them for instant feedback; the API runs the same code as the authority. Hidden questions never count as required and their answers are dropped, so conditional logic cannot be bypassed by a crafted request. The shared package stays pure and browser-safe, and Zod runs `jitless` in the browser, which is faster to start and works under a strict content security policy.
+
+**Optimistic concurrency instead of locks.** Every draft write sends the `version` it started from; a stale one gets `409 CONFLICT`. Two people editing the same form never overwrite each other silently. There is no live co-editing: the second editor is asked to load the latest version.
+
+**First-party cookies, short-lived socket tokens.** Sessions are httpOnly, `SameSite=Lax` cookies. In production Vercel proxies `/api/*` to the API, so the cookie belongs to the site itself and third-party cookie blocking never applies. Vercel cannot proxy WebSockets, so the live-updates socket connects to the API directly, where the cookie is not sent. Instead, the page asks `GET /api/realtime/token` (through the proxy, with the cookie) for a 60-second token with its own issuer and audience, and hands it over in the handshake. Socket tokens are refused as sessions and sessions are refused by the socket. The cost is one extra request per connection.
+
+**Signed webhooks.** Each webhook has its own secret, shown once and stored encrypted (AES-256-GCM). Every delivery carries `X-Formyx-Signature: sha256=<HMAC of the raw body>`, so receivers can check it came from Formyx and was not changed; retries reuse the same body and signature. URLs must be public `https` addresses, checked again at connection time against the resolved IP, so webhooks cannot reach private networks. The retry queue is in memory: deliveries waiting for a retry are lost on restart (see the roadmap).
+
+**The public form is its own small bundle.** Respondents download 180 KB (gzip) with no editor, dashboard or chart code; an ESLint rule keeps those imports out and CI fails if the bundle grows past its 190 KB budget. Embeds load the same page in an iframe, which isolates the form's styles and scripts from the host page; the two talk over `postMessage` with origin and source checks.
+
+**One shared demo account.** "Try the demo" signs everyone in to the same account, reset every night, rather than creating a sandbox per visitor. It costs nothing per visit and the data always looks lived-in. Anything that would reach outside Formyx (emails, invites, webhooks, uploads) or change the workspace itself is refused for that account.
+
+**One API instance.** Rate limits, Socket.IO rooms and the webhook retry queue live in memory. That keeps the stack to two services and a database; running several API instances needs Redis (rate limit store, Socket.IO adapter) and a durable job queue.
 
 ## Getting started
 
@@ -31,8 +103,115 @@ pnpm dev
 ```
 
 - Web: http://localhost:5173 (proxies `/api` to the API)
-- API: http://localhost:4000 — health check at `/api/health`
+- API: http://localhost:4000, health check at `/api/health`
 - Styleguide (development only): http://localhost:5173/styleguide
+
+To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DEMO_ENABLED=true` in `apps/web/.env`, restart `pnpm dev`, and use "Try the demo" on the landing page. `pnpm --filter @formyx/api db:seed:demo` resets the demo account at any time.
+
+## Tests
+
+| Command                          | Runs                                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm test`                      | Vitest in every package: shared logic, API routes against a real Postgres (Supertest), and web components (React Testing Library)                |
+| `pnpm test:e2e`                  | Playwright on desktop and phone viewports: sign-up to CSV export, the editor, logic, publishing, live responses, teams, themes, webhooks, embeds |
+| `pnpm --filter @formyx/web size` | The gzip size of every route, failing if the public form passes its budget                                                                       |
+
+- API tests need the `formyx_test` database (see [Database](#database)); every run empties it, and the setup refuses any database whose name does not end in `_test`.
+- `e2e/tests/journey.spec.ts` is the whole story in one test: sign up, create a form from a template, add a question with a condition, publish, answer the form as a respondent on a phone in a second browser, see the response arrive live, and export it as CSV.
+- `e2e/tests/accessibility.spec.ts` runs axe (WCAG 2.2 A and AA) on the landing page, dashboard, editor and public form, in light and dark mode, and fails on any serious or critical issue.
+- `e2e/tests/embed.spec.ts` embeds a form in a page served from another origin and checks resizing and the `formyx:submitted` event.
+- Before the first `pnpm test:e2e`, install the browser once with `pnpm --filter @formyx/e2e exec playwright install chromium`. End-to-end tests sign up throwaway users in the development database, and reuse dev servers that are already running.
+
+CI (`.github/workflows/ci.yml`) runs formatting, lint, typecheck, unit and API tests, the build and the size check, then the end-to-end tests, on every pull request.
+
+## Deployment
+
+The web app goes to **Vercel**, the API to **Render** and the database to **Neon**. Resend (email) and Cloudinary (uploads) are optional: without them emails are logged and uploads are switched off.
+
+### 1. Database: Neon
+
+Create a Neon project and copy two connection strings from its dashboard: the **pooled** one (its host contains `-pooler`) for `DATABASE_URL`, and the **direct** one for `DIRECT_URL`, which migrations use. Both include `sslmode=require`.
+
+### 2. API: Render
+
+1. In Render, choose **New > Blueprint** and pick this repository. `render.yaml` creates the `formyx-api` web service, a `formyx-demo-reset` cron job (03:00 UTC every night) and a `formyx-database` environment group they share.
+2. Fill in the values Render asks for: `DATABASE_URL` and `DIRECT_URL` in the group; `CORS_ORIGIN` and `APP_URL` (your Vercel address, which you can add after step 3); and, optionally, `RESEND_API_KEY`, `EMAIL_FROM` and the three `CLOUDINARY_*` values. `JWT_SECRET` is generated for you.
+3. Every deploy builds `packages/shared` and the API, runs `prisma migrate deploy` (the pre-deploy command; a failed migration stops the deploy and the previous version keeps running), then starts the server. Render waits for `/api/health` before sending traffic.
+
+Pre-deploy commands and cron jobs need a paid instance type. On the free plan, start the API with `pnpm --filter @formyx/api db:deploy && pnpm --filter @formyx/api start` instead, and reset the demo from somewhere else on a schedule (for example a scheduled GitHub Actions job running `pnpm --filter @formyx/api db:seed:demo` with `DATABASE_URL` as a secret). Free instances also sleep when idle, so the first request after a while is slow.
+
+### 3. Web: Vercel
+
+1. Import the repository in Vercel and set the **Root Directory** to `apps/web`. `apps/web/vercel.json` sets the install and build commands.
+2. Add the environment variables:
+
+   | Variable                       | Value                                                             |
+   | ------------------------------ | ----------------------------------------------------------------- |
+   | `API_URL`                      | The Render service, e.g. `https://formyx-api.onrender.com`        |
+   | `VITE_REALTIME_URL`            | The same address: the live-updates socket connects there directly |
+   | `VITE_APP_URL`                 | This site's address, for link previews (Open Graph tags)          |
+   | `VITE_DEMO_ENABLED`            | `true` to show "Try the demo"                                     |
+   | `ENABLE_EXPERIMENTAL_COREPACK` | `1`, so Vercel uses the pnpm version pinned in `package.json`     |
+
+3. Deploy. On Vercel the build also writes [Build Output API](https://vercel.com/docs/build-output-api/v3) files (`apps/web/build/vercel-output.ts`):
+   - `/api/*` is proxied to `API_URL`, so the session cookie is first-party;
+   - every other unknown path serves the app, which handles routing and its own 404 page;
+   - a content security policy allows only the site's own scripts (inline ones by hash), its API, the socket and Cloudinary uploads;
+   - public forms (`/f/*`) may be embedded anywhere (`frame-ancestors *`), every other page refuses to be framed;
+   - hashed assets are cached for a year, `embed.js` for five minutes.
+
+### 4. Connect them
+
+Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom domain to `CORS_ORIGIN` with a comma) and redeploy the API. Then open the site, sign up, publish a form, answer it in a private window and check that the response appears live.
+
+### Notes
+
+- **Client IPs.** Requests reach the API through Vercel's proxy and then Render's load balancer, so `render.yaml` sets `TRUST_PROXY=2` and rate limits see the visitor's IP. The API's own address is public (the socket needs it), and a request sent there directly could claim any IP in `X-Forwarded-For`, which weakens per-IP rate limits for such requests. Closing this needs the proxy to sign a header the API trusts (see the roadmap).
+- **Migrations** are plain SQL in `apps/api/prisma/migrations`, applied in order by `prisma migrate deploy`. Write them to work with the previous version of the code still running.
+- **Secrets.** Never commit `.env` files; `.env.example` lists every variable. Changing `JWT_SECRET` signs everyone out and makes stored webhook secrets unreadable, so webhooks would need adding again.
+
+## Roadmap
+
+- **Server-render or prerender public forms.** Desktop Lighthouse scores 99 for performance, but on a simulated slow phone the client-rendered page scores 75 to 83, because nothing shows until JavaScript runs. Rendering the form's HTML on the server would bring first paint forward by about two seconds.
+- **A durable webhook queue** (a jobs table or Redis with BullMQ), so retries survive restarts.
+- **Several API instances**: Redis for rate limits and the Socket.IO adapter.
+- **A signed header from the proxy**, so the API trusts forwarded client IPs only from Vercel.
+- **Partial responses and drop-off analytics**, showing where people leave a form.
+- **More question types** (matrix, ranking, signature) and payments.
+- **Custom domains** for public forms, and translations of a form.
+- **Live co-editing** in the editor, building on the existing Socket.IO rooms.
+
+## Embedding
+
+Share › Embed gives a snippet for any page:
+
+```html
+<div data-formyx="customer-survey-x7k2p9q1"></div>
+<script src="https://formyx.app/embed.js" async></script>
+```
+
+`embed.js` (about 1 KB gzipped, no dependencies) replaces each `[data-formyx]` element with an iframe of `/f/:slug?embed=1`. In embed mode the form drops the page background and footer and becomes a card. The iframe reports its height and title with `postMessage`; the script only accepts messages from its own origin and from that iframe, and resizes it. When someone submits, the element dispatches a bubbling `formyx:submitted` event with `{ detail: { slug } }`. Elements added later can be mounted with `window.Formyx.scan()`. `examples/embed-demo.html` is a page to try it with.
+
+## Demo account
+
+`POST /api/auth/demo` (when the API has `DEMO_ENABLED=true`) signs in to the shared demo account, setting it up on first use. Its data comes from `apps/api/src/demo`: three published forms (product feedback, an event registration and a job application, each with its own theme) and 150 responses over the last 30 days, busier on weekdays and with the spikes you would expect (a newsletter, an announcement, a job posting tailing off). The data is generated from a fixed seed, every answer passes the same validator as real responses, and names, emails and phone numbers use reserved example domains and fictional number ranges.
+
+- **Reset.** `pnpm --filter @formyx/api db:seed:demo` (or `demo:reset` after a build) puts everything back in one transaction. The account and workspace keep their ids, so visitors who are signed in stay signed in.
+- **Limits.** The demo account has no password and cannot log in with one. Invites, member and workspace changes, webhooks, response emails and uploads (including respondents' files on demo forms) are refused with `403 DEMO_RESTRICTED`, and the app shows a banner saying so. Forms and responses can be changed freely until the next reset.
+
+## Performance
+
+| Route                  | JS + CSS (KB, gzip) |
+| ---------------------- | ------------------- |
+| Public form `/f/:slug` | 180                 |
+| Landing                | 204                 |
+| Forms dashboard        | 254                 |
+| Responses              | 274                 |
+| Editor                 | 310                 |
+
+Lighthouse on the public form, served from a production build: **99** performance, **100** accessibility, **100** best practices and **100** SEO on desktop (first contentful paint 0.7 s, no layout shift). On Lighthouse's simulated slow 4G phone, performance is **75 to 83** and the other three stay at 100.
+
+What got it there: route-level code splitting; Recharts, the editor and animation features loaded only where used; the form's data requested by a tiny inline script in `index.html` while the app's code downloads; the public form's code preloaded for `/f/` URLs; the Inter font preloaded with a metric-matched fallback (no layout shift when it swaps); and Zod's JIT turned off in the browser, which removed a long main-thread task.
 
 ## Database
 
@@ -55,11 +234,11 @@ After changing `apps/api/prisma/schema.prisma`, run `pnpm db:migrate` to create 
 
 ## Authentication
 
-- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` and `GET /api/auth/me`. Signing up also creates a personal workspace owned by the new user.
-- Sessions are 7-day JWTs in an httpOnly, `SameSite=Lax` cookie, marked `Secure` in production. In development the web app proxies `/api`, so the cookie is first-party. In production, serve the web app and API from the same site (for example `formyx.app` and `api.formyx.app`).
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` and `POST /api/auth/demo` (see [Demo account](#demo-account)). Signing up also creates a personal workspace owned by the new user.
+- Sessions are 7-day JWTs in an httpOnly, `SameSite=Lax` cookie, marked `Secure` in production. The web app always reaches the API through `/api` on its own site (the Vite proxy in development, Vercel's proxy in production), so the cookie is first-party.
 - Passwords are hashed with bcrypt (`BCRYPT_COST`, default 12). Log-in failures always say "Invalid email or password".
-- Sign-ups and failed log-ins are rate limited per IP (`AUTH_RATE_LIMIT_MAX` per 15 minutes). Behind a load balancer, set `TRUST_PROXY` (usually `1`) so the limit applies to real client IPs.
-- `requireAuth` protects routes. `requireWorkspaceRole('EDITOR')` and `requireFormRole('EDITOR')` also check the caller's role in the workspace of the `:workspaceId` or `:formId` route param (OWNER > EDITOR > VIEWER); non-members and members with too little access get 403.
+- Sign-ups, failed log-ins and demo sign-ins are rate limited per IP (`AUTH_RATE_LIMIT_MAX` per 15 minutes). Behind proxies, set `TRUST_PROXY` to the number of them (see [Deployment](#notes)) so the limit applies to real client IPs.
+- `requireAuth` protects routes. `requireWorkspaceRole('EDITOR')` and `requireFormRole('EDITOR')` also check the caller's role in the workspace of the `:workspaceId` or `:formId` route param (OWNER > EDITOR > VIEWER); non-members and members with too little access get 403. `requireRealAccount` refuses the demo account.
 
 ## Forms
 
@@ -93,7 +272,7 @@ Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app
 
 ## Publishing and responses
 
-Publishing snapshots the draft and title into `publishedSchema` and `publishedTitle`: respondents only ever see the snapshot, and edits go live with the next publish. The editor saves pending changes first, marks a live form's "Unpublished changes", and lists what an unfinished draft still needs (`findPublishIssues`: labels, options, condition values). After publishing, the share dialog has the public link, a copy button and a QR code with a PNG download. A published form can be closed and reopened.
+Publishing snapshots the draft and title into `publishedSchema` and `publishedTitle`: respondents only ever see the snapshot, and edits go live with the next publish. The editor saves pending changes first, marks a live form's "Unpublished changes", and lists what an unfinished draft still needs (`findPublishIssues`: labels, options, condition values). After publishing, the share dialog has the public link, a copy button, a QR code with a PNG download and the embed snippet. A published form can be closed and reopened.
 
 Anyone with the link answers at `/f/:slug`, a separate bundle without editor or app code (an ESLint rule keeps it that way). The same shared functions decide what respondents see and what they may send, in the browser and on the server:
 
@@ -133,11 +312,9 @@ Submissions are validated against the published snapshot, with problems returned
 
 **CSV export** streams in batches with backpressure: RFC 4180 quoting, a `'` before text that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`), CRLF line endings and a BOM so Excel reads UTF-8. Headers are the published question labels; numbers and ratings stay numeric.
 
-**Live updates** use Socket.IO on the API's HTTP server at `/api/socket.io`, so whatever routes `/api` (the Vite proxy, a load balancer) routes the socket too. The web app and API may run on different origins, where the session cookie is not sent, so the browser gets a 60-second token from `GET /api/realtime/token` for each connection attempt and hands it over in the handshake. Realtime tokens have their own issuer and audience: they are refused as sessions, and session tokens are refused by the socket. A socket joins `form:<id>` only after the same membership check as the REST API, then receives `submission:created` and `submissions:deleted`. After a reconnect the page rejoins its rooms and refetches what it may have missed. Set `VITE_REALTIME_URL` when the socket is served from another origin.
+**Live updates** use Socket.IO on the API's HTTP server at `/api/socket.io`, so whatever routes `/api` (the Vite proxy, a load balancer) routes the socket too. When the socket is served from another origin (`VITE_REALTIME_URL`, as on Vercel), the session cookie is not sent, so the browser gets a 60-second token from `GET /api/realtime/token` for each connection attempt and hands it over in the handshake. Realtime tokens have their own issuer and audience: they are refused as sessions, and session tokens are refused by the socket. A socket joins `form:<id>` only after the same membership check as the REST API, then receives `submission:created` and `submissions:deleted`. After a reconnect the page rejoins its rooms and refetches what it may have missed.
 
 **Emails** go through Resend after the response is saved and answered: a listener on an in-process event bus sends one batch to subscribers who are still members, with an idempotency key per response. Listener failures are logged and never reach the respondent. Without `RESEND_API_KEY`, emails are written to the log instead. `APP_URL` is used for the links in emails and `EMAIL_FROM` is the sender; its domain must be verified in Resend.
-
-One API instance is assumed: rate limits and Socket.IO rooms live in memory. Running several needs a shared store such as Redis (and the Socket.IO Redis adapter).
 
 ## Themes
 
@@ -168,6 +345,8 @@ Every request that touches a workspace checks the caller's role in it. Owners ma
 | `POST .../invites/:inviteId/resend`, `DELETE .../:inviteId`  | Owners  | A fresh link (the old one stops working), or withdraws   |
 | `GET /api/invites/:token`, `POST /api/invites/:token/accept` | Link    | What the invite is for; joins (signed in, invited email) |
 
+Every change in this table is refused for the demo account.
+
 - **Invites** carry a random 256-bit token in the link; only its SHA-256 is stored. A link works for 7 days, once, and only for the invited address. Inviting someone again replaces their open invite. Used, withdrawn and expired links answer `410 INVITE_UNAVAILABLE` with the reason. `/invite/:token` works signed out too: it leads to sign-up or log-in with the email filled in and comes back. Invite emails are rate limited per user (`INVITE_RATE_LIMIT_MAX`).
 - **Last owner.** Changing a role or removing someone locks the workspace's owner rows first, so a workspace always keeps an owner, even when two owners demote each other at once (`409 LAST_OWNER`).
 
@@ -185,21 +364,21 @@ Editors manage a form's webhooks from its settings in the editor (Webhooks › M
 
 Run from the repository root:
 
-| Script            | Does                                               |
-| ----------------- | -------------------------------------------------- |
-| `pnpm dev`        | Starts web and api together, with reload           |
-| `pnpm build`      | Builds every package                               |
-| `pnpm lint`       | ESLint across the repo                             |
-| `pnpm typecheck`  | TypeScript in every package                        |
-| `pnpm test`       | Vitest in every package (API tests need Postgres)  |
-| `pnpm test:e2e`   | Playwright (starts both dev servers automatically) |
-| `pnpm db:up`      | Starts Postgres in Docker (`db:down` stops it)     |
-| `pnpm db:migrate` | Creates and applies migrations in development      |
-| `pnpm db:deploy`  | Applies pending migrations (CI and production)     |
-| `pnpm db:studio`  | Opens Prisma Studio                                |
-| `pnpm format`     | Formats with Prettier (`format:check` to verify)   |
-
-Before the first `pnpm test:e2e`, install the browser once with `pnpm --filter @formyx/e2e exec playwright install chromium`. End-to-end tests sign up throwaway users in the development database.
+| Script                                   | Does                                                         |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| `pnpm dev`                               | Starts web and api together, with reload                     |
+| `pnpm build`                             | Builds every package                                         |
+| `pnpm lint`                              | ESLint across the repo                                       |
+| `pnpm typecheck`                         | TypeScript in every package                                  |
+| `pnpm test`                              | Vitest in every package (API tests need Postgres)            |
+| `pnpm test:e2e`                          | Playwright (starts both dev servers if they are not running) |
+| `pnpm db:up`                             | Starts Postgres in Docker (`db:down` stops it)               |
+| `pnpm db:migrate`                        | Creates and applies migrations in development                |
+| `pnpm db:deploy`                         | Applies pending migrations (CI and production)               |
+| `pnpm db:studio`                         | Opens Prisma Studio                                          |
+| `pnpm --filter @formyx/api db:seed:demo` | Sets up or resets the demo account                           |
+| `pnpm --filter @formyx/web size`         | Reports the gzip size of every route                         |
+| `pnpm format`                            | Formats with Prettier (`format:check` to verify)             |
 
 ## How packages share code
 

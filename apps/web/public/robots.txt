@@ -1,0 +1,6 @@
+# Public pages may be indexed; the signed-in app and invite links may not.
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /invite/
+Disallow: /api/

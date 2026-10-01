@@ -1,6 +1,7 @@
 import { hasRole, ROLE_LABELS, type Role } from '@formyx/shared';
 import type { Request, RequestHandler } from 'express';
 import type { Env } from '../config/env.js';
+import { demoRestricted, isDemoUser } from '../demo/restrictions.js';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
 import { routeParam } from '../lib/route-param.js';
@@ -34,6 +35,11 @@ export function getMembership(req: Request): MembershipContext {
 export interface AuthGuards {
   /** Rejects requests without a valid session cookie. Does not touch the database. */
   requireAuth: RequestHandler;
+  /**
+   * Refuses the shared demo account (403 DEMO_RESTRICTED), for actions that reach outside
+   * Formyx or change the workspace and its members. Must run after `requireAuth`.
+   */
+  requireRealAccount: RequestHandler;
   /**
    * Checks the signed-in user's role in the `:workspaceId` route param: non-members and
    * members without enough access get 403. Must run after `requireAuth`.
@@ -101,6 +107,11 @@ export function createAuthGuards({
     next();
   };
 
+  const requireRealAccount: RequestHandler = async (req, _res, next) => {
+    if (await isDemoUser(prisma, getAuth(req).userId)) throw demoRestricted();
+    next();
+  };
+
   const requireWorkspaceRole = (minRole: Role): RequestHandler => {
     return async (req, _res, next) => {
       const { userId } = getAuth(req);
@@ -135,5 +146,5 @@ export function createAuthGuards({
     };
   };
 
-  return { requireAuth, requireWorkspaceRole, requireFormRole };
+  return { requireAuth, requireRealAccount, requireWorkspaceRole, requireFormRole };
 }

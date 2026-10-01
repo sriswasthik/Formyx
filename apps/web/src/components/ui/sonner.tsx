@@ -16,7 +16,7 @@ export function Toaster(props: ToasterProps) {
         info: <Info className="text-accent" />,
         warning: <TriangleAlert className="text-warning" />,
         error: <CircleAlert className="text-danger" />,
-        loading: <LoaderCircle className="animate-spin text-muted-foreground" />,
+        loading: <LoaderCircle className="text-muted-foreground motion-safe:animate-spin" />,
       }}
       toastOptions={{
         classNames: {
