@@ -1,4 +1,10 @@
-import type { FormDetail, MeResponse } from '@formyx/shared';
+import {
+  missingFeatures,
+  requiredFeatures,
+  type Entitlements,
+  type FormDetail,
+  type MeResponse,
+} from '@formyx/shared';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { ProtectedRoute } from '@/features/auth/protected-route';
@@ -19,6 +25,11 @@ export interface FakeServer {
   actions: string[];
   /** The next PATCH answers 409, as if someone else saved first. */
   conflictNext: boolean;
+  /**
+   * What the workspace's plan includes. Publishing checks it like the API does; without it,
+   * the entitlements endpoint answers 404 and nothing is checked.
+   */
+  entitlements?: Entitlements;
 }
 
 function bodyOf(init: RequestInit): Record<string, unknown> {
@@ -26,8 +37,17 @@ function bodyOf(init: RequestInit): Record<string, unknown> {
 }
 
 /** Answers the editor's requests the way the API would, keeping one form in memory. */
-export function installFakeServer(form: FormDetail): FakeServer {
-  const server: FakeServer = { form, patches: [], actions: [], conflictNext: false };
+export function installFakeServer(
+  form: FormDetail,
+  { entitlements }: { entitlements?: Entitlements } = {},
+): FakeServer {
+  const server: FakeServer = {
+    form,
+    patches: [],
+    actions: [],
+    conflictNext: false,
+    ...(entitlements && { entitlements }),
+  };
   stubFetch((url, init) => {
     if (init.method === 'PATCH') {
       const body = bodyOf(init) as {
@@ -50,11 +70,33 @@ export function installFakeServer(form: FormDetail): FakeServer {
       return jsonResponse(server.form);
     }
 
+    if (url.endsWith('/entitlements')) {
+      return server.entitlements
+        ? jsonResponse(server.entitlements)
+        : jsonResponse({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
+    }
+
     const action = /^\/api\/forms\/[^/]+\/(publish|close|reopen)$/.exec(url)?.[1];
     if (init.method === 'POST' && action) {
       const version = bodyOf(init).version;
       server.actions.push(action === 'publish' ? `publish:${String(version)}` : action);
       const { form: current } = server;
+      const locked =
+        action === 'publish' && server.entitlements
+          ? missingFeatures(server.entitlements, requiredFeatures(current.theme))
+          : [];
+      if (locked.length > 0) {
+        return jsonResponse(
+          {
+            error: {
+              code: 'UPGRADE_REQUIRED',
+              message: 'Your plan does not include these.',
+              details: { features: locked },
+            },
+          },
+          403,
+        );
+      }
       if (action === 'publish') {
         server.form = {
           ...current,
