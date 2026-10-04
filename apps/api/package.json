@@ -16,7 +16,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed:demo": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/demo/reset-demo.ts",
-    "demo:reset": "node --env-file-if-exists=.env dist/demo/reset-demo.js"
+    "demo:reset": "node --env-file-if-exists=.env dist/demo/reset-demo.js",
+    "db:migrate-forms": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/migrate-forms.ts",
+    "forms:migrate": "node --env-file-if-exists=.env dist/scripts/migrate-forms.js"
   },
   "dependencies": {
     "@formyx/shared": "workspace:*",
