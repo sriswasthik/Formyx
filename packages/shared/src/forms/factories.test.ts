@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyForm, createField } from './factories.js';
 import { FIELD_TYPES } from './field-types.js';
 import { fieldSchema } from './fields.js';
-import { createDefaultTheme, formThemeSchema } from './theme.js';
 
 describe('createField', () => {
   it.each(FIELD_TYPES)('creates a valid, optional %s question', (type) => {
@@ -41,28 +40,5 @@ describe('createEmptyForm', () => {
         successMessage: 'Thanks! Your response has been recorded.',
       },
     });
-  });
-});
-
-describe('formThemeSchema', () => {
-  it('accepts the default theme', () => {
-    expect(formThemeSchema.parse(createDefaultTheme())).toEqual(createDefaultTheme());
-  });
-
-  it.each([
-    [{ accentColor: 'blue' }, 'accentColor'],
-    [{ accentColor: '#2E5AA' }, 'accentColor'],
-    [{ font: 'comic-sans' }, 'font'],
-    [{ radius: 'huge' }, 'radius'],
-    [{ logoUrl: 'http://example.com/logo.png' }, 'logoUrl'],
-    [{ coverUrl: 'javascript:alert(1)' }, 'coverUrl'],
-  ])('rejects %j', (override, path) => {
-    const result = formThemeSchema.safeParse({ ...createDefaultTheme(), ...override });
-    expect(result.error?.issues[0]?.path).toEqual([path]);
-  });
-
-  it('accepts https images', () => {
-    const theme = { ...createDefaultTheme(), logoUrl: 'https://cdn.example.com/logo.png' };
-    expect(formThemeSchema.safeParse(theme).success).toBe(true);
   });
 });

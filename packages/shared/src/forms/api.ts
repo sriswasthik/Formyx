@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { validationIssueSchema } from '../errors.js';
+import { storedFormThemeSchema } from '../theme/migrate.js';
 import { formSchema } from './form-schema.js';
 import { formTemplateIdSchema } from './templates.js';
-import { formThemeSchema } from './theme.js';
 
 export const FORM_STATUSES = ['DRAFT', 'PUBLISHED', 'CLOSED'] as const;
 export const formStatusSchema = z.enum(FORM_STATUSES);
@@ -46,7 +46,8 @@ export const updateFormInputSchema = z
     version: z.number({ error: 'Send the version you are editing' }).int().min(1),
     title: formTitleSchema.optional(),
     draftSchema: formSchema.optional(),
-    theme: formThemeSchema.optional(),
+    /** v2; v1 themes from clients older than v2 are still taken, and upgraded. */
+    theme: storedFormThemeSchema.optional(),
   })
   .refine(
     (input) =>
@@ -96,9 +97,9 @@ export const formDetailSchema = formSummarySchema.extend({
   /** The title as it was last published; renames go live with the next publish. */
   publishedTitle: z.string().nullable(),
   /** The look being edited. */
-  theme: formThemeSchema,
+  theme: storedFormThemeSchema,
   /** The look respondents see, as it was last published. */
-  publishedTheme: formThemeSchema.nullable(),
+  publishedTheme: storedFormThemeSchema.nullable(),
 });
 export type FormDetail = z.infer<typeof formDetailSchema>;
 
@@ -123,7 +124,7 @@ export const publicFormSchema = z.object({
   slug: z.string(),
   title: z.string(),
   schema: formSchema,
-  theme: formThemeSchema,
+  theme: storedFormThemeSchema,
 });
 export type PublicForm = z.infer<typeof publicFormSchema>;
 
