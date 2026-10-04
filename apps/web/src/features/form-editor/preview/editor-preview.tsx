@@ -37,6 +37,7 @@ export function EditorPreview({ theme }: { theme: FormTheme }) {
         schema={schema}
         theme={theme}
         titleAs="h2"
+        variant="frame"
         uploadFile={previewUpload}
         className="flex-1"
       />

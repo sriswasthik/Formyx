@@ -70,11 +70,13 @@ export const FieldRenderer = memo(function FieldRenderer({
   if (field.type === 'statement') {
     return (
       <div ref={rootRef} className={cn(rootClass, 'flex flex-col gap-2')}>
-        <p className="text-16 leading-relaxed whitespace-pre-wrap">
+        <p className="form-text leading-relaxed whitespace-pre-wrap">
           {field.label || <span className="text-(--form-muted)">Untitled statement</span>}
         </p>
         {field.description && (
-          <p className="text-14 whitespace-pre-wrap text-(--form-muted)">{field.description}</p>
+          <p className="form-text-sm whitespace-pre-wrap text-(--form-muted)">
+            {field.description}
+          </p>
         )}
       </div>
     );

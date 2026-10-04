@@ -13,7 +13,7 @@ type Transfer =
   | { status: 'failed'; file: File };
 
 const iconButton = cn(
-  'inline-flex items-center gap-1.5 rounded-(--form-radius) px-2 py-1 text-14 text-(--form-muted)',
+  'inline-flex items-center gap-1.5 rounded-(--form-radius) px-2 py-1 form-text-sm text-(--form-muted)',
   'transition-colors duration-150 ease-standard hover:bg-(--form-hover) hover:text-(--form-fg)',
 );
 
@@ -40,9 +40,9 @@ function FileRow({
     >
       <FileText aria-hidden className="size-5 shrink-0 text-(--form-muted)" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="flex min-w-0 items-baseline gap-2 text-16">
+        <p className="flex min-w-0 items-baseline gap-2 form-text">
           <span className="truncate">{name}</span>
-          <span className="shrink-0 text-14 text-(--form-muted) tabular-nums">
+          <span className="shrink-0 form-text-sm text-(--form-muted) tabular-nums">
             {formatFileSize(size)}
           </span>
         </p>
@@ -70,7 +70,7 @@ function ProgressBar({ name, progress }: { name: string; progress: number }) {
           style={{ transform: `scaleX(${progress})` }}
         />
       </div>
-      <span aria-hidden className="w-10 text-right text-14 text-(--form-muted) tabular-nums">
+      <span aria-hidden className="w-10 text-right form-text-sm text-(--form-muted) tabular-nums">
         {percent}%
       </span>
     </div>
@@ -266,8 +266,10 @@ export function FileControl({
         )}
       >
         <Upload aria-hidden className="size-5 text-(--form-muted)" />
-        <span className="text-16 font-medium">Choose a file or drag it here</span>
-        <span className="text-14 text-(--form-muted)">{fileHint(allowedTypes, maxSizeMb)}</span>
+        <span className="form-text font-medium">Choose a file or drag it here</span>
+        <span className="form-text-sm text-(--form-muted)">
+          {fileHint(allowedTypes, maxSizeMb)}
+        </span>
         <input
           id={controlId}
           type="file"

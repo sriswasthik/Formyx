@@ -1,6 +1,6 @@
 import type { FieldOfType } from '@formyx/shared';
 import type * as React from 'react';
-import { textControl } from './styles';
+import { inputRadius, textareaRadius, textControl } from './styles';
 import type { ControlProps } from './types';
 
 type SingleLineType = 'short_text' | 'email' | 'phone' | 'number' | 'date';
@@ -35,7 +35,7 @@ export function SingleLineControl({
     <input
       id={controlId}
       {...INPUT_ATTRIBUTES[field.type]}
-      className={`${textControl} h-11`}
+      className={`${textControl} ${inputRadius} h-11`}
       placeholder={placeholder}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
@@ -61,7 +61,7 @@ export function LongTextControl({
     <textarea
       id={controlId}
       rows={4}
-      className={`${textControl} min-h-28 resize-y py-2.5`}
+      className={`${textControl} ${textareaRadius} min-h-28 resize-y py-2.5`}
       placeholder={field.placeholder}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}

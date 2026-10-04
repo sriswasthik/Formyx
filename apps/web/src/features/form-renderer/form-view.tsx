@@ -11,12 +11,12 @@ import { CircleCheck, LoaderCircle } from 'lucide-react';
 import { AnimatePresence, LazyMotion, m, useReducedMotion } from 'motion/react';
 import { useCallback, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
-import { cn } from '@/lib/utils';
 import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
-import { FormCover, FormLogo } from './branding';
+import { FormLogo } from './branding';
 import { FileUploadsContext, type FileUploader, type FileUploads } from './file-uploads';
-import { FormThemeScope } from './form-theme';
+import { submitButton } from './styles';
+import { ThemeRenderer, type ThemeVariant } from './theme/theme-renderer';
 
 /** How a handed-over submission went. Problems keep the form open to fix them. */
 export type SubmitOutcome =
@@ -43,8 +43,8 @@ interface FormViewProps {
   footer?: ReactNode;
   /** Offers "Submit another response" after the thank-you message. */
   allowAnotherResponse?: boolean;
-  /** Less space around the form, for embedding it in another site. */
-  compact?: boolean;
+  /** Where the form is drawn: its own page (default), a box in the builder, or an embed. */
+  variant?: ThemeVariant;
   /** Uploads respondents' files. Without it, file questions turn files away. */
   uploadFile?: FileUploader | undefined;
   className?: string;
@@ -58,11 +58,12 @@ type Status = 'filling' | 'submitting' | 'done';
  */
 const loadMotionFeatures = () => import('./motion-features').then((module) => module.default);
 
-const primaryButton = cn(
-  'inline-flex h-11 items-center justify-center gap-2 rounded-(--form-radius) px-5 text-16 font-medium',
-  'bg-(--form-accent) text-(--form-accent-fg) transition-opacity duration-150 ease-standard',
-  'hover:not-disabled:opacity-90 active:not-disabled:opacity-80 disabled:opacity-60',
-);
+/** How the thank-you message arrives, as the theme's page transition says. */
+const ENTRANCES = {
+  none: { opacity: 1, y: 0 },
+  fade: { opacity: 0, y: 0 },
+  slide: { opacity: 0, y: 6 },
+} as const;
 
 /** A whole form as respondents see it: conditional questions, validation and a thank-you. */
 export function FormView({
@@ -75,7 +76,7 @@ export function FormView({
   footer,
   allowAnotherResponse = true,
   uploadFile,
-  compact = false,
+  variant = 'page',
   className,
 }: FormViewProps) {
   const idPrefix = useId();
@@ -160,109 +161,94 @@ export function FormView({
 
   return (
     <LazyMotion features={loadMotionFeatures}>
-      <FormThemeScope theme={theme} className={cn('flex min-h-full flex-col', className)}>
-        <FormCover theme={theme} />
-        <div
-          className={cn(
-            'mx-auto w-full max-w-[640px] flex-1',
-            compact ? 'px-5 py-6 sm:px-8 sm:py-8' : 'px-6 py-10 sm:py-14',
-          )}
-        >
-          {status === 'done' ? (
-            <m.div
-              role="status"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
-              className="flex flex-col items-center gap-4 py-12 text-center"
-            >
-              <CircleCheck aria-hidden className="size-10 text-(--form-accent)" strokeWidth={1.5} />
-              <p className="max-w-md text-16 whitespace-pre-wrap">
-                {schema.settings.successMessage}
-              </p>
-              {allowAnotherResponse && (
-                <button
-                  type="button"
-                  className="mt-2 text-14 font-medium text-(--form-accent) underline-offset-4 hover:underline"
-                  onClick={() => {
-                    setAnswers({});
-                    setErrors({});
-                    setStatus('filling');
-                  }}
-                >
-                  Submit another response
-                </button>
-              )}
-            </m.div>
-          ) : (
-            <FileUploadsContext.Provider value={fileUploads}>
-              <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col">
-                <header className="flex flex-col gap-3 pb-8">
-                  <FormLogo theme={theme} className="mb-3" />
-                  <Title className="text-24 font-semibold tracking-tight break-words sm:text-32">
-                    {title}
-                  </Title>
-                  {schema.description && (
-                    <p className="text-16 break-words whitespace-pre-wrap text-(--form-muted)">
-                      {schema.description}
-                    </p>
-                  )}
-                </header>
-                <AnimatePresence initial={false}>
-                  {schema.fields
-                    .filter((field) => visibleIds.has(field.id))
-                    .map((field) => (
-                      <m.div
-                        key={field.id}
-                        // Clipped only while opening or closing, so focus rings show otherwise.
-                        initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
-                        animate={{
-                          height: 'auto',
-                          opacity: 1,
-                          transitionEnd: { overflow: 'visible' },
-                        }}
-                        exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-                        transition={reveal}
-                      >
-                        <div className="pb-8">
-                          <FieldRenderer
-                            field={field}
-                            mode="respondent"
-                            idPrefix={idPrefix}
-                            value={answers[field.id]}
-                            error={errors[field.id]}
-                            onChange={handleChange}
-                          />
-                        </div>
-                      </m.div>
-                    ))}
-                </AnimatePresence>
-                {hiddenFields}
-                <div className="flex flex-col items-start gap-3">
-                  <button
-                    type="submit"
-                    className={primaryButton}
-                    disabled={status === 'submitting'}
-                  >
-                    {status === 'submitting' && (
-                      <LoaderCircle className="motion-safe:animate-spin" aria-hidden />
-                    )}
-                    {schema.settings.submitButtonText}
-                  </button>
-                  <p role="alert" className="text-14 text-(--form-danger) empty:hidden">
-                    {formError ??
-                      (errorCount > 0 &&
-                        (errorCount === 1
-                          ? '1 question needs your attention.'
-                          : `${errorCount} questions need your attention.`))}
+      <ThemeRenderer theme={theme} variant={variant} footer={footer} className={className}>
+        {status === 'done' ? (
+          <m.div
+            role="status"
+            initial={reduceMotion ? ENTRANCES.none : ENTRANCES[theme.motion.pageTransition]}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
+            className="flex flex-col items-center gap-4 py-12 text-center"
+          >
+            <CircleCheck aria-hidden className="size-10 text-(--form-accent)" strokeWidth={1.5} />
+            <p className="max-w-md form-text whitespace-pre-wrap">
+              {schema.settings.successMessage}
+            </p>
+            {allowAnotherResponse && (
+              <button
+                type="button"
+                className="mt-2 form-text-sm font-medium text-(--form-accent) underline-offset-4 hover:underline"
+                onClick={() => {
+                  setAnswers({});
+                  setErrors({});
+                  setStatus('filling');
+                }}
+              >
+                Submit another response
+              </button>
+            )}
+          </m.div>
+        ) : (
+          <FileUploadsContext.Provider value={fileUploads}>
+            <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col">
+              <header className="flex flex-col gap-3 pb-8 [text-align:var(--form-text-align)]">
+                <FormLogo theme={theme} placement="header" className="mb-3" />
+                <Title className="form-title break-words @xl:form-title-lg">{title}</Title>
+                {schema.description && (
+                  <p className="form-text break-words whitespace-pre-wrap text-(--form-muted)">
+                    {schema.description}
                   </p>
-                </div>
-              </form>
-            </FileUploadsContext.Provider>
-          )}
-        </div>
-        {footer}
-      </FormThemeScope>
+                )}
+              </header>
+              <AnimatePresence initial={false}>
+                {schema.fields
+                  .filter((field) => visibleIds.has(field.id))
+                  .map((field) => (
+                    <m.div
+                      key={field.id}
+                      // Clipped only while opening or closing, so focus rings show otherwise.
+                      initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                      animate={{
+                        height: 'auto',
+                        opacity: 1,
+                        transitionEnd: { overflow: 'visible' },
+                      }}
+                      exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                      transition={reveal}
+                    >
+                      <div className="pb-8">
+                        <FieldRenderer
+                          field={field}
+                          mode="respondent"
+                          idPrefix={idPrefix}
+                          value={answers[field.id]}
+                          error={errors[field.id]}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </m.div>
+                  ))}
+              </AnimatePresence>
+              {hiddenFields}
+              <div className="flex flex-col items-start gap-3">
+                <button type="submit" className={submitButton} disabled={status === 'submitting'}>
+                  {status === 'submitting' && (
+                    <LoaderCircle className="motion-safe:animate-spin" aria-hidden />
+                  )}
+                  {schema.settings.submitButtonText}
+                </button>
+                <p role="alert" className="form-text-sm text-(--form-danger) empty:hidden">
+                  {formError ??
+                    (errorCount > 0 &&
+                      (errorCount === 1
+                        ? '1 question needs your attention.'
+                        : `${errorCount} questions need your attention.`))}
+                </p>
+              </div>
+            </form>
+          </FileUploadsContext.Provider>
+        )}
+      </ThemeRenderer>
     </LazyMotion>
   );
 }
