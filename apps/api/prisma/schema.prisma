@@ -41,10 +41,34 @@ model User {
   @@map("users")
 }
 
+/// What a workspace pays for. Read through the shared entitlement helpers, never by name.
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+
+  @@map("plan")
+}
+
+/// Where a workspace's billing stands; see `effectivePlan` in packages/shared.
+enum PlanStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+
+  @@map("plan_status")
+}
+
 model Workspace {
   id          String       @id @default(cuid())
   name        String
   slug        String       @unique
+  /// No payments yet: every workspace is on FREE. ENTITLEMENTS_MODE decides whether it matters.
+  plan        Plan         @default(FREE)
+  planStatus  PlanStatus   @default(ACTIVE) @map("plan_status")
+  /// When a TRIALING plan falls back to FREE.
+  trialEndsAt DateTime?    @map("trial_ends_at")
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
   memberships Membership[]

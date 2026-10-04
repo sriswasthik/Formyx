@@ -2,6 +2,7 @@ import {
   createDefaultTheme,
   createField,
   createId,
+  isSameTheme,
   removeBrokenConditions,
   type Field,
   type FieldType,
@@ -33,8 +34,8 @@ export type FieldPatch = {
   [K in EditableKey]?: Extract<Field, Partial<Record<K, unknown>>>[K] | undefined;
 };
 
-/** Theme settings to change. `undefined` removes the logo or cover image. */
-export type ThemePatch = { [K in keyof FormTheme]?: FormTheme[K] | undefined };
+/** Works out the next theme from the current one, e.g. with the shared theme helpers. */
+export type ThemeUpdate = (theme: FormTheme) => FormTheme;
 
 /** Settings to change. `undefined` removes an optional setting (e.g. `closeAt`). */
 export type SettingsPatch = { [K in keyof FormSettings]?: FormSettings[K] | undefined };
@@ -71,8 +72,8 @@ export interface EditorState extends EditorSnapshot {
   setTitle: (title: string, options?: ChangeOptions) => void;
   /** Sets the text shown under the title; an empty string removes it. */
   setDescription: (description: string, options?: ChangeOptions) => void;
-  /** Changes how the form looks. */
-  updateTheme: (patch: ThemePatch, options?: ChangeOptions) => void;
+  /** Changes how the form looks. An update that changes nothing is ignored. */
+  updateTheme: (update: ThemeUpdate, options?: ChangeOptions) => void;
   undo: () => void;
   redo: () => void;
   markSaved: (revision: number, version: number) => void;
@@ -311,18 +312,11 @@ export function createEditorStore(
           }, options);
         },
 
-        updateTheme: (patch, options) => {
-          const theme = get().theme;
-          const changed = (Object.keys(patch) as (keyof FormTheme)[]).some(
-            (key) => theme[key] !== patch[key],
-          );
-          if (!changed) return;
+        updateTheme: (update, options) => {
+          const next = update(get().theme);
+          if (isSameTheme(next, get().theme)) return;
           change((state) => {
-            const draft = state.theme as Record<string, unknown>;
-            for (const [key, value] of Object.entries(patch) as [string, unknown][]) {
-              if (value === undefined) Reflect.deleteProperty(draft, key);
-              else draft[key] = value;
-            }
+            state.theme = next;
           }, options);
         },
 

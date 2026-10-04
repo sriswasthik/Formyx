@@ -107,14 +107,24 @@ describe('FormView', () => {
   });
 
   it('shows the theme’s cover and logo as decoration, and nothing without them', () => {
+    const defaults = createDefaultTheme();
     const { container, unmount } = render(
       <FormView
         title="Feedback"
         schema={schema}
         theme={{
-          ...createDefaultTheme(),
-          coverUrl: 'https://res.cloudinary.com/demo/image/upload/cover.jpg',
-          logoUrl: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+          ...defaults,
+          layout: {
+            ...defaults.layout,
+            coverImage: {
+              url: 'https://res.cloudinary.com/demo/image/upload/cover.jpg',
+              focalPoint: { x: 50, y: 30 },
+            },
+          },
+          branding: {
+            ...defaults.branding,
+            logoUrl: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+          },
         }}
       />,
     );

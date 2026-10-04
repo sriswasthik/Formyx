@@ -21,11 +21,19 @@ describe('parseEnv', () => {
       INVITE_RATE_LIMIT_MAX: 20,
       WEBHOOK_ALLOW_PRIVATE_URLS: false,
       DEMO_ENABLED: false,
+      ENTITLEMENTS_MODE: 'all_unlocked',
       APP_URL: 'http://localhost:5173',
       EMAIL_FROM: 'Formyx <notifications@formyx.app>',
       CLOUDINARY_FOLDER: 'formyx',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
+  });
+
+  it('unlocks every feature unless entitlements are enforced', () => {
+    expect(parseEnv({ ...REQUIRED, ENTITLEMENTS_MODE: 'enforced' }).ENTITLEMENTS_MODE).toBe(
+      'enforced',
+    );
+    expect(() => parseEnv({ ...REQUIRED, ENTITLEMENTS_MODE: 'on' })).toThrow(EnvError);
   });
 
   it('normalises APP_URL and treats a blank RESEND_API_KEY as unset', () => {

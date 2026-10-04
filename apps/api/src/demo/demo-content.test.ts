@@ -1,9 +1,10 @@
 import {
-  accentHasEnoughContrast,
   buildSubmissionValidator,
   findPublishIssues,
   formSchema,
   formThemeSchema,
+  requiredFeatures,
+  themeReadabilityIssues,
 } from '@formyx/shared';
 import { describe, expect, it } from 'vitest';
 import { buildDemoContent, DEMO_DAYS } from './demo-content.js';
@@ -14,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 describe('buildDemoContent', () => {
   const forms = buildDemoContent(NOW);
 
-  it('makes three complete, publishable forms with readable themes', () => {
+  it('makes three complete, publishable forms with readable, free themes', () => {
     expect(forms.map((form) => form.title)).toEqual([
       'Product feedback',
       'Design Systems Day registration',
@@ -23,7 +24,9 @@ describe('buildDemoContent', () => {
     for (const form of forms) {
       expect(() => formSchema.parse(form.schema)).not.toThrow();
       expect(findPublishIssues(form.schema)).toEqual([]);
-      expect(accentHasEnoughContrast(formThemeSchema.parse(form.theme))).toBe(true);
+      const theme = formThemeSchema.parse(form.theme);
+      expect(themeReadabilityIssues(theme)).toEqual([]);
+      expect(requiredFeatures(theme)).toEqual([]);
     }
   });
 

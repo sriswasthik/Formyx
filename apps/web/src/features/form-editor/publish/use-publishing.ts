@@ -1,7 +1,14 @@
-import { findPublishIssues, type FormDetail } from '@formyx/shared';
+import {
+  findPublishIssues,
+  requiredFeatures,
+  upgradeRequiredDetailsSchema,
+  type FeatureId,
+  type FormDetail,
+} from '@formyx/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { entitlementKeys } from '@/features/entitlements/use-entitlements';
 import { formKeys } from '@/features/forms/form-list-cache';
 import { closeForm, publishForm, reopenForm } from '@/features/forms/forms-api';
 import { ApiRequestError } from '@/lib/api';
@@ -10,8 +17,11 @@ import type { EditorStore } from '../editor-store';
 
 export type PublishAction = 'publish' | 'close' | 'reopen';
 
-/** How a publish attempt ended: live, stopped by what the draft still needs, or failed. */
-export type PublishOutcome = 'published' | 'incomplete' | 'failed';
+/**
+ * How a publish attempt ended: live, stopped by what the draft still needs, stopped by Pro
+ * features the plan lacks, or failed.
+ */
+export type PublishOutcome = 'published' | 'incomplete' | 'locked' | 'failed';
 
 interface UsePublishingOptions {
   form: FormDetail;
@@ -19,6 +29,10 @@ interface UsePublishingOptions {
   autosaver: Autosaver;
   /** The draft is not ready: the editor points out what to finish. */
   onIncomplete: () => void;
+  /** Which of these features the workspace's plan lacks (see useEntitlements). */
+  missingFeatures: (featureIds: readonly FeatureId[]) => FeatureId[];
+  /** The theme uses features the plan lacks: the editor explains. */
+  onUpgradeRequired: (features: FeatureId[]) => void;
 }
 
 function failureDescription(error: unknown): string {
@@ -29,7 +43,14 @@ function failureDescription(error: unknown): string {
 }
 
 /** Publishing, closing and reopening from the editor, keeping the forms cache in step. */
-export function usePublishing({ form, store, autosaver, onIncomplete }: UsePublishingOptions) {
+export function usePublishing({
+  form,
+  store,
+  autosaver,
+  onIncomplete,
+  missingFeatures,
+  onUpgradeRequired,
+}: UsePublishingOptions) {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<PublishAction | null>(null);
 
@@ -40,9 +61,16 @@ export function usePublishing({ form, store, autosaver, onIncomplete }: UsePubli
   };
 
   const publish = async (): Promise<PublishOutcome> => {
-    if (findPublishIssues(store.getState().schema).length > 0) {
+    const { schema, theme } = store.getState();
+    if (findPublishIssues(schema).length > 0) {
       onIncomplete();
       return 'incomplete';
+    }
+    // Pro looks can be tried in the editor; going live with them takes the plan.
+    const locked = missingFeatures(requiredFeatures(theme));
+    if (locked.length > 0) {
+      onUpgradeRequired(locked);
+      return 'locked';
     }
 
     setPending('publish');
@@ -60,6 +88,17 @@ export function usePublishing({ form, store, autosaver, onIncomplete }: UsePubli
       if (error instanceof ApiRequestError && error.code === 'FORM_INCOMPLETE') {
         onIncomplete();
         return 'incomplete';
+      }
+      if (error instanceof ApiRequestError && error.code === 'UPGRADE_REQUIRED') {
+        // The plan changed since it was loaded: refresh it, and say what is missing.
+        void queryClient.invalidateQueries({
+          queryKey: entitlementKeys.workspace(form.workspaceId),
+        });
+        const details = upgradeRequiredDetailsSchema.safeParse(error.details);
+        onUpgradeRequired(
+          details.success ? details.data.features : requiredFeatures(store.getState().theme),
+        );
+        return 'locked';
       }
       if (error instanceof ApiRequestError && error.status === 409) {
         toast.error('This form was changed somewhere else', {

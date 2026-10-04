@@ -236,7 +236,8 @@ describe('logo and cover images in the theme', () => {
       bytes: 2000,
       format: 'png',
     });
-    const theme = { ...createDefaultTheme(), logoUrl: logo.url };
+    const defaults = createDefaultTheme();
+    const theme = { ...defaults, branding: { ...defaults.branding, logoUrl: logo.url } };
 
     const saved = formDetailSchema.parse(
       (
@@ -245,7 +246,7 @@ describe('logo and cover images in the theme', () => {
           .expect(200)
       ).body,
     );
-    expect(saved.theme.logoUrl).toBe(logo.url);
+    expect(saved.theme.branding.logoUrl).toBe(logo.url);
 
     // Saving again with the same logo is fine even with storage gone.
     await requestAs(appWithoutUploads, team.users.EDITOR)
@@ -268,10 +269,40 @@ describe('logo and cover images in the theme', () => {
     ],
   ])('refuses images from %s', async (_case, url) => {
     const form = await draft();
+    const defaults = createDefaultTheme();
+    const coverImage = { url: url(), focalPoint: { x: 50, y: 50 } };
     const res = await requestAs(app, team.users.EDITOR)
       .patch(`/api/forms/${form.id}`, {
         version: form.version,
-        theme: { ...createDefaultTheme(), coverUrl: url() },
+        theme: { ...defaults, layout: { ...defaults.layout, coverImage } },
+      })
+      .expect(400);
+    expect(apiErrorSchema.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('checks background image layers too', async () => {
+    const form = await draft();
+    const defaults = createDefaultTheme();
+    const res = await requestAs(app, team.users.EDITOR)
+      .patch(`/api/forms/${form.id}`, {
+        version: form.version,
+        theme: {
+          ...defaults,
+          background: {
+            layers: [
+              ...defaults.background.layers,
+              {
+                id: 'photo',
+                type: 'image',
+                url: 'https://evil.example/background.jpg',
+                focalPoint: { x: 50, y: 50 },
+                fit: 'cover',
+                opacity: 1,
+                blendMode: 'normal',
+              },
+            ],
+          },
+        },
       })
       .expect(400);
     expect(apiErrorSchema.parse(res.body).error.code).toBe('VALIDATION_ERROR');

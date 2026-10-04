@@ -113,12 +113,10 @@ function LiveForm({ form, onClosed, hostOrigin }: LiveFormProps) {
       allowAnotherResponse={false}
       uploadFile={uploadFile}
       hiddenFields={<Honeypot inputRef={honeypot} />}
-      compact={embedded}
+      variant={embedded ? 'embed' : 'page'}
       // Embedded, the form is a card on the host's page rather than a page of its own.
-      footer={embedded ? undefined : <MadeWithFormyx />}
-      className={
-        embedded ? 'relative overflow-hidden rounded-(--form-radius)' : 'relative min-h-dvh'
-      }
+      footer={embedded || !form.theme.branding.showFormyxBadge ? undefined : <MadeWithFormyx />}
+      className={embedded ? 'overflow-clip rounded-(--form-radius)' : undefined}
     />
   );
 }

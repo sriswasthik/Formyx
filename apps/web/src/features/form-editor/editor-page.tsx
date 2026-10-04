@@ -1,4 +1,4 @@
-import { hasRole, type FormDetail } from '@formyx/shared';
+import { hasRole, type FeatureId, type FormDetail } from '@formyx/shared';
 import { FileQuestion, Lock, RotateCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
@@ -11,6 +11,8 @@ import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/session-context';
+import { UpgradeDialog } from '@/features/entitlements/upgrade-dialog';
+import { useWorkspaceEntitlements } from '@/features/entitlements/use-entitlements';
 import { formKeys } from '@/features/forms/form-list-cache';
 import { FormNav, INLINE_FORM_NAV_QUERY } from '@/features/forms/form-nav';
 import { getForm } from '@/features/forms/forms-api';
@@ -24,6 +26,7 @@ import { SaveStatus } from './autosave/save-status';
 import { useAutosave } from './autosave/use-autosave';
 import { focusQuestion } from './canvas/focus-question';
 import { findDraftIssues, firstFieldWithIssue } from './draft-issues';
+import { EditorEntitlementsContext } from './editor-entitlements';
 import { EditorLayout } from './editor-layout';
 import { createEditorStore } from './editor-store';
 import { EditorStoreContext } from './editor-store-context';
@@ -105,6 +108,11 @@ function FormEditor({ form }: { form: FormDetail }) {
   // After a refused publish, what still needs doing is pointed out until it goes live.
   const [pointOutIssues, setPointOutIssues] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
+  const [upgrade, setUpgrade] = useState<{ open: boolean; features: FeatureId[] }>({
+    open: false,
+    features: [],
+  });
+  const entitlements = useWorkspaceEntitlements(form.workspaceId);
   const [share, setShare] = useState({ open: false, justPublished: false });
   const publishButton = useRef<HTMLButtonElement>(null);
   const shareButton = useRef<HTMLButtonElement>(null);
@@ -122,6 +130,10 @@ function FormEditor({ form }: { form: FormDetail }) {
     onIncomplete: () => {
       setPointOutIssues(true);
       setIssuesOpen(true);
+    },
+    missingFeatures: entitlements.missing,
+    onUpgradeRequired: (features) => {
+      setUpgrade({ open: true, features });
     },
   });
 
@@ -182,69 +194,79 @@ function FormEditor({ form }: { form: FormDetail }) {
 
   return (
     <EditorStoreContext.Provider value={store}>
-      <PublishIssuesContext.Provider value={publishIssues}>
-        <h1 className="sr-only">Edit form</h1>
-        <EditorLayout
-          form={form}
-          navigation={
-            <FormNav
-              formId={form.id}
-              current="edit"
-              canEdit
-              published={form.publishedSchema !== null}
-              shareRef={shareButton}
-              onShare={() => {
-                setShare({ open: true, justPublished: false });
-              }}
-            />
-          }
-          actions={
-            <PublishControls
-              form={form}
-              pending={publishing.pending}
-              primaryRef={publishButton}
-              onPublish={() => void publish()}
-              onClose={() => void publishing.close()}
-              onReopen={() => void publishing.reopen()}
-            />
-          }
-          status={
-            <SaveStatus
-              state={saveState}
-              onRetry={() => {
-                autosaver.retryNow();
-              }}
-              onReload={() => void reloadLatest()}
-              onShowIssues={showIssues}
-            />
-          }
-        />
-        <ConflictDialog
-          open={saveState.kind === 'conflict' && !conflictDismissed}
-          onOpenChange={(open) => {
-            if (!open) setConflictDismissed(true);
-          }}
-          onReload={() => void reloadLatest()}
-          reloading={reloading}
-        />
-        <PublishIssuesDialog
-          open={issuesOpen}
-          onOpenChange={setIssuesOpen}
-          issues={publishIssues}
-          onShow={showQuestion}
-        />
-        <ShareDialog
-          open={share.open}
-          onOpenChange={(open) => {
-            setShare((current) => ({ ...current, open }));
-          }}
-          slug={form.slug}
-          closed={form.status === 'CLOSED'}
-          justPublished={share.justPublished}
-          returnFocusTo={inlineNav ? shareButton : publishButton}
-        />
-        <LeaveGuard autosaver={autosaver} />
-      </PublishIssuesContext.Provider>
+      <EditorEntitlementsContext.Provider value={entitlements}>
+        <PublishIssuesContext.Provider value={publishIssues}>
+          <h1 className="sr-only">Edit form</h1>
+          <EditorLayout
+            form={form}
+            navigation={
+              <FormNav
+                formId={form.id}
+                current="edit"
+                canEdit
+                published={form.publishedSchema !== null}
+                shareRef={shareButton}
+                onShare={() => {
+                  setShare({ open: true, justPublished: false });
+                }}
+              />
+            }
+            actions={
+              <PublishControls
+                form={form}
+                pending={publishing.pending}
+                primaryRef={publishButton}
+                onPublish={() => void publish()}
+                onClose={() => void publishing.close()}
+                onReopen={() => void publishing.reopen()}
+              />
+            }
+            status={
+              <SaveStatus
+                state={saveState}
+                onRetry={() => {
+                  autosaver.retryNow();
+                }}
+                onReload={() => void reloadLatest()}
+                onShowIssues={showIssues}
+              />
+            }
+          />
+          <ConflictDialog
+            open={saveState.kind === 'conflict' && !conflictDismissed}
+            onOpenChange={(open) => {
+              if (!open) setConflictDismissed(true);
+            }}
+            onReload={() => void reloadLatest()}
+            reloading={reloading}
+          />
+          <PublishIssuesDialog
+            open={issuesOpen}
+            onOpenChange={setIssuesOpen}
+            issues={publishIssues}
+            onShow={showQuestion}
+          />
+          <UpgradeDialog
+            open={upgrade.open}
+            onOpenChange={(open) => {
+              setUpgrade((current) => ({ ...current, open }));
+            }}
+            features={upgrade.features}
+            returnFocusTo={publishButton}
+          />
+          <ShareDialog
+            open={share.open}
+            onOpenChange={(open) => {
+              setShare((current) => ({ ...current, open }));
+            }}
+            slug={form.slug}
+            closed={form.status === 'CLOSED'}
+            justPublished={share.justPublished}
+            returnFocusTo={inlineNav ? shareButton : publishButton}
+          />
+          <LeaveGuard autosaver={autosaver} />
+        </PublishIssuesContext.Provider>
+      </EditorEntitlementsContext.Provider>
     </EditorStoreContext.Provider>
   );
 }

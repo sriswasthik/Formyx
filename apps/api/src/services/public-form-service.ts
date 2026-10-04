@@ -1,6 +1,5 @@
 import {
   buildSubmissionValidator,
-  formThemeSchema,
   responseLimitReached,
   sanitizeAnswers,
   toAnswerIssues,
@@ -15,7 +14,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
 import type { UploadChecks } from './upload-checks.js';
-import { parsePublishedSchema } from './form-service.js';
+import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
 
 const USER_AGENT_MAX_LENGTH = 512;
 
@@ -122,17 +121,9 @@ export function createPublicFormService(
 
       // Respondents see the theme as published; forms published before themes were
       // snapshotted fall back to the current one.
-      const theme = formThemeSchema.safeParse(form.record.publishedTheme ?? form.record.theme);
-      if (!theme.success) {
-        throw new Error('Stored theme does not match its schema', { cause: theme.error });
-      }
-      return {
-        status: 'open',
-        slug: form.slug,
-        title: form.title,
-        schema: form.schema,
-        theme: theme.data,
-      };
+      const theme = parsePublishedTheme(form.record.publishedTheme ?? form.record.theme);
+      if (!theme) throw new Error('A published form has no theme');
+      return { status: 'open', slug: form.slug, title: form.title, schema: form.schema, theme };
     },
 
     async openForm(slug) {

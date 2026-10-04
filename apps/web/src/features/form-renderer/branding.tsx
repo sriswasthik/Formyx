@@ -6,26 +6,47 @@ import { cn } from '@/lib/utils';
  * carry empty alt text rather than repeating it.
  */
 
-/** A wide image across the top of the form. */
+/** A wide image across the top of the form, cropped around its focal point. */
 export function FormCover({ theme, className }: { theme: FormTheme; className?: string }) {
-  if (!theme.coverUrl) return null;
+  const cover = theme.layout.coverImage;
+  if (!cover) return null;
   return (
     <img
-      src={theme.coverUrl}
+      src={cover.url}
       alt=""
-      className={cn('block h-36 w-full object-cover sm:h-52', className)}
+      data-form-cover
+      className={cn('block h-36 w-full object-cover @xl:h-52', className)}
+      style={{ objectPosition: `${cover.focalPoint.x}% ${cover.focalPoint.y}%` }}
     />
   );
 }
 
-/** The logo, above the title. */
-export function FormLogo({ theme, className }: { theme: FormTheme; className?: string }) {
-  if (!theme.logoUrl) return null;
+interface FormLogoProps {
+  theme: FormTheme;
+  /** `header`: above the title. `top`: in a bar across the top of the page. */
+  placement: 'header' | 'top';
+  className?: string;
+}
+
+/** The logo, if the theme puts it in this `placement`. */
+export function FormLogo({ theme, placement, className }: FormLogoProps) {
+  const { logoUrl } = theme.branding;
+  const position = theme.layout.logoPosition;
+  if (!logoUrl || (placement === 'header') !== (position === 'above_title')) return null;
+
+  const centered =
+    position === 'top_center' ||
+    (position === 'above_title' && theme.typography.textAlign === 'center');
   return (
     <img
-      src={theme.logoUrl}
+      src={logoUrl}
       alt=""
-      className={cn('block h-10 w-auto max-w-40 object-contain object-left', className)}
+      data-form-logo
+      className={cn(
+        'block h-10 w-auto max-w-40 object-contain',
+        centered ? 'mx-auto object-center' : 'object-left',
+        className,
+      )}
     />
   );
 }

@@ -18,7 +18,8 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 
 - **Editor.** Drag and drop questions (mouse, touch and keyboard), 12 question types, templates, undo and redo, autosave with conflict detection, keyboard shortcuts, and a tabbed layout on small screens.
 - **Conditional logic.** Show a question only when earlier answers match, with comparisons that fit each question type, combined with all or any.
-- **Themes.** Accent colour, font, corners, background, logo and cover image, previewed as you go and published with the form.
+- **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), registry fonts, input, button and container styles, and classic, card or split layouts. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
+- **Plans.** Free, Pro and Business entitlements, checked through shared helpers. Everything is unlocked during the beta; when enforced, anyone can try Pro styles in the editor, but publishing them needs Pro.
 - **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code or an embed snippet; close and reopen forms, or close them automatically after a date or a number of responses.
 - **Embeds.** One `<script>` and a `<div>` put a form in any page. It resizes itself and tells the page when someone submits.
 - **Responses.** A live summary (views, completion rate, time to complete, responses per day, per-question charts), a searchable table, a detail view, bulk delete and CSV export.
@@ -168,6 +169,8 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 
 - **Client IPs.** Requests reach the API through Vercel's proxy and then Render's load balancer, so `render.yaml` sets `TRUST_PROXY=2` and rate limits see the visitor's IP. The API's own address is public (the socket needs it), and a request sent there directly could claim any IP in `X-Forwarded-For`, which weakens per-IP rate limits for such requests. Closing this needs the proxy to sign a header the API trusts (see the roadmap).
 - **Migrations** are plain SQL in `apps/api/prisma/migrations`, applied in order by `prisma migrate deploy`. Write them to work with the previous version of the code still running.
+- **Stored formats.** Themes and form schemas are JSON with a version. The API upgrades older ones as it reads them, so a deploy never waits on data. To rewrite them in the current format afterwards (theme v2 arrived in Sprint 9), run `pnpm --filter @formyx/api forms:migrate -- --dry-run` from the Render shell, then without `--dry-run`. It only touches forms that need it, never overwrites a save made while it runs, and leaves `updated_at` alone. A second run changes nothing.
+- **Plans.** `ENTITLEMENTS_MODE=all_unlocked` (set in `render.yaml`) gives every workspace every feature. Switch it to `enforced` once plans are sold.
 - **Secrets.** Never commit `.env` files; `.env.example` lists every variable. Changing `JWT_SECRET` signs everyone out and makes stored webhook secrets unreadable, so webhooks would need adding again.
 
 ## Roadmap
@@ -264,7 +267,7 @@ Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app
 
 - **Store.** A Zustand + immer store per editor holds the title and draft schema, with up to 100 undo steps. Typing in one input within a second counts as one step. After a question is removed or moved, or its options or rating scale change, conditions that no longer make sense are removed, and a toast offers to undo that.
 - **Drag and drop** uses dnd-kit. Drag question types from the palette to a position, or reorder questions with the mouse, touch (by the handle) or keyboard (focus the handle, then Space, the arrow keys and Space). Clicking a question type adds it at the end.
-- **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and the public form page. Form colours come from the form's theme as `--form-*` CSS variables, so a form looks the same in the app's light and dark modes.
+- **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and the public form page, all inside `ThemeRenderer`, which turns the form's theme into `--form-*` CSS variables and draws its background and layout. A form looks the same in the app's light and dark modes.
 - **Autosave.** Saves one second after the last change, one request at a time, with the `version` the edit started from. Drafts are checked with the shared schema first; failed saves retry with backoff. A `409` pauses saving and offers to load the latest version. Leaving the editor saves pending changes first, and asks before discarding any that could not be saved.
 - **Shortcuts.** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z (or Ctrl+Y) redo, Ctrl/⌘+D duplicate, Delete or Backspace remove, Escape deselect. These apply outside text inputs; tooltips show them.
 - **Small screens.** Below 1024px the editor has Build, Design, Settings and Preview tabs, and the question types open in a bottom sheet.
@@ -318,7 +321,26 @@ Submissions are validated against the published snapshot, with problems returned
 
 ## Themes
 
-The editor's Design tab sets a form's look: an accent from eight muted presets or any hex colour (with a warning below 3:1 contrast against the background), a font (Inter, a serif or a rounded sans), sharp or rounded corners, a white, off-white or dark background, and an optional logo and cover image. The canvas and preview change as you go; respondents see the theme from the last publish (`publishedTheme`), like the questions. `formThemeVariables` turns a theme into `--form-*` CSS variables, and fonts load only when a form uses them.
+A theme (v2, `packages/shared/src/theme`) describes how a form looks to respondents:
+
+- **Background:** ordered layers, each with an opacity and blend mode. A layer is a solid colour, a linear or radial gradient, a mesh gradient (4 to 8 colour points), a texture, a set of shapes or an image with a focal point. An overlay (colour, opacity, backdrop blur) keeps text readable over busy backgrounds.
+- **Typography:** heading and body fonts, base size, heading weight, letter spacing and alignment.
+- **Colours:** primary, text, muted text, container, input background and border, button text, error.
+- **Components:** input style (outlined, filled, underline, pill, minimal), button style (solid, outline, soft, pill), corner radius, container style (none, card, floating, bordered) and shadow.
+- **Layout:** classic, card or split, plus width, alignment, logo position and cover image. The conversational layout (one question at a time) is in the schema; it draws as a card until its own flow lands.
+- **Motion and branding:** page transition, an optional slow background drift (always off with reduced motion), and the "Made with Formyx" badge.
+
+**Assets.** Fonts, textures, shapes, gradient palettes and presets live in a registry (`packages/shared/src/assets`). Each has an id, name, category, tier (free or Pro), licence and source. Saved themes refer to them by id, so ids are permanent. Fonts are OFL variable fonts served from our own origin, loaded only when a form shows them. Textures are SVG tiles drawn for Formyx and used as masks, so any tint works. Every built-in preset passes the readability checks (text 4.5:1, primary colour 3:1), and its tier is tested against the features it uses.
+
+**Drawing.** `ThemeRenderer` (`apps/web/src/features/form-renderer/theme`) turns a theme into `--form-*` CSS variables, draws the layers and lays the form out. It sizes everything with container queries, so the editor canvas shows exactly what a respondent on that width sees. The Design tab offers presets, accent, background, fonts, corners, logo, cover and the badge. A full Design Studio comes next.
+
+**Versions.** v1 themes (Sprint 7) still read: `storedFormThemeSchema` upgrades them with `migrateTheme`, which keeps their look. Respondents see the theme from the last publish (`publishedTheme`), like the questions.
+
+## Plans and entitlements
+
+Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, branding removal, AI and Google Sheets) and limits (responses per month, upload size, AI credits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
+
+`ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor explains that Pro plans are coming soon. Limits are reported but not enforced yet.
 
 ## File uploads
 
@@ -364,21 +386,22 @@ Editors manage a form's webhooks from its settings in the editor (Webhooks › M
 
 Run from the repository root:
 
-| Script                                   | Does                                                         |
-| ---------------------------------------- | ------------------------------------------------------------ |
-| `pnpm dev`                               | Starts web and api together, with reload                     |
-| `pnpm build`                             | Builds every package                                         |
-| `pnpm lint`                              | ESLint across the repo                                       |
-| `pnpm typecheck`                         | TypeScript in every package                                  |
-| `pnpm test`                              | Vitest in every package (API tests need Postgres)            |
-| `pnpm test:e2e`                          | Playwright (starts both dev servers if they are not running) |
-| `pnpm db:up`                             | Starts Postgres in Docker (`db:down` stops it)               |
-| `pnpm db:migrate`                        | Creates and applies migrations in development                |
-| `pnpm db:deploy`                         | Applies pending migrations (CI and production)               |
-| `pnpm db:studio`                         | Opens Prisma Studio                                          |
-| `pnpm --filter @formyx/api db:seed:demo` | Sets up or resets the demo account                           |
-| `pnpm --filter @formyx/web size`         | Reports the gzip size of every route                         |
-| `pnpm format`                            | Formats with Prettier (`format:check` to verify)             |
+| Script                                       | Does                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                   | Starts web and api together, with reload                                                                             |
+| `pnpm build`                                 | Builds every package                                                                                                 |
+| `pnpm lint`                                  | ESLint across the repo                                                                                               |
+| `pnpm typecheck`                             | TypeScript in every package                                                                                          |
+| `pnpm test`                                  | Vitest in every package (API tests need Postgres)                                                                    |
+| `pnpm test:e2e`                              | Playwright (starts both dev servers if they are not running)                                                         |
+| `pnpm db:up`                                 | Starts Postgres in Docker (`db:down` stops it)                                                                       |
+| `pnpm db:migrate`                            | Creates and applies migrations in development                                                                        |
+| `pnpm db:deploy`                             | Applies pending migrations (CI and production)                                                                       |
+| `pnpm db:studio`                             | Opens Prisma Studio                                                                                                  |
+| `pnpm --filter @formyx/api db:seed:demo`     | Sets up or resets the demo account                                                                                   |
+| `pnpm --filter @formyx/api db:migrate-forms` | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
+| `pnpm --filter @formyx/web size`             | Reports the gzip size of every route                                                                                 |
+| `pnpm format`                                | Formats with Prettier (`format:check` to verify)                                                                     |
 
 ## How packages share code
 

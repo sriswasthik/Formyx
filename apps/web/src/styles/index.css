@@ -186,6 +186,48 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --default-transition-duration: 150ms;
   --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+
+  /*
+   * Respondent-facing forms only (see "Two design surfaces" in CLAUDE.md): a slow drift for
+   * themes with an animated background. Always behind motion-safe:, so reduced motion stops it.
+   */
+  --animate-form-drift: form-drift 28s ease-in-out infinite alternate;
+
+  @keyframes form-drift {
+    from {
+      transform: translate3d(-2%, -1.5%, 0) scale(1.02);
+    }
+    to {
+      transform: translate3d(2%, 1.5%, 0) scale(1.06);
+    }
+  }
+}
+
+/*
+ * The type scale inside respondent-facing forms. It follows the theme's base size
+ * (--form-text, set by ThemeRenderer) rather than the app's fixed scale.
+ */
+@utility form-text {
+  font-size: var(--form-text, 1rem);
+  line-height: 1.5;
+}
+
+@utility form-text-sm {
+  font-size: calc(var(--form-text, 1rem) * 0.875);
+  line-height: 1.5;
+}
+
+@utility form-title {
+  font-family: var(--form-heading-font, inherit);
+  font-weight: var(--form-heading-weight, 600);
+  letter-spacing: var(--form-heading-tracking, -0.011em);
+  font-size: calc(var(--form-text, 1rem) * 1.5);
+  line-height: 1.3;
+}
+
+@utility form-title-lg {
+  font-size: calc(var(--form-text, 1rem) * 2);
+  line-height: 1.25;
 }
 
 @theme inline {

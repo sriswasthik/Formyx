@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { FieldRenderer } from './field-renderer';
-import { FormThemeScope } from './form-theme';
+import { ThemeRenderer } from './theme/theme-renderer';
 
 /** Renders one question with working state, like a form would. */
 function Harness({ field, onValue }: { field: Field; onValue?: (value: AnswerValue) => void }) {
   const [value, setValue] = useState<AnswerValue | undefined>(undefined);
   return (
-    <FormThemeScope theme={createDefaultTheme()}>
+    <ThemeRenderer theme={createDefaultTheme()} variant="frame">
       <FieldRenderer
         field={field}
         mode="respondent"
@@ -21,7 +21,7 @@ function Harness({ field, onValue }: { field: Field; onValue?: (value: AnswerVal
           onValue?.(next);
         }}
       />
-    </FormThemeScope>
+    </ThemeRenderer>
   );
 }
 

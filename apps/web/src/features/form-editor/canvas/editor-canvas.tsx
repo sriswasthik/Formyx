@@ -4,8 +4,9 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react';
 import { AnimatePresence, m } from 'motion/react';
 import { useMemo } from 'react';
-import { FormCover, FormLogo } from '@/features/form-renderer/branding';
-import { FormThemeScope } from '@/features/form-renderer/form-theme';
+import { FormLogo } from '@/features/form-renderer/branding';
+import { submitButton } from '@/features/form-renderer/styles';
+import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useDropIndex } from '../dnd/drop-index-context';
@@ -44,73 +45,72 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
         if (!(event.target as Element).closest('[data-canvas-field]')) selectField(null);
       }}
     >
-      <FormThemeScope
-        theme={theme}
-        className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl border"
-      >
-        <FormCover theme={theme} />
-        <div ref={setNodeRef} className="px-6 py-10 sm:px-12 sm:py-12">
-          <FormLogo theme={theme} className="mb-6" />
-          <h2 className="text-24 font-semibold tracking-tight break-words sm:text-32">
-            {title || 'Untitled form'}
-          </h2>
-          {description && (
-            <p className="mt-3 text-16 break-words whitespace-pre-wrap text-(--form-muted)">
-              {description}
-            </p>
-          )}
-
-          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-            <div role="list" aria-label="Questions" className="relative mt-8 flex flex-col gap-3">
-              <AnimatePresence initial={false} mode="popLayout">
-                {ids.map((id, index) => (
-                  <m.div
-                    key={id}
-                    role="listitem"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98, transition: { duration: DURATION.fast } }}
-                    transition={{ duration: DURATION.base, ease: EASE_STANDARD }}
-                  >
-                    <CanvasField
-                      id={id}
-                      index={index}
-                      total={ids.length}
-                      showDropIndicator={dropIndex === index}
-                      onOpenSettings={onOpenSettings}
-                    />
-                  </m.div>
-                ))}
-              </AnimatePresence>
-              {ids.length > 0 && dropIndex === ids.length && (
-                <div className="relative h-0">
-                  <DropIndicator className="-top-[7px] -mx-3 sm:-mx-4" />
-                </div>
+      {/* The builder's frame around the page respondents get. */}
+      <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-xl border">
+        <ThemeRenderer theme={theme} variant="frame" className="min-h-96">
+          <div ref={setNodeRef}>
+            <header className="flex flex-col gap-3 [text-align:var(--form-text-align)]">
+              <FormLogo theme={theme} placement="header" className="mb-3" />
+              <h2 className="form-title break-words @xl:form-title-lg">
+                {title || 'Untitled form'}
+              </h2>
+              {description && (
+                <p className="form-text break-words whitespace-pre-wrap text-(--form-muted)">
+                  {description}
+                </p>
               )}
-            </div>
-          </SortableContext>
+            </header>
 
-          {ids.length === 0 && (
-            <div
-              className={cn(
-                'mt-8 flex flex-col items-center gap-2 rounded-(--form-radius) border border-dashed border-(--form-border-strong) px-6 py-12 text-center',
-                'transition-colors duration-150 ease-standard',
-                dropIndex !== null && 'border-accent bg-accent-subtle',
-              )}
-            >
-              <Plus aria-hidden className="text-(--form-muted)" />
-              <p className="text-16 font-medium">This form has no questions yet</p>
-              <p className="text-14 text-(--form-muted)">{emptyHint}</p>
-            </div>
-          )}
+            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+              <div role="list" aria-label="Questions" className="relative mt-8 flex flex-col gap-3">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {ids.map((id, index) => (
+                    <m.div
+                      key={id}
+                      role="listitem"
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98, transition: { duration: DURATION.fast } }}
+                      transition={{ duration: DURATION.base, ease: EASE_STANDARD }}
+                    >
+                      <CanvasField
+                        id={id}
+                        index={index}
+                        total={ids.length}
+                        showDropIndicator={dropIndex === index}
+                        onOpenSettings={onOpenSettings}
+                      />
+                    </m.div>
+                  ))}
+                </AnimatePresence>
+                {ids.length > 0 && dropIndex === ids.length && (
+                  <div className="relative h-0">
+                    <DropIndicator className="-top-[7px] -mx-3 sm:-mx-4" />
+                  </div>
+                )}
+              </div>
+            </SortableContext>
 
-          <div className="mt-10">
-            <span className="inline-flex h-11 items-center rounded-(--form-radius) bg-(--form-accent) px-5 text-16 font-medium text-(--form-accent-fg)">
-              {submitText}
-            </span>
+            {ids.length === 0 && (
+              <div
+                className={cn(
+                  'mt-8 flex flex-col items-center gap-2 rounded-(--form-radius) border border-dashed border-(--form-border-strong) px-6 py-12 text-center',
+                  'transition-colors duration-150 ease-standard',
+                  dropIndex !== null && 'border-accent bg-accent-subtle',
+                )}
+              >
+                <Plus aria-hidden className="text-(--form-muted)" />
+                <p className="form-text font-medium">This form has no questions yet</p>
+                <p className="form-text-sm text-(--form-muted)">{emptyHint}</p>
+              </div>
+            )}
+
+            <div className="mt-10">
+              <span className={submitButton}>{submitText}</span>
+            </div>
           </div>
-        </div>
-      </FormThemeScope>
+        </ThemeRenderer>
+      </div>
     </div>
   );
 }

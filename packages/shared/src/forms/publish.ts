@@ -1,4 +1,5 @@
 import type { ValidationIssue } from '../errors.js';
+import { isSameJson } from '../json.js';
 import { operatorNeedsValue } from './conditions.js';
 import { isAnswerableFieldType } from './field-types.js';
 import type { FormSchema, FormSettings } from './form-schema.js';
@@ -50,23 +51,13 @@ export function findPublishIssues(schema: FormSchema): ValidationIssue[] {
   return issues;
 }
 
-/** JSON with object keys sorted and `undefined` properties left out. */
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(value, (_key, current: unknown) => {
-    if (current === null || typeof current !== 'object' || Array.isArray(current)) return current;
-    return Object.fromEntries(
-      Object.entries(current as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)),
-    );
-  });
-}
-
 /**
  * Whether two schemas say the same thing. Postgres `jsonb` reorders object keys, so a stored
  * snapshot and an in-memory draft can differ in key order alone.
  */
 export function isSameFormSchema(a: FormSchema | null, b: FormSchema | null): boolean {
   if (a === null || b === null) return a === b;
-  return canonicalJson(a) === canonicalJson(b);
+  return isSameJson(a, b);
 }
 
 /** Why a published form no longer takes responses under its own settings, if it doesn't. */

@@ -1,7 +1,7 @@
 import type { FieldOfType } from '@formyx/shared';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { choiceRow, controlSurface, textControl } from './styles';
+import { choiceRow, controlSurface, inputRadius, textControl } from './styles';
 import type { ControlProps } from './types';
 
 /** Radios (single choice) or checkboxes (multiple choice), one bordered row per option. */
@@ -17,7 +17,7 @@ export function ChoiceControl({
   const selected = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
 
   if (field.options.length === 0) {
-    return <p className="text-14 text-(--form-muted)">No options yet</p>;
+    return <p className="form-text-sm text-(--form-muted)">No options yet</p>;
   }
 
   return (
@@ -89,6 +89,7 @@ export function DropdownControl({
         id={controlId}
         className={cn(
           textControl,
+          inputRadius,
           'h-11 appearance-none pr-10',
           current === '' && 'text-(--form-muted)',
         )}
@@ -134,7 +135,7 @@ export function RatingControl({
           key={rating}
           className={cn(
             controlSurface,
-            'relative flex size-11 cursor-pointer items-center justify-center text-16 font-medium tabular-nums',
+            'relative flex size-11 cursor-pointer items-center justify-center form-text font-medium tabular-nums',
             'hover:bg-(--form-hover)',
             'has-checked:border-(--form-accent) has-checked:bg-(--form-accent) has-checked:text-(--form-accent-fg)',
             'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)',

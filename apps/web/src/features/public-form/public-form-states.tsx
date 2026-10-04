@@ -2,7 +2,7 @@ import { createDefaultTheme } from '@formyx/shared';
 import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { Link } from 'react-router';
-import { FormThemeScope } from '@/features/form-renderer/form-theme';
+import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { isEmbedded } from '@/lib/embed';
 import { cn } from '@/lib/utils';
 
@@ -77,15 +77,12 @@ function Bar({ className }: { className: string }) {
 /** Stands in for the form while it loads, on the default form background. */
 export function PublicFormSkeleton() {
   return (
-    <FormThemeScope
+    <ThemeRenderer
       theme={createDefaultTheme()}
-      className={isEmbedded() ? 'rounded-(--form-radius)' : 'min-h-dvh'}
+      variant={isEmbedded() ? 'embed' : 'page'}
+      className={isEmbedded() ? 'overflow-clip rounded-(--form-radius)' : undefined}
     >
-      <div
-        role="status"
-        aria-label="Loading the form"
-        className="mx-auto flex w-full max-w-[640px] flex-col gap-8 px-6 py-10 sm:py-14"
-      >
+      <div role="status" aria-label="Loading the form" className="flex flex-col gap-8">
         <Bar className="h-9 w-2/3" />
         {[0, 1, 2].map((item) => (
           <div key={item} className="flex flex-col gap-3">
@@ -95,6 +92,6 @@ export function PublicFormSkeleton() {
         ))}
         <Bar className="h-11 w-28" />
       </div>
-    </FormThemeScope>
+    </ThemeRenderer>
   );
 }

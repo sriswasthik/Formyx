@@ -1,4 +1,10 @@
-import { createField, type FormDetail } from '@formyx/shared';
+import {
+  createField,
+  resolveEntitlements,
+  THEME_PRESETS,
+  type EntitlementsMode,
+  type FormDetail,
+} from '@formyx/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { installFakeServer, renderEditorPage } from '../test-server';
@@ -190,5 +196,68 @@ describe('publishing from the editor', () => {
       screen.getByRole('button', { name: 'Published: publishing options' }),
     ).toBeInTheDocument();
     expect(server.actions).toEqual(['close', 'reopen']);
+  });
+});
+
+describe('publishing a Pro look', () => {
+  const freePlan = (mode: EntitlementsMode) =>
+    resolveEntitlements({ plan: 'FREE', planStatus: 'ACTIVE', trialEndsAt: null }, mode);
+
+  function studioForm(): FormDetail {
+    const studio = THEME_PRESETS.find((preset) => preset.id === 'studio');
+    if (!studio) throw new Error('No Studio preset');
+    return makeFormDetail([named], { theme: studio.theme });
+  }
+
+  it('explains Pro plans instead of publishing, when the plan lacks what it uses', async () => {
+    const server = installFakeServer(studioForm(), { entitlements: freePlan('enforced') });
+    const { user } = renderEditorPage();
+    // Wait for the plan: the Design panel says what publishing needs.
+    await user.click(await screen.findByRole('tab', { name: 'Design' }));
+    expect(await screen.findByText(/publishing them needs a Pro plan/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Pro plans are coming soon' });
+    const features = within(dialog).getByRole('list', { name: 'Pro styles in this form' });
+    expect(
+      within(features)
+        .getAllByRole('listitem')
+        .map((item) => item.firstChild?.textContent),
+    ).toEqual(['Premium fonts Pro', 'Premium textures Pro', 'Custom shapes Pro']);
+    // Checked before asking the API.
+    expect(server.actions).toEqual([]);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Publish' })).toHaveFocus();
+    });
+  });
+
+  it('shows what the API says is missing when the plan changed meanwhile', async () => {
+    const server = installFakeServer(studioForm(), { entitlements: freePlan('all_unlocked') });
+    const { user } = renderEditorPage();
+    await user.click(await screen.findByRole('tab', { name: 'Design' }));
+    expect(await screen.findByText(/included free during the beta/)).toBeInTheDocument();
+    server.entitlements = freePlan('enforced');
+
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Pro plans are coming soon' });
+    expect(within(dialog).getByText('Premium textures')).toBeInTheDocument();
+    expect(server.actions).toEqual(['publish:1']);
+    // The editor catches up with the new plan.
+    expect(await screen.findByText(/publishing them needs a Pro plan/)).toBeInTheDocument();
+  });
+
+  it('publishes Pro looks while everything is unlocked', async () => {
+    const server = installFakeServer(studioForm(), { entitlements: freePlan('all_unlocked') });
+    const { user } = renderEditorPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Publish' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Your form is live' })).toBeInTheDocument();
+    expect(server.actions).toEqual(['publish:1']);
   });
 });

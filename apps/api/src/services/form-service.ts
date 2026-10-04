@@ -3,9 +3,8 @@ import {
   copyFormTitle,
   createDefaultTheme,
   findPublishIssues,
-  formSchema,
-  formThemeSchema,
   getFormTemplate,
+  requiredFeatures,
   slugify,
   type FormDetail,
   type FormSchema,
@@ -16,12 +15,15 @@ import {
   type PublishFormInput,
   type UpdateFormInput,
   responseLimitReached,
+  storedFormSchemaSchema,
+  storedFormThemeSchema,
 } from '@formyx/shared';
 import type { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import { escapeLikePattern } from '../lib/like-pattern.js';
 import type { Database } from '../lib/prisma.js';
+import type { EntitlementService } from './entitlement-service.js';
 
 const SLUG_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const SLUG_SUFFIX_LENGTH = 8;
@@ -69,7 +71,8 @@ function toSummary(form: SummaryRecord): FormSummary {
 
 /**
  * JSON columns are validated before every write, so stored data failing validation is a
- * server bug: report it as one (500), not as a problem with the request.
+ * server bug: report it as one (500), not as a problem with the request. Schemas and themes
+ * saved by older versions are upgraded as they are read.
  */
 function parseStored<T>(schema: z.ZodType<T>, value: unknown, column: string): T {
   const result = schema.safeParse(value);
@@ -81,20 +84,22 @@ function parseStored<T>(schema: z.ZodType<T>, value: unknown, column: string): T
 
 /** A stored `publishedSchema`, or `null` for a form that was never published. */
 export function parsePublishedSchema(value: Prisma.JsonValue | null): FormSchema | null {
-  return value === null ? null : parseStored(formSchema, value, 'publishedSchema');
+  return value === null ? null : parseStored(storedFormSchemaSchema, value, 'publishedSchema');
+}
+
+/** A stored `publishedTheme`, or `null` for a form that was never published. */
+export function parsePublishedTheme(value: Prisma.JsonValue | null): FormTheme | null {
+  return value === null ? null : parseStored(storedFormThemeSchema, value, 'publishedTheme');
 }
 
 function toDetail(form: DetailRecord): FormDetail {
   return {
     ...toSummary(form),
-    draftSchema: parseStored(formSchema, form.draftSchema, 'draftSchema'),
+    draftSchema: parseStored(storedFormSchemaSchema, form.draftSchema, 'draftSchema'),
     publishedSchema: parsePublishedSchema(form.publishedSchema),
     publishedTitle: form.publishedTitle,
-    theme: parseStored(formThemeSchema, form.theme, 'theme'),
-    publishedTheme:
-      form.publishedTheme === null
-        ? null
-        : parseStored(formThemeSchema, form.publishedTheme, 'publishedTheme'),
+    theme: parseStored(storedFormThemeSchema, form.theme, 'theme'),
+    publishedTheme: parsePublishedTheme(form.publishedTheme),
   };
 }
 
@@ -152,9 +157,10 @@ export interface FormService {
   duplicate(formId: string, userId: string): Promise<FormDetail>;
   remove(formId: string): Promise<void>;
   /**
-   * Snapshots the draft and title as what respondents see. A draft form goes live; a closed
-   * one stays closed until reopened. Refused with 409 if the draft moved on from `version`,
-   * or 422 if it is not complete.
+   * Snapshots the draft, title and theme as what respondents see. A draft form goes live; a
+   * closed one stays closed until reopened. Refused with 409 if the draft moved on from
+   * `version`, 422 if it is not complete, or 403 UPGRADE_REQUIRED if the theme uses features
+   * the workspace's plan lacks.
    */
   publish(formId: string, input: PublishFormInput): Promise<FormDetail>;
   /** Stops a published form taking responses. */
@@ -163,7 +169,10 @@ export interface FormService {
   reopen(formId: string): Promise<FormDetail>;
 }
 
-export function createFormService(prisma: Database): FormService {
+export function createFormService(
+  prisma: Database,
+  entitlements: Pick<EntitlementService, 'assertFeatures'>,
+): FormService {
   async function insert(form: NewForm): Promise<FormDetail> {
     for (let attempt = 1; ; attempt++) {
       try {
@@ -249,18 +258,28 @@ export function createFormService(prisma: Database): FormService {
     async publish(formId, { version }) {
       const form = await prisma.form.findUnique({
         where: { id: formId },
-        select: { version: true, title: true, status: true, draftSchema: true, theme: true },
+        select: {
+          workspaceId: true,
+          version: true,
+          title: true,
+          status: true,
+          draftSchema: true,
+          theme: true,
+        },
       });
       if (!form) throw notFound();
       if (form.version !== version) throw versionConflict(form.version);
 
-      const draft = parseStored(formSchema, form.draftSchema, 'draftSchema');
+      const draft = parseStored(storedFormSchemaSchema, form.draftSchema, 'draftSchema');
       const issues = findPublishIssues(draft);
       if (issues.length > 0) {
         throw new AppError(422, 'FORM_INCOMPLETE', 'Finish the form before publishing it.', {
           details: issues,
         });
       }
+      // Anyone may try Pro looks in the editor; going live with them takes the plan.
+      const theme = parseStored(storedFormThemeSchema, form.theme, 'theme');
+      await entitlements.assertFeatures(form.workspaceId, requiredFeatures(theme));
 
       // Conditional on the version, so a draft saved in the meantime is never published unseen.
       const { count } = await prisma.form.updateMany({
@@ -268,7 +287,7 @@ export function createFormService(prisma: Database): FormService {
         data: {
           publishedSchema: draft,
           publishedTitle: form.title,
-          publishedTheme: parseStored(formThemeSchema, form.theme, 'theme'),
+          publishedTheme: theme,
           publishedAt: new Date(),
           ...(form.status === 'DRAFT' && { status: 'PUBLISHED' }),
         },

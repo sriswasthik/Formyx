@@ -2,6 +2,7 @@ import {
   createInviteInputSchema,
   updateMemberInputSchema,
   workspaceInputSchema,
+  type Entitlements,
   type InvitePreview,
   type InvitesResponse,
   type Member,
@@ -14,6 +15,7 @@ import type { AppDependencies } from '../app.js';
 import { routeParam } from '../lib/route-param.js';
 import { assertRole, getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createInviteLinkRateLimiter, createInviteRateLimiter } from '../middleware/rate-limit.js';
+import { createEntitlementService } from '../services/entitlement-service.js';
 import { createInviteService } from '../services/invite-service.js';
 import { createWorkspaceService } from '../services/workspace-service.js';
 
@@ -27,6 +29,7 @@ export function createWorkspacesRouter(
 ): Router {
   const router = Router();
   const workspaces = createWorkspaceService(prisma);
+  const entitlements = createEntitlementService(prisma, env.ENTITLEMENTS_MODE);
   const invites = createInviteService({ prisma, mailer, logger, appUrl: env.APP_URL });
   const limitInvites = createInviteRateLimiter(env);
   const limitInviteLinks = createInviteLinkRateLimiter();
@@ -64,6 +67,17 @@ export function createWorkspacesRouter(
     async (req, res) => {
       await workspaces.remove(getMembership(req).workspaceId);
       res.status(204).end();
+    },
+  );
+
+  // What the workspace's plan includes, for every member: editors see what they can publish.
+  router.get(
+    '/workspaces/:workspaceId/entitlements',
+    requireAuth,
+    requireWorkspaceRole('VIEWER'),
+    async (req, res) => {
+      const body: Entitlements = await entitlements.forWorkspace(getMembership(req).workspaceId);
+      res.json(body);
     },
   );
 

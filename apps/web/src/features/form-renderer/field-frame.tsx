@@ -30,14 +30,14 @@ function LabelText({ field }: { field: Field }) {
 
 /** Label, description, control and error of one question, wired for assistive technology. */
 export function FieldFrame({ field, ids, group, error, children }: FieldFrameProps) {
-  const labelClass = 'text-16 leading-snug font-medium break-words';
+  const labelClass = 'form-text leading-snug font-medium break-words';
   const description = field.description && (
-    <p id={ids.description} className="text-14 whitespace-pre-wrap text-(--form-muted)">
+    <p id={ids.description} className="form-text-sm whitespace-pre-wrap text-(--form-muted)">
       {field.description}
     </p>
   );
   const errorMessage = error && (
-    <p id={ids.error} className="text-14 text-(--form-danger)">
+    <p id={ids.error} className="form-text-sm text-(--form-danger)">
       {error}
     </p>
   );

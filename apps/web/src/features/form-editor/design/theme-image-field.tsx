@@ -93,7 +93,9 @@ export function ThemeImageField({ kind, url, onChange }: ThemeImageFieldProps) {
   };
 
   return (
-    <div ref={rootRef} className="flex flex-col gap-3">
+    // Relative, so the hidden file input stays inside the panel's scroll area instead of
+    // making the whole page scroll.
+    <div ref={rootRef} className="relative flex flex-col gap-3">
       {progress !== null ? (
         <div className="flex items-center gap-3">
           <div
