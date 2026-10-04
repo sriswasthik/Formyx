@@ -1,6 +1,7 @@
 export * from './assets/index.js';
 export * from './auth.js';
 export * from './color.js';
+export * from './entitlements/index.js';
 export * from './errors.js';
 export * from './forms/index.js';
 export * from './health.js';

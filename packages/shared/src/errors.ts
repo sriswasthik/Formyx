@@ -20,6 +20,8 @@ export const ERROR_CODES = [
   'UPLOADS_UNAVAILABLE',
   /** Switched off for the shared demo account: it would reach outside Formyx or change the workspace. */
   'DEMO_RESTRICTED',
+  /** The workspace's plan does not include a feature this needs; `details.features` lists them. */
+  'UPGRADE_REQUIRED',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',
