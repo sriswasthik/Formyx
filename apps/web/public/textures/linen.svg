@@ -4,7 +4,7 @@
     <feTurbulence type="fractalNoise" baseFrequency="0.025 0.75" numOctaves="2" seed="3" stitchTiles="stitch" result="weft" />
     <feTurbulence type="fractalNoise" baseFrequency="0.75 0.025" numOctaves="2" seed="9" stitchTiles="stitch" result="warp" />
     <feComposite in="weft" in2="warp" operator="arithmetic" k2="0.5" k3="0.5" result="weave" />
-    <feColorMatrix in="weave" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2.4 0 0 0 -1" />
+    <feColorMatrix in="weave" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.8 0 0 0 -0.65" />
   </filter>
   <rect width="160" height="160" filter="url(#linen)" />
 </svg>

@@ -35,7 +35,7 @@ const presetThemes = {
           type: 'texture',
           assetId: 'grain',
           scale: 1,
-          opacity: 0.35,
+          opacity: 0.22,
           blendMode: 'normal',
         },
       ],
@@ -126,7 +126,7 @@ const presetThemes = {
           type: 'texture',
           assetId: 'paper',
           scale: 1,
-          opacity: 0.5,
+          opacity: 0.3,
           blendMode: 'multiply',
         },
         {
