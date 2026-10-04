@@ -1,9 +1,12 @@
 import {
   createDefaultSettings,
+  createDefaultTheme,
   createField,
   createOption,
   FORM_SCHEMA_VERSION,
   FORM_TEMPLATES,
+  migrateTheme,
+  THEME_PRESETS,
   type Answers,
   type ChoiceFieldType,
   type FieldOfType,
@@ -11,6 +14,7 @@ import {
   type FormSchema,
   type FormTemplateId,
   type FormTheme,
+  type ThemePresetId,
 } from '@formyx/shared';
 import type { Random } from './random.js';
 import { fictionalPhone, type Person, type ReferrerMix } from './respondents.js';
@@ -35,6 +39,13 @@ export interface DemoForm {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The demo shows free looks only, so it publishes under any plan. */
+function presetTheme(id: ThemePresetId): FormTheme {
+  const preset = THEME_PRESETS.find((candidate) => candidate.id === id);
+  if (!preset) throw new Error(`Unknown preset: ${id}`);
+  return preset.theme;
+}
 
 function templateSchema(id: FormTemplateId): FormSchema {
   const template = FORM_TEMPLATES.find((candidate) => candidate.id === id);
@@ -123,7 +134,7 @@ const productFeedback = (): DemoForm => {
 
   return {
     title: 'Product feedback',
-    theme: { accentColor: '#4370BD', font: 'inter', radius: 'rounded', background: 'white' },
+    theme: createDefaultTheme(),
     schema,
     createdDaysAgo: 41,
     publishedDaysAgo: 3,
@@ -195,7 +206,8 @@ const eventRegistration = (): DemoForm => {
 
   return {
     title: 'Design Systems Day registration',
-    theme: { accentColor: '#337B7E', font: 'serif', radius: 'rounded', background: 'off_white' },
+    // The Paper preset: off-white with a fine grain, a serif and teal.
+    theme: presetTheme('paper'),
     schema,
     createdDaysAgo: 36,
     publishedDaysAgo: 12,
@@ -374,7 +386,12 @@ const jobApplication = (): DemoForm => {
 
   return {
     title: 'Product designer application',
-    theme: { accentColor: '#61728B', font: 'inter', radius: 'sharp', background: 'white' },
+    theme: migrateTheme({
+      accentColor: '#61728B',
+      font: 'inter',
+      radius: 'sharp',
+      background: 'white',
+    }),
     schema,
     createdDaysAgo: 26,
     publishedDaysAgo: 24,

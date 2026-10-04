@@ -1,5 +1,5 @@
 import {
-  formSchema,
+  storedFormSchemaSchema,
   MAX_WEBHOOKS_PER_FORM,
   WEBHOOK_LOG_SIZE,
   type CreatedWebhook,
@@ -114,7 +114,9 @@ export function createWebhookService(prisma: Database, secrets: SecretBox): Webh
         select: { title: true, publishedTitle: true, publishedSchema: true, draftSchema: true },
       });
       // Before the first publish, the draft's questions are the best example there is.
-      const schema = formSchema.safeParse(form.publishedSchema ?? form.draftSchema).data;
+      const schema = storedFormSchemaSchema.safeParse(
+        form.publishedSchema ?? form.draftSchema,
+      ).data;
       return { id: formId, title: form.publishedTitle ?? form.title, schema: schema ?? null };
     },
   };

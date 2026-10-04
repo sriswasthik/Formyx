@@ -4,7 +4,10 @@ import {
   createEmptyForm,
   createField,
   formDetailSchema,
+  migrateTheme,
   publicFormResponseSchema,
+  withPrimaryColor,
+  withSurface,
   type FormDetail,
   type FormSchema,
 } from '@formyx/shared';
@@ -92,7 +95,7 @@ describe('POST /api/forms/:formId/publish', () => {
 
   it('publishes the theme with the form, and keeps it while the draft theme changes', async () => {
     const draft = await createDraft();
-    const dark = { ...createDefaultTheme(), background: 'dark', accentColor: '#337B7E' } as const;
+    const dark = withPrimaryColor(withSurface(createDefaultTheme(), '#18181B'), '#337B7E');
     const themed = formDetailSchema.parse(
       (
         await editor()
@@ -105,7 +108,7 @@ describe('POST /api/forms/:formId/publish', () => {
     const published = await publish(themed);
     expect(published.publishedTheme).toEqual(dark);
 
-    const sharp = { ...dark, radius: 'sharp' } as const;
+    const sharp = { ...dark, components: { ...dark.components, radius: 0 } };
     const edited = formDetailSchema.parse(
       (
         await editor()
@@ -122,13 +125,35 @@ describe('POST /api/forms/:formId/publish', () => {
 
   it('refuses themes it does not offer', async () => {
     const draft = await createDraft();
+    const theme = createDefaultTheme();
     const res = await editor()
       .patch(`/api/forms/${draft.id}`, {
         version: draft.version,
-        theme: { ...createDefaultTheme(), font: 'comic-sans' },
+        theme: { ...theme, typography: { ...theme.typography, headingFont: 'comic-sans' } },
       })
       .expect(400);
-    expect(apiErrorSchema.parse(res.body).error.code).toBe('VALIDATION_ERROR');
+    expect(apiErrorSchema.parse(res.body).error).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: [
+        { path: 'theme.typography.headingFont', message: 'Pick one of the fonts Formyx offers' },
+      ],
+    });
+  });
+
+  it('still takes v1 themes from editors loaded before v2, and upgrades them', async () => {
+    const draft = await createDraft();
+    const v1 = {
+      accentColor: '#b1563b',
+      font: 'serif',
+      radius: 'sharp',
+      background: 'off_white',
+    } as const;
+    const res = await editor()
+      .patch(`/api/forms/${draft.id}`, { version: draft.version, theme: v1 })
+      .expect(200);
+    const saved = formDetailSchema.parse(res.body);
+    expect(saved.theme).toEqual(migrateTheme({ ...v1, accentColor: '#B1563B' }));
+    expect((await publish(saved)).publishedTheme).toEqual(saved.theme);
   });
 
   it('refuses an unfinished draft with 422 and what to fix', async () => {

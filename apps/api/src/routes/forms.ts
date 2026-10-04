@@ -2,6 +2,7 @@ import {
   createFormInputSchema,
   listFormsQuerySchema,
   publishFormInputSchema,
+  themeImageUrls,
   updateFormInputSchema,
   type FormDetail,
   type FormListResponse,
@@ -11,6 +12,7 @@ import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { routeParam } from '../lib/route-param.js';
 import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
+import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormService } from '../services/form-service.js';
 import { createUploadChecks } from '../services/upload-checks.js';
 
@@ -23,17 +25,17 @@ export function createFormsRouter(
   { requireAuth, requireWorkspaceRole, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
-  const forms = createFormService(prisma);
+  const forms = createFormService(prisma, createEntitlementService(prisma, env.ENTITLEMENTS_MODE));
   const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
 
-  /** Checks logos and cover images that are new to this form were uploaded for it. */
+  /** Checks images (logo, cover, image layers) new to this form were uploaded for it. */
   async function checkThemeImages(formId: string, theme: FormTheme): Promise<void> {
-    const urls = [theme.logoUrl, theme.coverUrl].filter((url) => url !== undefined);
+    const urls = themeImageUrls(theme);
     if (urls.length === 0) return;
     const current = await forms.get(formId);
     const known = new Set(
       [current.theme, current.publishedTheme].flatMap((known) =>
-        known ? [known.logoUrl, known.coverUrl] : [],
+        known ? themeImageUrls(known) : [],
       ),
     );
     for (const url of urls) {

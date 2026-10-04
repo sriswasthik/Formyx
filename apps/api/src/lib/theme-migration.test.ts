@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { createEmptyForm, formThemeSchema } from '@formyx/shared';
+import { createEmptyForm, formThemeV1Schema } from '@formyx/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
 
@@ -75,7 +75,7 @@ describe('the themes migration', () => {
     for (const [index, id] of ids.entries()) {
       const { theme, publishedTheme } = await prisma.form.findUniqueOrThrow({ where: { id } });
       expect(theme).toEqual(cases[index]?.expected);
-      expect(formThemeSchema.safeParse(theme).success).toBe(true);
+      expect(formThemeV1Schema.safeParse(theme).success).toBe(true);
       expect(publishedTheme).toBeNull();
     }
   });
