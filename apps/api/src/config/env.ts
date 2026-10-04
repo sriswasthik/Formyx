@@ -1,3 +1,4 @@
+import { entitlementsModeSchema } from '@formyx/shared';
 import { z } from 'zod';
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
@@ -76,6 +77,11 @@ export const envSchema = z.object({
     .enum(['true', 'false'], { error: 'Use true or false' })
     .default('false')
     .transform((value) => value === 'true'),
+  /**
+   * `all_unlocked` (the default, for development and the beta): every workspace gets every
+   * feature. `enforced`: each workspace gets what its plan includes.
+   */
+  ENTITLEMENTS_MODE: entitlementsModeSchema.default('all_unlocked'),
   /** Where the web app lives, for links in emails. */
   APP_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

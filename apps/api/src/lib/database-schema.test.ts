@@ -19,6 +19,14 @@ describe('database schema', () => {
     await expect(createUser()).rejects.toMatchObject({ code: 'P2002' });
   });
 
+  it('puts new workspaces on the free plan', async () => {
+    expect(await createWorkspace()).toMatchObject({
+      plan: 'FREE',
+      planStatus: 'ACTIVE',
+      trialEndsAt: null,
+    });
+  });
+
   it('keeps workspace slugs unique', async () => {
     await createWorkspace();
     await expect(createWorkspace()).rejects.toMatchObject({ code: 'P2002' });

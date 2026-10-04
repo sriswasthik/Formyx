@@ -46,6 +46,9 @@ services:
         value: '2'
       - key: DEMO_ENABLED
         value: 'true'
+      # Everyone gets every feature during the beta; switch to enforced once plans are sold.
+      - key: ENTITLEMENTS_MODE
+        value: all_unlocked
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
