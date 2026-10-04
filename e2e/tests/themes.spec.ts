@@ -52,3 +52,29 @@ test('designs a form in the editor and publishes the design with it', async ({ p
   expect(overflow).toBe(0);
   expect(problems).toEqual([]);
 });
+
+test('applies a preset and publishes it with its background', async ({ page }) => {
+  const problems = trackConsoleProblems(page);
+  const formId = await createFormViaApi(page, 'feedback_survey');
+  await page.goto(`/app/forms/${formId}/edit`);
+
+  await page.getByRole('tab', { name: 'Design' }).click();
+  const presets = page.getByRole('radiogroup', { name: 'Theme' });
+  // Everything is unlocked during the beta, so Pro presets publish like any other.
+  await presets.getByRole('radio', { name: 'Sea glass Pro' }).click();
+  await expect(presets.getByRole('radio', { name: 'Sea glass Pro' })).toBeChecked();
+  await expectSaved(page);
+
+  const publicPath = await publishViaApi(page, formId);
+  await page.goto(publicPath);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.locator('[data-layer="mesh"]')).toHaveCount(1);
+  await expect(page.locator('[data-form-container="floating"]')).toBeVisible();
+  expect(await formVariable(page, '--form-heading-font')).toMatch(/^'DM Sans Variable'/);
+  await expect(page.getByRole('link', { name: 'Made with Formyx' })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+  expect(problems).toEqual([]);
+});
