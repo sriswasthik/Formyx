@@ -11,7 +11,8 @@ export interface OptionCard<T extends string> {
 
 interface OptionCardsProps<T extends string> {
   label: string;
-  value: T;
+  /** `null` when the current setting is none of the options. */
+  value: T | null;
   options: readonly OptionCard<T>[];
   onChange: (value: T) => void;
 }
@@ -26,7 +27,7 @@ export function OptionCards<T extends string>({
   return (
     <RadioGroupPrimitive.Root
       aria-label={label}
-      value={value}
+      value={value ?? ''}
       onValueChange={(next) => {
         const option = options.find((candidate) => candidate.value === next);
         if (option) onChange(option.value);

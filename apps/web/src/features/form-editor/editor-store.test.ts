@@ -2,8 +2,11 @@ import {
   createDefaultTheme,
   createEmptyForm,
   createField,
+  withPrimaryColor,
+  withSurface,
   type Field,
   type FormSchema,
+  type FormTheme,
 } from '@formyx/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { createEditorStore, MAX_HISTORY, MERGE_WINDOW_MS } from './editor-store';
@@ -486,52 +489,53 @@ describe('saving', () => {
 });
 
 describe('updateTheme', () => {
+  const dark = (theme: FormTheme) => withPrimaryColor(withSurface(theme, '#18181B'), '#337B7E');
+  const logo = 'https://res.cloudinary.com/demo/image/upload/logo.png';
+
   it('starts from the standard theme and changes it as one undoable step', () => {
     const { state } = setup();
     expect(state().theme).toEqual(createDefaultTheme());
 
-    state().updateTheme({ background: 'dark', radius: 'sharp' });
-    expect(state().theme).toMatchObject({ background: 'dark', radius: 'sharp' });
+    state().updateTheme(dark);
+    expect(state().theme).toEqual(dark(createDefaultTheme()));
     expect(state().revision).toBe(1);
 
     state().undo();
     expect(state().theme).toEqual(createDefaultTheme());
     state().redo();
-    expect(state().theme.background).toBe('dark');
+    expect(state().theme.colors.containerBackground).toBe('#18181B');
   });
 
-  it('removes images set to undefined, and ignores changes that change nothing', () => {
+  it('ignores updates that change nothing, even as new objects', () => {
     const { state } = setup();
-    state().updateTheme({ logoUrl: 'https://res.cloudinary.com/demo/image/upload/logo.png' });
-    state().updateTheme({ logoUrl: undefined });
-    expect(state().theme).not.toHaveProperty('logoUrl');
-
+    state().updateTheme((theme) => ({ ...theme, branding: { ...theme.branding, logoUrl: logo } }));
     const revision = state().revision;
-    state().updateTheme({ font: 'inter' });
+
+    state().updateTheme((theme) => structuredClone(theme));
     expect(state().revision).toBe(revision);
+
+    state().updateTheme((theme) => ({ ...theme, branding: { showFormyxBadge: true } }));
+    expect(state().theme.branding).toEqual({ showFormyxBadge: true });
   });
 
   it('merges dragging through colours into one step', () => {
     const { state, advance } = setup();
-    state().updateTheme({ accentColor: '#111111' }, { mergeKey: 'accent' });
+    state().updateTheme((theme) => withPrimaryColor(theme, '#111111'), { mergeKey: 'accent' });
     advance(100);
-    state().updateTheme({ accentColor: '#222222' }, { mergeKey: 'accent' });
+    state().updateTheme((theme) => withPrimaryColor(theme, '#222222'), { mergeKey: 'accent' });
 
     expect(state().past).toHaveLength(1);
     state().undo();
-    expect(state().theme.accentColor).toBe(createDefaultTheme().accentColor);
+    expect(state().theme.colors.primary).toBe(createDefaultTheme().colors.primary);
   });
 
   it('is replaced by reset', () => {
     const { state } = setup();
-    state().updateTheme({ font: 'rounded' });
-    state().reset({
-      title: 'Survey',
-      schema: createEmptyForm(),
-      version: 9,
-      theme: { ...createDefaultTheme(), font: 'serif' },
-    });
-    expect(state().theme.font).toBe('serif');
+    state().updateTheme(dark);
+    const serif = createDefaultTheme();
+    serif.typography.headingFont = 'source-serif-4';
+    state().reset({ title: 'Survey', schema: createEmptyForm(), version: 9, theme: serif });
+    expect(state().theme.typography.headingFont).toBe('source-serif-4');
     expect(state().past).toEqual([]);
   });
 });

@@ -1,8 +1,8 @@
 import {
-  ACCENT_MIN_CONTRAST,
   ACCENT_PRESETS,
-  contrastRatio,
-  FORM_BACKGROUND_COLORS,
+  readableTextColor,
+  themeReadabilityIssues,
+  UI_MIN_CONTRAST,
   type FormTheme,
 } from '@formyx/shared';
 import { Check, TriangleAlert } from 'lucide-react';
@@ -10,22 +10,23 @@ import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import { useId, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { readableTextColor } from '@/lib/color';
 import { cn } from '@/lib/utils';
 import { parseHexInput } from './hex';
 
 interface AccentPickerProps {
-  theme: Pick<FormTheme, 'accentColor' | 'background'>;
+  theme: FormTheme;
   onChange: (accentColor: string, options?: { mergeKey: string }) => void;
 }
 
 /** One of the eight presets, or any colour by hex, with a warning when it is hard to see. */
 export function AccentPicker({ theme, onChange }: AccentPickerProps) {
   const id = useId();
-  const accent = theme.accentColor.toUpperCase();
+  const accent = theme.colors.primary;
   const preset = ACCENT_PRESETS.find((option) => option.color === accent);
-  const ratio = contrastRatio(accent, FORM_BACKGROUND_COLORS[theme.background]);
-  const lowContrast = ratio < ACCENT_MIN_CONTRAST;
+  // The weakest contrast against anything the form sits on.
+  const lowContrast = themeReadabilityIssues(theme)
+    .filter((issue) => issue.part === 'primary')
+    .sort((a, b) => a.ratio - b.ratio)[0];
 
   // The hex box shows what is being typed; it follows the accent when that changes elsewhere.
   const [text, setText] = useState(accent);
@@ -121,8 +122,8 @@ export function AccentPicker({ theme, onChange }: AccentPickerProps) {
         <p role="status" className="flex gap-2 text-13 text-warning-text">
           <TriangleAlert aria-hidden className="mt-0.5 shrink-0" />
           <span>
-            Low contrast: {ratio.toFixed(1)}:1 against this background. Buttons and focus rings need
-            at least {ACCENT_MIN_CONTRAST}:1 to stand out (WCAG AA).
+            Low contrast: {lowContrast.ratio.toFixed(1)}:1 against this background. Buttons and
+            focus rings need at least {UI_MIN_CONTRAST}:1 to stand out (WCAG AA).
           </span>
         </p>
       )}
