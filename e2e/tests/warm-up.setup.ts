@@ -16,7 +16,7 @@ setup('compile the main pages once', async ({ page }) => {
   await page.goto(`/app/forms/${formId}/edit`);
   await expect(page.getByRole('textbox', { name: 'Form title' })).toBeVisible({ timeout: 60_000 });
   await page.getByRole('tab', { name: 'Design' }).click();
-  await expect(page.getByRole('radiogroup', { name: 'Accent colour' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Theme' })).toBeVisible();
 
   await page.goto(`/app/forms/${formId}/responses`);
   await expect(page.getByRole('tab', { name: 'Summary' })).toBeVisible({ timeout: 60_000 });
