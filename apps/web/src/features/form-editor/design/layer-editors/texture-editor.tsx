@@ -64,7 +64,7 @@ export function TextureEditor({ layer, onChange }: LayerEditorProps<Texture>) {
           const texture = TEXTURES.find((candidate) => candidate.id === id);
           if (texture) onChange((current) => ({ ...current, assetId: texture.id }));
         }}
-        className="grid grid-cols-4 gap-2"
+        className="grid grid-cols-3 gap-2 @2xl:grid-cols-4"
       >
         {TEXTURES.map((texture) => (
           <RadioGroupPrimitive.Item

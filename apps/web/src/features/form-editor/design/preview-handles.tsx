@@ -67,6 +67,9 @@ function useBackgroundBox(root: HTMLElement | null): Box | null {
   return box;
 }
 
+/** Below this width a form counts as a phone's (`@xl` in the renderer). */
+const NARROW_FORM_PX = 576;
+
 const clampPercent = (value: number) => Math.round(Math.min(100, Math.max(0, value)) * 10) / 10;
 
 interface HandleProps {
@@ -212,7 +215,8 @@ function LayerHandles({ layer, box, mobile }: LayerHandlesProps) {
         />
       ));
     case 'shapes':
-      if (mobile && layer.hideOnMobile) return null;
+      // Hidden on phones, and on any form as narrow as one (`@max-xl`, 36rem).
+      if ((mobile || box.width < NARROW_FORM_PX) && layer.hideOnMobile) return null;
       return layer.items.map((item, index) => (
         <Handle
           key={item.id}

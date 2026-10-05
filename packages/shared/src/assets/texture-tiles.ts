@@ -137,7 +137,7 @@ function topographic(density: number, size: number): TextureTile {
     coverage: 1 / every,
     svg: svgDocument(
       size,
-      `<filter id="t" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.008" numOctaves="2" seed="7" stitchTiles="stitch"/>${noiseToAlpha(1, 0)}<feComponentTransfer><feFuncA type="discrete" tableValues="${table}"/></feComponentTransfer></filter><rect width="${size}" height="${size}" filter="url(#t)"/>`,
+      `<filter id="t" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.008" numOctaves="1" seed="7" stitchTiles="stitch"/>${noiseToAlpha(1, 0)}<feComponentTransfer><feFuncA type="discrete" tableValues="${table}"/></feComponentTransfer></filter><rect width="${size}" height="${size}" filter="url(#t)"/>`,
     ),
   };
 }

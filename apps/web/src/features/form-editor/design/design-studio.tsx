@@ -171,7 +171,7 @@ export function DesignStudio({ layout, canExpand = false }: DesignStudioProps) {
           <TabsPrimitive.Content
             key={id}
             value={id}
-            className={cn('min-w-0 flex-1', !stacked && 'overflow-y-auto')}
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto"
           >
             {SECTIONS[id].content()}
           </TabsPrimitive.Content>
