@@ -13,44 +13,57 @@ interface Box {
   height: number;
 }
 
-/** Where the theme's background sits inside `wrapper`, kept up to date as either resizes. */
-function useBackgroundBox(wrapper: React.RefObject<HTMLElement | null>): Box | null {
+/**
+ * Where the theme's background sits inside `wrapper`, in whole pixels. Measured from
+ * observers (sizes change, the background is replaced when the layout changes) rather than
+ * after every render, which would set state from a layout effect without end.
+ */
+function useBackgroundBox(root: HTMLElement | null): Box | null {
   const [box, setBox] = useState<Box | null>(null);
   useLayoutEffect(() => {
-    const root = wrapper.current;
     if (!root) return;
-    const measure = () => {
+    const resizes = new ResizeObserver(() => {
+      measure();
+    });
+    let observed: Element | null = null;
+    function measure() {
+      if (!root) return;
       const background = root.querySelector('[data-theme-background]');
+      if (background !== observed) {
+        if (observed) resizes.unobserve(observed);
+        if (background) resizes.observe(background);
+        observed = background;
+      }
       if (!background) {
         setBox(null);
         return;
       }
       const outer = root.getBoundingClientRect();
       const inner = background.getBoundingClientRect();
-      setBox((previous) => {
-        const next = {
-          left: inner.left - outer.left,
-          top: inner.top - outer.top,
-          width: inner.width,
-          height: inner.height,
-        };
-        const same =
-          previous?.left === next.left &&
-          previous.top === next.top &&
-          previous.width === next.width &&
-          previous.height === next.height;
-        return same ? previous : next;
-      });
-    };
+      const next = {
+        left: Math.round(inner.left - outer.left),
+        top: Math.round(inner.top - outer.top),
+        width: Math.round(inner.width),
+        height: Math.round(inner.height),
+      };
+      setBox((previous) =>
+        previous?.left === next.left &&
+        previous.top === next.top &&
+        previous.width === next.width &&
+        previous.height === next.height
+          ? previous
+          : next,
+      );
+    }
+    const changes = new MutationObserver(measure);
+    changes.observe(root, { childList: true, subtree: true });
+    resizes.observe(root);
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(root);
-    const background = root.querySelector('[data-theme-background]');
-    if (background) observer.observe(background);
     return () => {
-      observer.disconnect();
+      resizes.disconnect();
+      changes.disconnect();
     };
-  });
+  }, [root]);
   return box;
 }
 
@@ -206,6 +219,7 @@ function LayerHandles({ layer, box, mobile }: LayerHandlesProps) {
           label={`Shape ${index + 1}`}
           at={item}
           box={box}
+          color={item.color}
           selected={item.id === itemId}
           onSelect={() => {
             selectItem(item.id);
@@ -264,7 +278,7 @@ function LayerHandles({ layer, box, mobile }: LayerHandlesProps) {
 interface PreviewHandlesProps {
   theme: FormTheme;
   /** The element the themed form is drawn in. */
-  container: React.RefObject<HTMLElement | null>;
+  container: HTMLElement | null;
   mobile: boolean;
 }
 

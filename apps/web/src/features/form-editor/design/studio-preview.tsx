@@ -1,5 +1,5 @@
 import { Monitor, RotateCcw, Smartphone } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { previewUpload } from '@/features/form-renderer/file-uploads';
@@ -29,7 +29,8 @@ export function StudioPreview({ className, compact = false }: StudioPreviewProps
   const device = useStudio((state) => state.device);
   const setDevice = useStudio((state) => state.setDevice);
   const section = useStudio((state) => state.section);
-  const frameRef = useRef<HTMLDivElement>(null);
+  // State rather than a ref, so the handles measure once the frame exists.
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [run, setRun] = useState(0);
   const mobile = device === 'mobile';
 
@@ -84,7 +85,7 @@ export function StudioPreview({ className, compact = false }: StudioPreviewProps
           )}
           style={mobile ? { width: PHONE_WIDTH, maxWidth: 'calc(100% - 2rem)' } : undefined}
         >
-          <div ref={frameRef} className="relative flex min-h-full flex-col" data-studio-frame>
+          <div ref={setFrame} className="relative flex min-h-full flex-col" data-studio-frame>
             {/* A new key starts a fresh, empty response. Answers are never saved. */}
             <FormView
               key={run}
@@ -96,7 +97,7 @@ export function StudioPreview({ className, compact = false }: StudioPreviewProps
               uploadFile={previewUpload}
               className={cn('flex-1', mobile && 'min-h-[640px]')}
             />
-            <PreviewHandles theme={shown} container={frameRef} mobile={mobile} />
+            <PreviewHandles theme={shown} container={frame} mobile={mobile} />
           </div>
         </div>
       </div>

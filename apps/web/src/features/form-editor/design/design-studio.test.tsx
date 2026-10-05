@@ -9,7 +9,7 @@ import {
   type EntitlementsMode,
   type FormTheme,
 } from '@formyx/shared';
-import { act, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -480,6 +480,34 @@ describe('StudioPreview', () => {
     });
     const undone = layers(store).find((layer) => layer.type === 'mesh');
     expect(undone?.type === 'mesh' && undone.points[0]).toMatchObject({ x: 8, y: 12 });
+  });
+
+  it('drags a shape on the preview, in one undo step', async () => {
+    const theme = applyPreset(createDefaultTheme(), preset('confetti-party'));
+    const { user, store } = renderStudio({ theme, withPreview: true });
+    await openSection(user, 'Background');
+    const group = screen.getByRole('group', { name: 'Background handles' });
+    group.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 1000, height: 500 });
+    const handle = within(group).getAllByRole('button')[0];
+    if (!handle) throw new Error('No handle');
+    const shapes = () => {
+      const layer = layers(store).find((candidate) => candidate.type === 'shapes');
+      if (layer?.type !== 'shapes') throw new Error('No shapes');
+      return layer.items[0];
+    };
+    const start = shapes();
+
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    for (const x of [200, 300, 400]) {
+      fireEvent.pointerMove(handle, { pointerId: 1, clientX: x, clientY: 250 });
+    }
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+
+    expect(shapes()).toMatchObject({ x: 40, y: 50 });
+    act(() => {
+      store.getState().undo();
+    });
+    expect(shapes()).toMatchObject({ x: start?.x, y: start?.y });
   });
 
   it('shows handles only while editing the background', async () => {
