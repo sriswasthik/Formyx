@@ -55,4 +55,21 @@ describe('EditorLayout on phones and tablets', () => {
     expect(screen.getByRole('heading', { name: 'Dropdown' })).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Options' })).toBeInTheDocument();
   });
+
+  it('stacks the Design Studio under a live preview', async () => {
+    const { user, store } = renderMobileEditor([{ ...createField('short_text'), label: 'Name' }]);
+
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
+
+    expect(screen.getByRole('radiogroup', { name: 'Preview size' })).toBeInTheDocument();
+    const sections = screen.getByRole('tablist', { name: 'Design sections' });
+    await user.click(within(sections).getByRole('tab', { name: 'Background' }));
+    await user.click(screen.getByRole('button', { name: 'Add layer' }));
+    await user.click(screen.getByRole('menuitem', { name: /Mesh gradient/ }));
+
+    expect(store.getState().theme.background.layers.map((layer) => layer.type)).toEqual([
+      'solid',
+      'mesh',
+    ]);
+  });
 });

@@ -1,6 +1,6 @@
 import { assetIds, FORMYX_LICENSE, FORMYX_SOURCE, type Asset } from './asset.js';
 
-export const PALETTE_CATEGORIES = ['warm', 'cool', 'neutral', 'dark'] as const;
+export const PALETTE_CATEGORIES = ['warm', 'cool', 'neutral', 'dark', 'vivid'] as const;
 export type PaletteCategory = (typeof PALETTE_CATEGORIES)[number];
 
 export interface GradientPalette<Id extends string = string> extends Asset<Id, PaletteCategory> {
@@ -68,7 +68,77 @@ export const GRADIENT_PALETTES = [
     source: FORMYX_SOURCE,
     colors: ['#141A24', '#1D2A3A', '#253B4F', '#1A2230', '#2C3444'],
   },
+  {
+    id: 'soft-pastel',
+    name: 'Soft pastel',
+    category: 'cool',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    colors: ['#FDF2F8', '#E0E7FF', '#DCFCE7', '#FEF3C7', '#E9D5FF'],
+  },
+  {
+    id: 'earthy',
+    name: 'Earthy',
+    category: 'warm',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    colors: ['#EFE6D8', '#D6BFA0', '#B9896A', '#8E9B7A', '#E3D3BC'],
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset',
+    category: 'warm',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    colors: ['#FFE8D6', '#FFC9A8', '#F79F8A', '#E7839C', '#FFD9B8'],
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean',
+    category: 'cool',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    colors: ['#E0F2F7', '#A8D8E8', '#6FB3D2', '#3E7FA8', '#CDEBF2'],
+  },
+  {
+    id: 'monochrome',
+    name: 'Monochrome',
+    category: 'neutral',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    colors: ['#FAFAFA', '#E4E4E7', '#C4C4CC', '#A1A1AA', '#D4D4D8'],
+  },
+  {
+    id: 'bold',
+    name: 'Bold',
+    category: 'vivid',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    colors: ['#FF6B4A', '#FFC23D', '#2EC4B6', '#3A6FF7', '#F24C9A'],
+  },
 ] as const satisfies readonly GradientPalette[];
 
 export type PaletteId = (typeof GRADIENT_PALETTES)[number]['id'];
 export const PALETTE_IDS = assetIds(GRADIENT_PALETTES);
+
+/** The palettes the mesh editor offers first: a curated set across moods. */
+export const CURATED_PALETTE_IDS = [
+  'soft-pastel',
+  'earthy',
+  'sunset',
+  'ocean',
+  'monochrome',
+  'bold',
+] as const satisfies readonly PaletteId[];
+
+export function getPalette(id: PaletteId): GradientPalette<PaletteId> {
+  const palette = GRADIENT_PALETTES.find((candidate) => candidate.id === id);
+  if (!palette) throw new Error(`Unknown palette: ${id}`);
+  return palette;
+}

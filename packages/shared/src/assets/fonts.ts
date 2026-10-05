@@ -7,7 +7,10 @@ export type FontCategory = (typeof FONT_CATEGORIES)[number];
 export interface FontAsset<Id extends string = string> extends Asset<Id, FontCategory> {
   /** The CSS family name its font files declare. */
   family: string;
-  /** Shown while the font loads, or if it fails to. */
+  /**
+   * Shown while the font loads, or if it fails to. Starts with a local font resized to match
+   * it (added by the web app with the font), so text does not move when it arrives.
+   */
   fallback: string;
   /** What pickers write in the font. */
   sample: string;
@@ -42,7 +45,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('source-serif-4'),
     family: "'Source Serif 4 Variable'",
-    fallback: SERIF,
+    fallback: `'Source Serif 4 Fallback', ${SERIF}`,
     sample: 'Aa',
   },
   {
@@ -53,7 +56,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('nunito'),
     family: "'Nunito Variable'",
-    fallback: `ui-rounded, 'SF Pro Rounded', ${SANS}`,
+    fallback: `'Nunito Fallback', ui-rounded, 'SF Pro Rounded', ${SANS}`,
     sample: 'Aa',
   },
   {
@@ -64,7 +67,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('dm-sans'),
     family: "'DM Sans Variable'",
-    fallback: SANS,
+    fallback: `'DM Sans Fallback', ${SANS}`,
     sample: 'Aa',
   },
   {
@@ -75,7 +78,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('fraunces'),
     family: "'Fraunces Variable'",
-    fallback: SERIF,
+    fallback: `'Fraunces Fallback', ${SERIF}`,
     sample: 'Aa',
   },
   {
@@ -86,7 +89,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('playfair-display'),
     family: "'Playfair Display Variable'",
-    fallback: SERIF,
+    fallback: `'Playfair Display Fallback', ${SERIF}`,
     sample: 'Aa',
   },
   {
@@ -97,7 +100,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('space-grotesk'),
     family: "'Space Grotesk Variable'",
-    fallback: SANS,
+    fallback: `'Space Grotesk Fallback', ${SANS}`,
     sample: 'Aa',
   },
   {
@@ -108,7 +111,7 @@ export const FONTS = [
     license: 'OFL-1.1',
     source: fontsource('bricolage-grotesque'),
     family: "'Bricolage Grotesque Variable'",
-    fallback: SANS,
+    fallback: `'Bricolage Grotesque Fallback', ${SANS}`,
     sample: 'Aa',
   },
 ] as const satisfies readonly FontAsset[];

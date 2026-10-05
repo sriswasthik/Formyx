@@ -4,7 +4,11 @@ import { focusQuestion, neighbourAfterRemoving } from './canvas/focus-question';
 import { useEditorStoreApi } from './editor-store-context';
 import { EDITOR_SHORTCUTS as KEYS } from './editor-shortcuts';
 
-/** Places where keys belong to something else: dialogs, menus and open lists. */
+/**
+ * Places where keys belong to something else: dialogs, menus and open lists. A dialog that is
+ * the editor itself in another form (the full-screen Design Studio) says so with
+ * `data-editor-keys`.
+ */
 const OWNS_KEYS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
 /**
@@ -21,7 +25,8 @@ export function useEditorShortcuts(enabled: boolean): void {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) return;
       const { target } = event;
-      if (target instanceof Element && target.closest(OWNS_KEYS)) return;
+      const owner = target instanceof Element ? target.closest(OWNS_KEYS) : null;
+      if (owner && !owner.hasAttribute('data-editor-keys')) return;
       // A keyboard drag is in progress: its arrows, Space and Escape belong to it.
       if (document.querySelector('[aria-roledescription="sortable"][aria-pressed="true"]')) return;
 

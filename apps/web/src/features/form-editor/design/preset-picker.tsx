@@ -26,7 +26,16 @@ function MiniForm() {
 
 /** A small, still picture of the preset, drawn by the same code as real forms. */
 function PresetThumbnail({ theme }: { theme: FormTheme }) {
-  const still = { ...theme, motion: { ...theme.motion, animatedBackground: false } };
+  // Still, and with every shape: a thumbnail is narrow, but stands for the full-size form.
+  const still: FormTheme = {
+    ...theme,
+    background: {
+      layers: theme.background.layers.map((layer) =>
+        layer.type === 'shapes' ? { ...layer, hideOnMobile: false } : layer,
+      ),
+    },
+    motion: { ...theme.motion, animatedBackground: false },
+  };
   const split = theme.layout.mode === 'split';
   const boxed = !split && theme.components.containerStyle !== 'none';
 
@@ -80,7 +89,7 @@ export function PresetPicker({ theme, onChange }: PresetPickerProps) {
         const preset = THEME_PRESETS.find((candidate) => candidate.id === id);
         if (preset) onChange(preset);
       }}
-      className="grid grid-cols-2 gap-2"
+      className="grid grid-cols-2 gap-2 @2xl:grid-cols-3"
     >
       {THEME_PRESETS.map((preset) => (
         <RadioGroupPrimitive.Item

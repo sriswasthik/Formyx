@@ -201,7 +201,7 @@ describe('ThemeRenderer', () => {
 
     // However many forms use a font, it loads once.
     renderTheme({ ...base, typography: { ...base.typography, headingFont: 'playfair-display' } });
-    loadFont('playfair-display');
+    void loadFont('playfair-display');
     expect(loaders['playfair-display']).toHaveBeenCalledTimes(1);
   });
 });
@@ -294,5 +294,180 @@ describe('every layer kind', () => {
     const squiggle = container.querySelector<SVGElement>('[data-shape="squiggle"]');
     expect(squiggle?.querySelector('path')).toHaveAttribute('stroke', 'currentColor');
     expect(squiggle?.style.filter).toBe('blur(2px)');
+  });
+});
+
+describe('ThemeRenderer background layers', () => {
+  const circle = {
+    id: 's',
+    type: 'circle',
+    x: 20,
+    y: 30,
+    size: 10,
+    rotation: 0,
+    color: '#000000',
+    opacity: 1,
+    blur: 0,
+  } as const;
+
+  const cases: [string, BackgroundLayer, (layer: HTMLElement) => void][] = [
+    [
+      'solid',
+      { ...common, id: 'solid', type: 'solid', color: '#F7F6F3' },
+      (layer) => {
+        expect(layer.style.backgroundColor).toBe('rgb(247, 246, 243)');
+      },
+    ],
+    [
+      'linear',
+      {
+        ...common,
+        id: 'linear',
+        type: 'linear',
+        angle: 45,
+        stops: [
+          { color: '#FFFFFF', position: 0 },
+          { color: '#000000', position: 100 },
+        ],
+      },
+      (layer) => {
+        expect(layer.style.backgroundImage).toContain('linear-gradient(45deg');
+      },
+    ],
+    [
+      'radial',
+      {
+        ...common,
+        id: 'radial',
+        type: 'radial',
+        shape: 'ellipse',
+        center: { x: 30, y: 10 },
+        stops: [
+          { color: '#FFFFFF', position: 0 },
+          { color: '#000000', position: 100 },
+        ],
+      },
+      (layer) => {
+        // jsdom drops `ellipse`, the default shape.
+        expect(layer.style.backgroundImage).toContain('radial-gradient(at 30% 10%');
+      },
+    ],
+    [
+      'mesh',
+      {
+        ...common,
+        id: 'mesh',
+        type: 'mesh',
+        points: Array.from({ length: 5 }, (_, i) => ({
+          x: i * 20,
+          y: 40,
+          color: '#BFE0D6',
+          spread: 40,
+        })),
+      },
+      (layer) => {
+        expect(layer.style.backgroundImage.match(/radial-gradient/g)).toHaveLength(5);
+      },
+    ],
+    [
+      'pattern texture',
+      { ...common, id: 'grid', type: 'texture', assetId: 'grid', scale: 2, density: 0.8 },
+      (layer) => {
+        expect(layer.style.getPropertyValue('mask-image')).toMatch(/^url\("data:image\/svg/);
+        expect(layer.style.getPropertyValue('mask-size')).toBe('64px');
+      },
+    ],
+    [
+      'photo texture',
+      { ...common, id: 'linen', type: 'texture', assetId: 'linen', scale: 1 },
+      (layer) => {
+        expect(layer.style.getPropertyValue('mask-image')).toBe('url("/textures/linen.webp")');
+      },
+    ],
+    [
+      'shapes',
+      { ...common, id: 'shapes', type: 'shapes', items: [circle] },
+      (layer) => {
+        expect(layer.querySelectorAll('[data-shape="circle"]')).toHaveLength(1);
+      },
+    ],
+    [
+      'image',
+      {
+        ...common,
+        id: 'image',
+        type: 'image',
+        url: 'https://res.cloudinary.com/demo/bg.jpg',
+        focalPoint: { x: 20, y: 80 },
+        fit: 'cover',
+      },
+      (layer) => {
+        expect(layer.style.backgroundImage).toBe('url("https://res.cloudinary.com/demo/bg.jpg")');
+        expect(layer.style.backgroundPosition).toBe('20% 80%');
+      },
+    ],
+  ];
+
+  it.each(cases)('draws a %s layer', (_name, layer, check) => {
+    const { container } = renderTheme({
+      ...base,
+      background: { layers: [{ ...common, id: 'base', type: 'solid', color: '#FFFFFF' }, layer] },
+    });
+    const drawn = container.querySelectorAll<HTMLElement>('[data-layer]')[1];
+    if (!drawn) throw new Error('Layer not drawn');
+    expect(drawn.dataset.layer).toBe(layer.type);
+    check(drawn);
+  });
+
+  it('leaves hidden layers out', () => {
+    const { container } = renderTheme({
+      ...base,
+      background: {
+        layers: [
+          { ...common, id: 'base', type: 'solid', color: '#FFFFFF' },
+          { ...common, id: 'off', type: 'solid', color: '#000000', hidden: true },
+        ],
+      },
+    });
+    expect(layerTypes(container)).toEqual(['solid']);
+  });
+
+  it('hides shapes on narrow forms when asked', () => {
+    const shapes = (hideOnMobile: boolean): FormTheme => ({
+      ...base,
+      background: {
+        layers: [{ ...common, id: 'shapes', type: 'shapes', hideOnMobile, items: [circle] }],
+      },
+    });
+    const hidden = renderTheme(shapes(true)).container.querySelector('[data-layer="shapes"]');
+    expect(hidden).toHaveClass('@max-xl:hidden');
+    const shown = renderTheme(shapes(false)).container.querySelector('[data-layer="shapes"]');
+    expect(shown).not.toHaveClass('@max-xl:hidden');
+  });
+
+  it('draws seeded blobs the same way every time, and differently per seed', () => {
+    const blob = (seed: number): FormTheme => ({
+      ...base,
+      background: {
+        layers: [
+          { ...common, id: 'shapes', type: 'shapes', items: [{ ...circle, type: 'blob', seed }] },
+        ],
+      },
+    });
+    const path = (seed: number) =>
+      renderTheme(blob(seed))
+        .container.querySelector('[data-shape="blob"] path')
+        ?.getAttribute('d');
+    expect(path(5)).toBe(path(5));
+    expect(path(5)).not.toBe(path(6));
+  });
+
+  it.each(THEME_PRESETS)('draws the $name preset', (found) => {
+    const { container } = renderTheme(found.theme);
+    expect(layerTypes(container)).toEqual(
+      (found.theme.background.layers as readonly BackgroundLayer[])
+        .filter((layer) => !layer.hidden)
+        .map((layer) => layer.type),
+    );
   });
 });

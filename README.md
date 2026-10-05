@@ -206,13 +206,26 @@ Share › Embed gives a snippet for any page:
 
 | Route                  | JS + CSS (KB, gzip) |
 | ---------------------- | ------------------- |
-| Public form `/f/:slug` | 180                 |
-| Landing                | 204                 |
-| Forms dashboard        | 254                 |
-| Responses              | 274                 |
-| Editor                 | 310                 |
+| Public form `/f/:slug` | 190                 |
+| Landing                | 206                 |
+| Forms dashboard        | 260                 |
+| Responses              | 280                 |
+| Editor                 | 344                 |
+
+`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 190 KB budget. The Design Studio, presets and readability checks load only in the editor; a form's fonts, their resized fallbacks and photo textures load only when a form uses them.
 
 Lighthouse on the public form, served from a production build: **99** performance, **100** accessibility, **100** best practices and **100** SEO on desktop (first contentful paint 0.7 s, no layout shift). On Lighthouse's simulated slow 4G phone, performance is **75 to 83** and the other three stay at 100.
+
+With the busiest presets (Sprint 10, median of three runs, local production build served without compression):
+
+| Preset         | What it draws                                      | Desktop | Phone | CLS |
+| -------------- | -------------------------------------------------- | ------- | ----- | --- |
+| Minimal        | One solid colour                                   | 99      | 84    | 0   |
+| Confetti party | 28 SVG shapes, a card with a shadow, Nunito        | 99      | 79    | 0   |
+| Sunrise mesh   | Mesh gradient, soft-light grain, drift, Fraunces   | 96      | 80    | 0   |
+| Botanical      | Gradient, topographic SVG filter, blobs, two fonts | 97      | 80    | 0   |
+
+Accessibility, best practices and SEO are 100 in every run. The backgrounds cost a few points at most; the phone score is held back by the client-rendered first paint (see the roadmap). Lighthouse found a 0.33 layout shift on Botanical on phones when its fonts arrived; fallbacks resized to each font's metrics and a short wait for a form's fonts (up to 1.2 s, behind the skeleton) took it to 0.
 
 What got it there: route-level code splitting; Recharts, the editor and animation features loaded only where used; the form's data requested by a tiny inline script in `index.html` while the app's code downloads; the public form's code preloaded for `/f/` URLs; the Inter font preloaded with a metric-matched fallback (no layout shift when it swaps); and Zod's JIT turned off in the browser, which removed a long main-thread task.
 
@@ -323,16 +336,25 @@ Submissions are validated against the published snapshot, with problems returned
 
 A theme (v2, `packages/shared/src/theme`) describes how a form looks to respondents:
 
-- **Background:** ordered layers, each with an opacity and blend mode. A layer is a solid colour, a linear or radial gradient, a mesh gradient (4 to 8 colour points), a texture, a set of shapes or an image with a focal point. An overlay (colour, opacity, backdrop blur) keeps text readable over busy backgrounds.
+- **Background:** ordered layers, each with an opacity and blend mode, and optionally hidden. A layer is a solid colour, a linear or radial gradient, a mesh gradient (4 to 8 colour points), a texture, a set of shapes or an image with a focal point. An overlay (colour, opacity, backdrop blur) keeps text readable over busy backgrounds.
 - **Typography:** heading and body fonts, base size, heading weight, letter spacing and alignment.
 - **Colours:** primary, text, muted text, container, input background and border, button text, error.
 - **Components:** input style (outlined, filled, underline, pill, minimal), button style (solid, outline, soft, pill), corner radius, container style (none, card, floating, bordered) and shadow.
 - **Layout:** classic, card or split, plus width, alignment, logo position and cover image. The conversational layout (one question at a time) is in the schema; it draws as a card until its own flow lands.
 - **Motion and branding:** page transition, an optional slow background drift (always off with reduced motion), and the "Made with Formyx" badge.
 
-**Assets.** Fonts, textures, shapes, gradient palettes and presets live in a registry (`packages/shared/src/assets`). Each has an id, name, category, tier (free or Pro), licence and source. Saved themes refer to them by id, so ids are permanent. Fonts are OFL variable fonts served from our own origin, loaded only when a form shows them. Textures are SVG tiles drawn for Formyx and used as masks, so any tint works. Every built-in preset passes the readability checks (text 4.5:1, primary colour 3:1), and its tier is tested against the features it uses.
+**Assets.** Fonts, textures, shapes, gradient palettes and presets live in a registry (`packages/shared/src/assets`). Each has an id, name, category, tier (free or Pro), licence and source. Saved themes refer to them by id, so ids are permanent. Fonts are OFL variable fonts served from our own origin, loaded only when a form shows them, each with a local fallback resized to its metrics so text does not move when it arrives.
 
-**Drawing.** `ThemeRenderer` (`apps/web/src/features/form-renderer/theme`) turns a theme into `--form-*` CSS variables, draws the layers and lays the form out. It sizes everything with container queries, so the editor canvas shows exactly what a respondent on that width sees. The Design tab offers presets, accent, background, fonts, corners, logo, cover and the badge. A full Design Studio comes next.
+- **Textures** are masks over a tint colour, so one texture works on any background. Nine are SVG tiles drawn in code from a density (grain and paper fibre with `feTurbulence`, dots, grid, diagonal lines, cross-hatch, checker, waves, topographic contours). Paper, linen and concrete are greyscale WebP tiles (31 to 50 KB) rendered from seeded noise by `e2e/scripts/render-textures.mjs`, so they are ours to release as CC0.
+- **Shapes** include seeded blobs (`blobPath(seed)`), stars, arches, waves, confetti and geometric pieces. Sets of them come from scatter recipes; `scatterPositions` spreads shapes away from each other and from the text column, the same way for the same seed. Positions are percentages, so they follow the form's size, and a shapes layer can stay off phones.
+- **Palettes** feed mesh gradients: `meshFromPalette` and `shuffleMesh` lay points out from a seed.
+- **Presets:** twelve looks, from Minimal and Paper to Sunrise mesh, Blueprint grid, Confetti party, Botanical, Pastel blobs and Minimal mono. Tests check that each validates, passes the readability guard and has the tier its features call for.
+
+**Readability guard.** `themeReadabilityIssues` composites the visible layers the way the browser draws them (opacity, blend modes, gradient geometry, texture coverage, shapes under the text) at points across the text column on a desktop and a phone screen, then through the overlay. Images count as any colour, so text over a photo needs an overlay or a card. Text must reach 4.5:1 and the primary colour 3:1 (WCAG AA). `readabilityFixes` offers one-click fixes (the lightest overlay that works, a card, or text colours that read), each only if it clears every text issue.
+
+**Drawing.** `ThemeRenderer` (`apps/web/src/features/form-renderer/theme`) turns a theme into `--form-*` CSS variables, draws the layers with CSS and SVG only, and lays the form out. It sizes everything with container queries, so the editor shows exactly what a respondent on that width sees.
+
+**Design Studio.** The editor's Design tab (`apps/web/src/features/form-editor/design`): a wider panel beside a live preview at desktop or phone width, with a full-screen mode, and stacked under the preview on phones. Its sections are Presets; Background (a sortable layer list with show/hide, duplicate, delete, opacity and blend mode, plus editors for every layer kind and the overlay); Colours; and Typography, Components and Layout, which for now hold fonts, corners, logo, cover and badge. Mesh points, shapes, gradient centres and image focal points can be dragged on the preview or moved with the arrow keys; each drag is one undo step. The readability guard shows its warning and fixes at the top of the panel.
 
 **Versions.** v1 themes (Sprint 7) still read: `storedFormThemeSchema` upgrades them with `migrateTheme`, which keeps their look. Respondents see the theme from the last publish (`publishedTheme`), like the questions.
 
@@ -346,9 +368,9 @@ Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional
 
 File questions upload straight from the browser to Cloudinary with a progress bar, cancel and retry; the API never handles the bytes.
 
-1. `GET /api/uploads/signature?purpose=answer&form=<slug>&field=<id>` (no account; rate limited) or `?purpose=logo|cover&formId=` (editors) signs one upload. The signature pins the folder (`<CLOUDINARY_FOLDER>/forms/<formId>/<fieldId>` or `.../themes/<formId>`) and the allowed formats.
+1. `GET /api/uploads/signature?purpose=answer&form=<slug>&field=<id>` (no account; rate limited) or `?purpose=logo|cover|background&formId=` (editors) signs one upload. The signature pins the folder (`<CLOUDINARY_FOLDER>/forms/<formId>/<fieldId>` or `.../themes/<formId>`) and the allowed formats.
 2. The browser checks the question's size and type limits (`fileProblem` in `packages/shared`) and posts the file to Cloudinary.
-3. The answer keeps `{ url, publicId, name, size, type }`. On submit the API asks Cloudinary's Admin API about each file and refuses files from another question or form, URLs it did not issue, real sizes over the limit and formats the question does not take; the stored size replaces the browser's. Logos and cover images get the same check when the theme is saved.
+3. The answer keeps `{ url, publicId, name, size, type }`. On submit the API asks Cloudinary's Admin API about each file and refuses files from another question or form, URLs it did not issue, real sizes over the limit and formats the question does not take; the stored size replaces the browser's. Logos, cover and background images get the same check when the theme is saved.
 
 Responses link to the files (they open in a new tab) and CSV exports have their URLs. Uploaded files are public but unguessable Cloudinary URLs. Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to switch uploads on; without them the signature endpoint answers `503 UPLOADS_UNAVAILABLE` and file questions say uploads are unavailable.
 
@@ -398,6 +420,7 @@ Run from the repository root:
 | `pnpm db:migrate`                            | Creates and applies migrations in development                                                                        |
 | `pnpm db:deploy`                             | Applies pending migrations (CI and production)                                                                       |
 | `pnpm db:studio`                             | Opens Prisma Studio                                                                                                  |
+| `pnpm --filter @formyx/e2e render:textures`  | Renders the paper, linen and concrete WebP textures                                                                  |
 | `pnpm --filter @formyx/api db:seed:demo`     | Sets up or resets the demo account                                                                                   |
 | `pnpm --filter @formyx/api db:migrate-forms` | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
 | `pnpm --filter @formyx/web size`             | Reports the gzip size of every route                                                                                 |

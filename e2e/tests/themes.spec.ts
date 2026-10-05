@@ -25,14 +25,16 @@ test('designs a form in the editor and publishes the design with it', async ({ p
   await page.goto(`/app/forms/${formId}/edit`);
 
   await page.getByRole('tab', { name: 'Design' }).click();
+  await page.getByRole('tab', { name: 'Colours' }).click();
   await page
     .getByRole('radiogroup', { name: 'Accent colour' })
     .getByRole('radio', { name: 'Teal' })
     .click();
   await page
-    .getByRole('radiogroup', { name: 'Background' })
+    .getByRole('radiogroup', { name: 'Plain background' })
     .getByRole('radio', { name: 'Dark' })
     .click();
+  await page.getByRole('tab', { name: 'Components' }).click();
   await page
     .getByRole('radiogroup', { name: 'Corners' })
     .getByRole('radio', { name: 'Sharp' })
@@ -72,6 +74,61 @@ test('applies a preset and publishes it with its background', async ({ page }) =
   await expect(page.locator('[data-form-container="floating"]')).toBeVisible();
   expect(await formVariable(page, '--form-heading-font')).toMatch(/^'DM Sans Variable'/);
   await expect(page.getByRole('link', { name: 'Made with Formyx' })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+  expect(problems).toEqual([]);
+});
+
+test('builds a layered background in the Design Studio and publishes it', async ({ page }) => {
+  const problems = trackConsoleProblems(page);
+  const formId = await createFormViaApi(page, 'feedback_survey');
+  await page.goto(`/app/forms/${formId}/edit`);
+
+  await page.getByRole('tab', { name: 'Design' }).click();
+  await page.getByRole('tab', { name: 'Background' }).click();
+  const layers = page.getByRole('list', { name: 'Background layers, top first' });
+
+  // A mesh, regenerated from a palette and shuffled.
+  await page.getByRole('button', { name: 'Add layer' }).click();
+  await page.getByRole('menuitem', { name: /Mesh gradient/ }).click();
+  await page.getByRole('button', { name: 'Generate from Ocean' }).click();
+  await page.getByRole('button', { name: 'Shuffle' }).click();
+
+  // A dot texture, denser.
+  await page.getByRole('button', { name: 'Add layer' }).click();
+  await page.getByRole('menuitem', { name: /Texture/ }).click();
+  await page.getByRole('radio', { name: /^Dots/ }).click();
+  await page.getByRole('slider', { name: 'Density' }).focus();
+  await page.keyboard.press('ArrowRight');
+
+  // Shapes, scattered and left out on phones.
+  await page.getByRole('button', { name: 'Add layer' }).click();
+  await page.getByRole('menuitem', { name: /Shapes/ }).click();
+  await page.getByRole('button', { name: 'Scatter' }).click();
+  await expect(page.getByRole('switch', { name: 'Hide on phones' })).toBeChecked();
+
+  await expect(layers.getByRole('listitem')).toHaveCount(4);
+  // Busy backgrounds need help to stay readable: one click puts the form in a card.
+  const fix = page.getByRole('button', { name: 'Put the form in a card' });
+  if (await fix.isVisible()) await fix.click();
+  await expect(page.getByText('Some text may be hard to read')).toHaveCount(0);
+  await expectSaved(page);
+
+  const publicPath = await publishViaApi(page, formId);
+  await page.goto(publicPath);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const drawn = page.locator('[data-theme-background] [data-layer]');
+  await expect(drawn).toHaveCount(4);
+  expect(
+    await drawn.evaluateAll((elements) => elements.map((element) => element.dataset.layer)),
+  ).toEqual(['solid', 'mesh', 'texture', 'shapes']);
+  const shapesShown = await page
+    .locator('[data-layer="shapes"]')
+    .evaluate((element) => getComputedStyle(element).display !== 'none');
+  // Shapes stay off narrow screens, and show on wide ones.
+  expect(shapesShown).toBe((page.viewportSize()?.width ?? 0) >= 576);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

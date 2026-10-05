@@ -1,5 +1,6 @@
 import type { FieldType, FormDetail } from '@formyx/shared';
 import { Plus } from 'lucide-react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,14 +12,17 @@ import {
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMediaQuery } from '@/lib/use-media-query';
+import { cn } from '@/lib/utils';
 import { EditorCanvas } from './canvas/editor-canvas';
 import { focusQuestion } from './canvas/focus-question';
 import { EditorDnd } from './dnd/editor-dnd';
 import { useEditorStore } from './editor-store-context';
 import { FieldPalette } from './palette/field-palette';
 import { EditorPreview } from './preview/editor-preview';
-import { DesignPanel } from './design/design-panel';
-import { EditorSidebar } from './editor-sidebar';
+import { DesignStudio } from './design/design-studio';
+import { createStudioStore, StudioStoreContext, useStudio } from './design/studio-state';
+import { StudioPreview } from './design/studio-preview';
+import { EditorSidebar, type SidebarTab } from './editor-sidebar';
 import { SettingsPanel } from './settings/settings-panel';
 import { EditorTopBar, type EditorView } from './top-bar/editor-top-bar';
 import { useEditorShortcuts } from './use-editor-shortcuts';
@@ -42,12 +46,49 @@ function useAddField() {
   };
 }
 
-/** Palette, canvas and settings side by side, or the preview. */
+/** The Design Studio over the whole window: its controls beside a large preview. */
+function FullScreenStudio() {
+  const fullScreen = useStudio((state) => state.fullScreen);
+  const setFullScreen = useStudio((state) => state.setFullScreen);
+  return (
+    <DialogPrimitive.Root open={fullScreen} onOpenChange={setFullScreen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          data-editor-keys
+          className="fixed inset-0 z-50 flex bg-background outline-none"
+        >
+          <DialogPrimitive.Title className="sr-only">Design Studio</DialogPrimitive.Title>
+          <div className="w-[26.25rem] shrink-0 border-r">
+            <DesignStudio layout="panel" canExpand />
+          </div>
+          <StudioPreview className="min-w-0 flex-1" />
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+/**
+ * Palette, canvas and settings side by side; or, while designing, the Studio's live preview
+ * beside its wider panel; or the preview.
+ */
 function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
   const theme = useEditorStore((state) => state.theme);
+  const selectedId = useEditorStore((state) => state.selectedFieldId);
+  const selectField = useEditorStore((state) => state.selectField);
   const [view, setView] = useState<EditorView>('build');
+  const [panel, setPanel] = useState<SidebarTab>('settings');
   const add = useAddField();
   useEditorShortcuts(view === 'build');
+
+  // Picking a question means editing it: show its settings.
+  const [shownSelection, setShownSelection] = useState(selectedId);
+  if (selectedId !== shownSelection) {
+    setShownSelection(selectedId);
+    if (selectedId) setPanel('settings');
+  }
+  const designing = panel === 'design';
 
   return (
     <div className="flex h-dvh flex-col bg-surface">
@@ -65,21 +106,40 @@ function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
         </main>
       ) : (
         <div className="flex min-h-0 flex-1">
+          {designing ? (
+            <main aria-label="Design preview" className="flex min-w-0 flex-1 flex-col">
+              <StudioPreview className="flex-1" />
+            </main>
+          ) : (
+            <>
+              <aside
+                aria-label="Add questions"
+                className="w-60 shrink-0 overflow-y-auto border-r bg-background px-3 py-4"
+              >
+                <FieldPalette onAdd={add} />
+              </aside>
+              <main aria-label="Form canvas" className="min-w-0 flex-1 overflow-y-auto">
+                <EditorCanvas
+                  theme={theme}
+                  emptyHint="Drag a question here, or pick one from the list."
+                />
+              </main>
+            </>
+          )}
           <aside
-            aria-label="Add questions"
-            className="w-60 shrink-0 overflow-y-auto border-r bg-background px-3 py-4"
+            aria-label="Settings and design"
+            className={cn('shrink-0 border-l bg-background', designing ? 'w-[26.25rem]' : 'w-80')}
           >
-            <FieldPalette onAdd={add} />
-          </aside>
-          <main aria-label="Form canvas" className="min-w-0 flex-1 overflow-y-auto">
-            <EditorCanvas
-              theme={theme}
-              emptyHint="Drag a question here, or pick one from the list."
+            <EditorSidebar
+              tab={panel}
+              onTabChange={(next) => {
+                // Designing hides the questions, so none stays selected for Delete to remove.
+                if (next === 'design') selectField(null);
+                setPanel(next);
+              }}
             />
-          </main>
-          <aside aria-label="Settings and design" className="w-80 shrink-0 border-l bg-background">
-            <EditorSidebar />
           </aside>
+          {designing && <FullScreenStudio />}
         </div>
       )}
     </div>
@@ -145,9 +205,10 @@ function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="design" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-background">
-          <div className="mx-auto w-full max-w-xl">
-            <DesignPanel />
+        <TabsContent value="design" className="mt-0 flex min-h-0 flex-1 flex-col bg-background">
+          <StudioPreview compact className="h-[42dvh] shrink-0 border-b" />
+          <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
+            <DesignStudio layout="stacked" />
           </div>
         </TabsContent>
 
@@ -185,7 +246,13 @@ function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
 /** The editor's layout for the current screen size, with drag and drop around it all. */
 export function EditorLayout(props: EditorLayoutProps) {
   const isDesktop = useMediaQuery(DESKTOP_EDITOR_QUERY);
+  // One Studio state for the editor, so the section and layer stay put across screen sizes.
+  const [studio] = useState(createStudioStore);
   return (
-    <EditorDnd>{isDesktop ? <DesktopEditor {...props} /> : <MobileEditor {...props} />}</EditorDnd>
+    <StudioStoreContext.Provider value={studio}>
+      <EditorDnd>
+        {isDesktop ? <DesktopEditor {...props} /> : <MobileEditor {...props} />}
+      </EditorDnd>
+    </StudioStoreContext.Provider>
   );
 }

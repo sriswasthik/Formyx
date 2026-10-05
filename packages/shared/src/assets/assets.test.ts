@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { requiredFeatures } from '../entitlements/theme-features.js';
 import { hexColorSchema } from '../color.js';
 import { createDefaultTheme } from '../theme/migrate.js';
-import { themeReadabilityIssues } from '../theme/readability.js';
+import { readabilityFixes, themeReadabilityIssues } from '../theme/readability.js';
 import { formThemeSchema } from '../theme/schema.js';
 import { ASSET_TIERS, type Asset } from './asset.js';
 import { FONTS, fontStack } from './fonts.js';
 import { GRADIENT_PALETTES } from './palettes.js';
 import { applyPreset, matchingPreset, THEME_PRESETS } from './presets.js';
-import { SHAPES } from './shapes.js';
+import { blobPath, SHAPES, shapeItemPath } from './shapes.js';
+import { isPatternTexture, textureCoverage, textureTile } from './texture-tiles.js';
 import { TEXTURES } from './textures.js';
 
 const registries: [string, readonly Asset[]][] = [
@@ -52,11 +53,41 @@ describe('fonts', () => {
 });
 
 describe('textures', () => {
-  it('point at SVG tiles under textures/', () => {
+  it('are drawn in code, or from a WebP photo under textures/', () => {
     for (const texture of TEXTURES) {
-      expect(texture.file).toBe(`textures/${texture.id}.svg`);
       expect(texture.tileSize).toBeGreaterThan(0);
+      if (texture.draw.kind === 'photo') {
+        expect(texture.draw.file).toBe(`textures/${texture.id}.webp`);
+        expect(texture.draw.coverage).toBeGreaterThan(0);
+        expect(texture.draw.coverage).toBeLessThan(1);
+      } else {
+        expect(isPatternTexture(texture.id)).toBe(true);
+      }
     }
+  });
+
+  it.each(TEXTURES.filter((texture) => texture.draw.kind === 'pattern'))(
+    'draws $name as a square SVG tile in black, denser as density rises',
+    (texture) => {
+      if (!isPatternTexture(texture.id)) throw new Error('Not a pattern');
+      const sparse = textureTile(texture.id, 0);
+      const dense = textureTile(texture.id, 1);
+      expect(sparse.svg).toMatch(
+        new RegExp(
+          `^<svg xmlns="http://www.w3.org/2000/svg" width="${texture.tileSize}" height="${texture.tileSize}"`,
+        ),
+      );
+      expect(sparse.svg).not.toMatch(/fill="#(?!000)|stroke="#(?!000)/);
+      expect(textureTile(texture.id)).toEqual(textureTile(texture.id, 0.5));
+      expect(dense.coverage).toBeGreaterThan(sparse.coverage);
+      expect(dense.coverage).toBeLessThanOrEqual(1);
+      expect(sparse.coverage).toBeGreaterThan(0);
+    },
+  );
+
+  it('give every photo texture a coverage for the readability check', () => {
+    expect(textureCoverage('paper')).toBeGreaterThan(0);
+    expect(textureCoverage('dots', 1)).toBeGreaterThan(textureCoverage('dots', 0));
   });
 });
 
@@ -73,6 +104,33 @@ describe('shapes', () => {
   });
 });
 
+describe('blobPath', () => {
+  it('is the same for the same seed and different for another', () => {
+    expect(blobPath(42)).toBe(blobPath(42));
+    expect(blobPath(42)).not.toBe(blobPath(43));
+  });
+
+  it('draws a closed curve inside the view box', () => {
+    for (const seed of [0, 1, 99, 123_456, 2_147_483_647]) {
+      const path = blobPath(seed);
+      expect(path).toMatch(/^M[\d.]+ [\d.]+(C[\d. ]+)+Z$/);
+      for (const value of path.match(/\d+(\.\d+)?/g)?.map(Number) ?? []) {
+        expect(value).toBeGreaterThanOrEqual(0);
+        expect(value).toBeLessThanOrEqual(100);
+      }
+    }
+  });
+
+  it('is used for blobs with a seed, while other shapes keep their drawing', () => {
+    expect(shapeItemPath({ type: 'blob', seed: 7 })).toBe(blobPath(7));
+    const fixed = SHAPES.find((shape) => shape.id === 'blob')?.path;
+    expect(shapeItemPath({ type: 'blob' })).toBe(fixed);
+    expect(shapeItemPath({ type: 'star', seed: 7 })).toBe(
+      SHAPES.find((shape) => shape.id === 'star')?.path,
+    );
+  });
+});
+
 describe('gradient palettes', () => {
   it('hold four to six hex colours each, enough to seed a mesh', () => {
     for (const palette of GRADIENT_PALETTES) {
@@ -83,6 +141,13 @@ describe('gradient palettes', () => {
   });
 });
 
+describe('theme presets', () => {
+  it('offer twelve starting points, free and Pro', () => {
+    expect(THEME_PRESETS).toHaveLength(12);
+    expect(THEME_PRESETS.filter((preset) => preset.tier === 'free').length).toBeGreaterThan(4);
+  });
+});
+
 describe.each(THEME_PRESETS)('the $name preset', (preset) => {
   it('is a valid theme', () => {
     expect(formThemeSchema.parse(preset.theme)).toEqual(preset.theme);
@@ -90,6 +155,7 @@ describe.each(THEME_PRESETS)('the $name preset', (preset) => {
 
   it('is readable: text 4.5:1, primary colour 3:1', () => {
     expect(themeReadabilityIssues(preset.theme)).toEqual([]);
+    expect(readabilityFixes(preset.theme)).toEqual([]);
   });
 
   it('is Pro exactly when it uses a Pro feature', () => {

@@ -4,3 +4,4 @@ export * from './palettes.js';
 export * from './presets.js';
 export * from './shapes.js';
 export * from './textures.js';
+export * from './texture-tiles.js';

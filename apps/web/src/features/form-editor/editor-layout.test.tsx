@@ -1,5 +1,5 @@
 import { createField, type Field } from '@formyx/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EditorLayout } from './editor-layout';
 import { makeFormDetail, renderWithEditor } from './test-utils';
@@ -186,5 +186,35 @@ describe('EditorLayout', () => {
     await user.click(screen.getByRole('button', { name: 'Restart' }));
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+  });
+
+  it('opens the Design Studio beside a live preview, and full screen', async () => {
+    const field = { ...createField('short_text'), label: 'Name' };
+    const { user, store } = renderEditor([field]);
+    act(() => {
+      store.getState().selectField(field.id);
+    });
+
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
+
+    // The palette and canvas make way for the preview; no question stays selected.
+    expect(screen.queryByRole('navigation', { name: 'Question types' })).not.toBeInTheDocument();
+    expect(screen.getByRole('main', { name: 'Design preview' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Preview size' })).toBeInTheDocument();
+    expect(store.getState().selectedFieldId).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Full screen' }));
+    const dialog = screen.getByRole('dialog', { name: 'Design Studio' });
+    expect(within(dialog).getByRole('tablist', { name: 'Design sections' })).toBeInTheDocument();
+
+    // Undo still works from the keyboard in full screen.
+    await user.click(within(dialog).getByRole('tab', { name: 'Colours' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'Rust' }));
+    expect(store.getState().theme.colors.primary).toBe('#B1563B');
+    await user.keyboard('{Control>}z{/Control}');
+    expect(store.getState().theme.colors.primary).toBe('#4370BD');
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Design Studio' })).not.toBeInTheDocument();
   });
 });

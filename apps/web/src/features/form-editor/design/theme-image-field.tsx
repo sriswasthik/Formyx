@@ -25,6 +25,10 @@ const COPY: Record<ThemeImageKind, { noun: string; hint: string }> = {
     noun: 'cover image',
     hint: 'Shown across the top. Wide images work best. PNG, JPG, WebP or GIF, up to 5 MB.',
   },
+  background: {
+    noun: 'background image',
+    hint: 'Fills the page behind the form. PNG, JPG, WebP or GIF, up to 5 MB.',
+  },
 };
 
 function imageProblem(file: File): string | null {
