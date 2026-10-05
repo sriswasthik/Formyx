@@ -5,3 +5,5 @@ export * from './schema.js';
 export * from './surfaces.js';
 export * from './theme-utils.js';
 export * from './theme-v1.js';
+export * from './mesh.js';
+export * from './scatter.js';
