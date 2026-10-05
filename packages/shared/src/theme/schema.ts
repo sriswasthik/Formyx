@@ -50,7 +50,12 @@ const layerBase = z.object({
   id: nodeId,
   opacity: unit,
   blendMode: blendModeSchema,
+  /** Kept in the theme but not drawn. Absent means shown. */
+  hidden: z.boolean().optional(),
 });
+
+/** Seeds for generated shapes and scatters: a 31-bit non-negative integer. */
+export const seedSchema = z.number().int().min(0).max(2_147_483_647);
 
 const gradientStopSchema = z.object({ color: hexColorSchema, position: percent });
 export type GradientStop = z.infer<typeof gradientStopSchema>;
@@ -61,7 +66,7 @@ const gradientStops = z
 
 export const MESH_MIN_POINTS = 4;
 export const MESH_MAX_POINTS = 8;
-export const MAX_SHAPES = 24;
+export const MAX_SHAPES = 48;
 export const MAX_LAYERS = 8;
 
 const meshPointSchema = z.object({
@@ -88,6 +93,8 @@ const shapeItemSchema = z.object({
   opacity: unit,
   /** Blur radius in CSS pixels. */
   blur: z.number().min(0).max(64),
+  /** Varies generated shapes (blobs); the shape's fixed drawing if not set. */
+  seed: seedSchema.optional(),
 });
 export type ThemeShape = z.infer<typeof shapeItemSchema>;
 
@@ -119,6 +126,8 @@ export const backgroundLayerSchema = z.discriminatedUnion('type', [
     scale: z.number().min(0.25).max(4),
     /** The texture's colour; the theme's text colour if not set. */
     tint: hexColorSchema.optional(),
+    /** How much of the tile the pattern covers, for textures drawn in code; 0.5 if not set. */
+    density: unit.optional(),
   }),
   layerBase.extend({
     type: z.literal('shapes'),
@@ -126,6 +135,10 @@ export const backgroundLayerSchema = z.discriminatedUnion('type', [
       .array(shapeItemSchema)
       .min(1, 'Add at least one shape')
       .max(MAX_SHAPES, `Use ${MAX_SHAPES} shapes or fewer`),
+    /** The seed the shapes were last scattered with, so "Scatter" moves on from it. */
+    seed: seedSchema.optional(),
+    /** Left out on narrow screens, where shapes would sit behind the text. */
+    hideOnMobile: z.boolean().optional(),
   }),
   layerBase.extend({
     type: z.literal('image'),
@@ -150,6 +163,13 @@ export const PAGE_TRANSITIONS = ['none', 'fade', 'slide'] as const;
 export const TEXT_ALIGNS = ['left', 'center'] as const;
 
 export const RADIUS_MAX = 24;
+
+/** The form column's largest width for each layout width, in CSS pixels. */
+export const LAYOUT_WIDTHS_PX: Record<(typeof LAYOUT_WIDTHS)[number], number> = {
+  narrow: 560,
+  regular: 640,
+  wide: 760,
+};
 
 export const formThemeSchema = z
   .object({
