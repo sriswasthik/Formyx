@@ -9,7 +9,7 @@ export interface FontAsset<Id extends string = string> extends Asset<Id, FontCat
   family: string;
   /**
    * Shown while the font loads, or if it fails to. Starts with a local font resized to match
-   * it (`@font-face` in the web app's styles), so text does not move when it arrives.
+   * it (added by the web app with the font), so text does not move when it arrives.
    */
   fallback: string;
   /** What pickers write in the font. */

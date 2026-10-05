@@ -28,7 +28,13 @@ export function loadFont(font: FontId): Promise<void> {
   if (!load) return Promise.resolve();
   let loading = requested.get(font);
   if (!loading) {
-    loading = load().then(
+    loading = Promise.all([
+      load(),
+      // Its resized local fallback, so text does not move when the font arrives.
+      import('./font-fallbacks').then(({ addFallbackFace }) => {
+        addFallbackFace(font);
+      }),
+    ]).then(
       () => undefined,
       () => {
         // The fallback fonts keep the form readable; try again next time.

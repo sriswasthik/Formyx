@@ -1,3 +1,4 @@
+export * from './buttons.js';
 export * from './images.js';
 export * from './migrate.js';
 export * from './readability.js';

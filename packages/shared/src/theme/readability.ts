@@ -1,5 +1,6 @@
 import { textureCoverage } from '../assets/texture-tiles.js';
 import { getShape } from '../assets/shapes.js';
+import { SOFT_BUTTON_TINT } from './buttons.js';
 import {
   contrastRatio,
   hexToRgb,
@@ -27,8 +28,6 @@ export interface ReadabilityIssue {
   minimum: number;
 }
 
-/** How strongly a soft button tints its background with the primary colour. */
-export const SOFT_BUTTON_TINT = 14;
 
 /** Whether the form's text sits on the container colour rather than on the background. */
 export function hasFilledContainer(theme: FormTheme): boolean {
