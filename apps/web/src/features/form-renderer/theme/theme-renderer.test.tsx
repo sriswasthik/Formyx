@@ -465,7 +465,9 @@ describe('ThemeRenderer background layers', () => {
   it.each(THEME_PRESETS)('draws the $name preset', (found) => {
     const { container } = renderTheme(found.theme);
     expect(layerTypes(container)).toEqual(
-      found.theme.background.layers.filter((layer) => !layer.hidden).map((layer) => layer.type),
+      (found.theme.background.layers as readonly BackgroundLayer[])
+        .filter((layer) => !layer.hidden)
+        .map((layer) => layer.type),
     );
   });
 });

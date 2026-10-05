@@ -169,6 +169,7 @@ describe('publishing from the editor', () => {
     const { user } = renderEditorPage();
 
     await user.click(await screen.findByRole('tab', { name: 'Design' }));
+    await user.click(screen.getByRole('tab', { name: 'Colours' }));
     await user.click(screen.getByRole('radio', { name: 'Teal' }));
 
     expect(screen.getByText('Unpublished changes')).toBeInTheDocument();
