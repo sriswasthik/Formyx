@@ -40,7 +40,7 @@ function FontSelect({ label, value, onChange }: FontSelectProps) {
         }}
         onOpenChange={(open) => {
           // Each font is shown in itself, so the list needs them all.
-          if (open) for (const font of FONTS) loadFont(font.id);
+          if (open) for (const font of FONTS) void loadFont(font.id);
         }}
       >
         <SelectTrigger id={id}>

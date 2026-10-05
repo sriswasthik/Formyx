@@ -47,9 +47,10 @@ describe('themeVariables', () => {
   const V1_BACKGROUNDS = { white: '#FFFFFF', off_white: '#F7F6F3', dark: '#18181B' } as const;
   const V1_FONT_STACKS = {
     inter: "'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, sans-serif",
-    serif: "'Source Serif 4 Variable', ui-serif, Georgia, Cambria, serif",
+    serif:
+      "'Source Serif 4 Variable', 'Source Serif 4 Fallback', ui-serif, Georgia, Cambria, serif",
     rounded:
-      "'Nunito Variable', ui-rounded, 'SF Pro Rounded', ui-sans-serif, system-ui, sans-serif",
+      "'Nunito Variable', 'Nunito Fallback', ui-rounded, 'SF Pro Rounded', ui-sans-serif, system-ui, sans-serif",
   } as const;
 
   it.each(

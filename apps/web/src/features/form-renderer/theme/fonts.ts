@@ -1,4 +1,4 @@
-import type { FontId, FormTheme } from '@formyx/shared';
+import { getFont, type FontId, type FormTheme } from '@formyx/shared';
 import { useEffect } from 'react';
 
 /**
@@ -17,24 +17,61 @@ export const FONT_LOADERS: Record<FontId, (() => Promise<unknown>) | null> = {
   'bricolage-grotesque': () => import('@fontsource-variable/bricolage-grotesque'),
 };
 
-const requested = new Set<FontId>();
+const requested = new Map<FontId, Promise<void>>();
 
-/** Starts loading a font's files. Until they arrive, the fallbacks in its stack show. */
-export function loadFont(font: FontId): void {
+/**
+ * Starts loading a font's styles (its `@font-face` rules). Until its files arrive, the
+ * fallbacks in its stack show. Resolves once the styles are in, never rejects.
+ */
+export function loadFont(font: FontId): Promise<void> {
   const load = FONT_LOADERS[font];
-  if (!load || requested.has(font)) return;
-  requested.add(font);
-  load().catch(() => {
-    // The fallback fonts keep the form readable; try again next time.
-    requested.delete(font);
-  });
+  if (!load) return Promise.resolve();
+  let loading = requested.get(font);
+  if (!loading) {
+    loading = load().then(
+      () => undefined,
+      () => {
+        // The fallback fonts keep the form readable; try again next time.
+        requested.delete(font);
+      },
+    );
+    requested.set(font, loading);
+  }
+  return loading;
+}
+
+/**
+ * Loads a theme's heading and body fonts and waits for their files, at most `timeoutMs`, so a
+ * page can show its form in its own fonts from the first paint instead of moving text about
+ * when they arrive. Never rejects: on a slow connection the fallbacks show, as they would.
+ */
+export async function themeFontsReady(
+  theme: Pick<FormTheme, 'typography'>,
+  timeoutMs: number,
+): Promise<void> {
+  const { headingFont, bodyFont, headingWeight } = theme.typography;
+  const files = async () => {
+    await Promise.all([loadFont(headingFont), loadFont(bodyFont)]);
+    // Without the Font Loading API (older browsers, tests), there is nothing to wait for.
+    if (typeof document === 'undefined' || !('fonts' in document)) return;
+    await Promise.all([
+      document.fonts.load(`${headingWeight} 1em ${getFont(headingFont).family}`),
+      document.fonts.load(`400 1em ${getFont(bodyFont).family}`),
+    ]);
+  };
+  await Promise.race([
+    files().catch(() => undefined),
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, timeoutMs);
+    }),
+  ]);
 }
 
 /** Loads the theme's heading and body fonts, and nothing else. */
 export function useThemeFonts(theme: Pick<FormTheme, 'typography'>): void {
   const { headingFont, bodyFont } = theme.typography;
   useEffect(() => {
-    loadFont(headingFont);
-    loadFont(bodyFont);
+    void loadFont(headingFont);
+    void loadFont(bodyFont);
   }, [headingFont, bodyFont]);
 }

@@ -295,6 +295,74 @@
   line-gap-override: 0%;
 }
 
+/*
+ * The same for the theme fonts respondent-facing forms load on demand: Arial or Georgia,
+ * resized to each font's average width, ascent and descent (measured in Chromium), so text
+ * keeps its place when the font arrives.
+ */
+@font-face {
+  font-family: 'Source Serif 4 Fallback';
+  src: local('Georgia');
+  size-adjust: 107.66%;
+  ascent-override: 96.6%;
+  descent-override: 31.58%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Nunito Fallback';
+  src: local('Arial');
+  size-adjust: 100.43%;
+  ascent-override: 100.56%;
+  descent-override: 34.85%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'DM Sans Fallback';
+  src: local('Arial');
+  size-adjust: 103.57%;
+  ascent-override: 95.58%;
+  descent-override: 29.93%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Fraunces Fallback';
+  src: local('Georgia');
+  size-adjust: 105.5%;
+  ascent-override: 92.89%;
+  descent-override: 24.65%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Playfair Display Fallback';
+  src: local('Georgia');
+  size-adjust: 101.57%;
+  ascent-override: 106.33%;
+  descent-override: 24.61%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Space Grotesk Fallback';
+  src: local('Arial');
+  size-adjust: 107.94%;
+  ascent-override: 90.79%;
+  descent-override: 26.87%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Bricolage Grotesque Fallback';
+  src: local('Arial');
+  size-adjust: 104.92%;
+  ascent-override: 88.64%;
+  descent-override: 25.73%;
+  line-gap-override: 0%;
+}
+
 @layer base {
   *,
   ::before,

@@ -201,7 +201,7 @@ describe('ThemeRenderer', () => {
 
     // However many forms use a font, it loads once.
     renderTheme({ ...base, typography: { ...base.typography, headingFont: 'playfair-display' } });
-    loadFont('playfair-display');
+    void loadFont('playfair-display');
     expect(loaders['playfair-display']).toHaveBeenCalledTimes(1);
   });
 });

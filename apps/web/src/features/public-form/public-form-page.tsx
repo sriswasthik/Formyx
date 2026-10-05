@@ -12,6 +12,7 @@ import { useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { FormView, type SubmitOutcome } from '@/features/form-renderer/form-view';
+import { themeFontsReady } from '@/features/form-renderer/theme/fonts';
 import { ApiRequestError } from '@/lib/api';
 import { isEmbedded } from '@/lib/embed';
 import { hostTargetOrigin, postToHost, useReportHeight } from './embed-host';
@@ -121,6 +122,9 @@ function LiveForm({ form, onClosed, hostOrigin }: LiveFormProps) {
   );
 }
 
+/** How long a public form waits for its fonts before showing in the fallbacks. */
+const FONT_WAIT_MS = 1200;
+
 /** A published form at `/f/:slug`, for anyone with the link. */
 export function PublicFormPage() {
   const { slug = '' } = useParams();
@@ -130,7 +134,12 @@ export function PublicFormPage() {
   const [closedWhileOpen, setClosedWhileOpen] = useState(false);
   const query = useQuery({
     queryKey: ['public-form', slug],
-    queryFn: () => getPublicForm(slug),
+    queryFn: async () => {
+      const form = await getPublicForm(slug);
+      // The skeleton stays a moment longer so the form's text never jumps as fonts arrive.
+      if (form.status === 'open') await themeFontsReady(form.theme, FONT_WAIT_MS);
+      return form;
+    },
     // The form must not change under someone halfway through it.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
