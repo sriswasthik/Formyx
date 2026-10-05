@@ -88,19 +88,22 @@ describe('GET /api/uploads/signature for respondents', () => {
   });
 });
 
-describe('GET /api/uploads/signature for logos and cover images', () => {
-  it('signs for editors, into the form’s theme folder, images only', async () => {
-    const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
-    const res = await requestAs(app, team.users.EDITOR)
-      .get(signatureUrl({ purpose: 'logo', formId: form.id }))
-      .expect(200);
+describe('GET /api/uploads/signature for logos, cover and background images', () => {
+  it.each(['logo', 'cover', 'background'] as const)(
+    'signs %s images for editors, into the form’s theme folder, images only',
+    async (purpose) => {
+      const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
+      const res = await requestAs(app, team.users.EDITOR)
+        .get(signatureUrl({ purpose, formId: form.id }))
+        .expect(200);
 
-    expect(uploadSignatureSchema.parse(res.body)).toMatchObject({
-      folder: `formyx/themes/${form.id}`,
-      allowedFormats: 'jpg,jpeg,png,webp,gif',
-      maxBytes: 5 * BYTES_PER_MB,
-    });
-  });
+      expect(uploadSignatureSchema.parse(res.body)).toMatchObject({
+        folder: `formyx/themes/${form.id}`,
+        allowedFormats: 'jpg,jpeg,png,webp,gif',
+        maxBytes: 5 * BYTES_PER_MB,
+      });
+    },
+  );
 
   it('refuses viewers, outsiders and signed-out visitors', async () => {
     const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);

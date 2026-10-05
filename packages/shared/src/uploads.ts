@@ -6,11 +6,11 @@ import { NODE_ID_PATTERN } from './forms/ids.js';
  * pins the folder and the allowed formats, and checks the result before using it.
  */
 
-/** Logos and cover images. */
+/** Logos, cover images and background images. */
 export const THEME_IMAGE_MAX_MB = 5;
 export const THEME_IMAGE_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] as const;
 
-export const THEME_IMAGE_KINDS = ['logo', 'cover'] as const;
+export const THEME_IMAGE_KINDS = ['logo', 'cover', 'background'] as const;
 export const themeImageKindSchema = z.enum(THEME_IMAGE_KINDS);
 export type ThemeImageKind = z.infer<typeof themeImageKindSchema>;
 
@@ -22,7 +22,7 @@ export const uploadSignatureQuerySchema = z.discriminatedUnion('purpose', [
     form: z.string().min(1).max(200),
     field: z.string().regex(NODE_ID_PATTERN),
   }),
-  /** A form's logo or cover image, for editors. */
+  /** A form's logo, cover or background image, for editors. */
   z.object({
     purpose: themeImageKindSchema,
     formId: z.string().min(1).max(64),
