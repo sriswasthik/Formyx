@@ -7,7 +7,8 @@
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "render:images": "node scripts/render-images.mjs"
+    "render:images": "node scripts/render-images.mjs",
+    "render:textures": "node scripts/render-textures.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -5,17 +5,19 @@ export const TEXTURE_CATEGORIES = ['noise', 'pattern', 'material'] as const;
 export type TextureCategory = (typeof TEXTURE_CATEGORIES)[number];
 
 /**
- * How a texture's tile is made. Only its alpha is used: textures are drawn as a mask over a
- * tint colour, so one tile works on light and dark backgrounds.
- * - `pattern`: an SVG drawn in code (`textureTile`), with a density control.
- * - `photo`: a WebP under the web app's `public/` folder, its grain stored in the alpha.
+ * How a texture's tile is made. Textures are drawn as a mask over a tint colour, so one tile
+ * works on light and dark backgrounds.
+ * - `pattern`: an SVG drawn in code (`textureTile`) in black, masking by alpha, with a
+ *   density control.
+ * - `photo`: a greyscale WebP under the web app's `public/` folder, masking by luminance
+ *   (white shows the tint). Rendered by `e2e/scripts/render-textures.mjs`.
  */
 export type TextureSource =
   | { kind: 'pattern' }
   | {
       kind: 'photo';
       file: string;
-      /** Average alpha of the tile, 0 to 1, for the readability check. */
+      /** Average brightness of the tile, 0 to 1, for the readability check. */
       coverage: number;
     };
 
@@ -71,7 +73,7 @@ export const TEXTURES = [
     tier: 'pro',
     license: FORMYX_LICENSE,
     source: FORMYX_SOURCE,
-    draw: { kind: 'photo', file: 'textures/paper.webp', coverage: 0.3 },
+    draw: { kind: 'photo', file: 'textures/paper.webp', coverage: 0.16 },
     tileSize: 384,
     swatch: { background: '#F7F3EA', tint: '#5C4A32' },
   },
@@ -82,7 +84,7 @@ export const TEXTURES = [
     tier: 'pro',
     license: FORMYX_LICENSE,
     source: FORMYX_SOURCE,
-    draw: { kind: 'photo', file: 'textures/linen.webp', coverage: 0.3 },
+    draw: { kind: 'photo', file: 'textures/linen.webp', coverage: 0.14 },
     tileSize: 256,
     swatch: { background: '#EEF0EC', tint: '#3F4A3C' },
   },
@@ -159,7 +161,7 @@ export const TEXTURES = [
     tier: 'pro',
     license: FORMYX_LICENSE,
     source: FORMYX_SOURCE,
-    draw: { kind: 'photo', file: 'textures/concrete.webp', coverage: 0.3 },
+    draw: { kind: 'photo', file: 'textures/concrete.webp', coverage: 0.15 },
     tileSize: 384,
     swatch: { background: '#E7E5E4', tint: '#292524' },
   },
