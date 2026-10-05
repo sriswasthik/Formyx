@@ -130,7 +130,8 @@ function renderTexture({ kind, size, quality }) {
     }
   }
 
-  const canvas = document.createElement('canvas');
+  // Runs in the page, where `document` exists.
+  const canvas = globalThis.document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const context = canvas.getContext('2d');
