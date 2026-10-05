@@ -100,6 +100,22 @@ describe('requiredFeatures', () => {
     expect(requiredFeatures(theme)).toEqual(expected);
   });
 
+  it('ignores hidden layers, which are not drawn', () => {
+    const mesh = withLayer({
+      id: 'mesh',
+      type: 'mesh',
+      hidden: true,
+      points: Array.from({ length: 4 }, (_, i) => ({
+        x: i * 30,
+        y: 0,
+        color: '#FFFFFF',
+        spread: 40,
+      })),
+      ...common,
+    });
+    expect(requiredFeatures(mesh)).toEqual([]);
+  });
+
   it('lists each feature once, in registry order', () => {
     const theme: FormTheme = {
       ...withLayer(shapes('blob')),

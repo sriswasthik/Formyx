@@ -15,7 +15,8 @@ export function requiredFeatures(theme: FormTheme): FeatureId[] {
   if ([headingFont, bodyFont].some((font) => getFont(font).tier === 'pro')) {
     needed.add('premium_fonts');
   }
-  for (const layer of theme.background.layers) {
+  // Hidden layers are not drawn, so they need nothing to publish.
+  for (const layer of theme.background.layers.filter((candidate) => !candidate.hidden)) {
     if (layer.type === 'mesh') needed.add('mesh_gradients');
     if (layer.type === 'texture' && getTexture(layer.assetId).tier === 'pro') {
       needed.add('premium_textures');
