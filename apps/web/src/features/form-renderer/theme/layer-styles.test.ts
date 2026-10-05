@@ -63,15 +63,37 @@ describe('layerStyle', () => {
     expect(style).toMatchObject({
       opacity: 0.3,
       backgroundColor: theme.colors.text,
-      maskImage: 'url("/textures/grain.svg")',
       maskSize: `${(grain?.tileSize ?? 0) * 1.5}px`,
       maskRepeat: 'repeat',
-      WebkitMaskImage: 'url("/textures/grain.svg")',
+      maskMode: 'alpha',
     });
-    expect(
-      layerStyle({ ...common, type: 'texture', assetId: 'paper', scale: 1, tint: '#5C4A32' }, theme)
-        .backgroundColor,
-    ).toBe('#5C4A32');
+    expect(style.maskImage).toMatch(/^url\("data:image\/svg\+xml,%3Csvg/);
+    expect(style.WebkitMaskImage).toBe(style.maskImage);
+    expect(decodeURIComponent(String(style.maskImage))).toContain('feTurbulence');
+
+    const paper = layerStyle(
+      { ...common, type: 'texture', assetId: 'paper', scale: 1, tint: '#5C4A32' },
+      theme,
+    );
+    expect(paper).toMatchObject({
+      backgroundColor: '#5C4A32',
+      maskImage: 'url("/textures/paper.webp")',
+      maskMode: 'luminance',
+    });
+  });
+
+  it('draws pattern textures at their density', () => {
+    const at = (density: number) =>
+      String(
+        layerStyle({ ...common, type: 'texture', assetId: 'dots', scale: 1, density }, theme)
+          .maskImage,
+      );
+    expect(at(0.2)).not.toBe(at(0.8));
+    expect(at(0.5)).toBe(
+      String(
+        layerStyle({ ...common, type: 'texture', assetId: 'dots', scale: 1 }, theme).maskImage,
+      ),
+    );
   });
 
   it('crops images around their focal point', () => {
@@ -129,11 +151,15 @@ describe('isAnimatableLayer', () => {
 });
 
 describe('texture files', () => {
-  it.each(TEXTURES)('$name is an SVG tile in public/', (texture) => {
-    const path = join(import.meta.dirname, '../../../../public', texture.file);
-    expect(existsSync(path)).toBe(true);
-    const svg = readFileSync(path, 'utf8');
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-    expect(svg).toContain(`width="${texture.tileSize}" height="${texture.tileSize}"`);
-  });
+  it.each(TEXTURES.filter((texture) => texture.draw.kind === 'photo'))(
+    '$name is a WebP tile in public/',
+    (texture) => {
+      if (texture.draw.kind !== 'photo') return;
+      const path = join(import.meta.dirname, '../../../../public', texture.draw.file);
+      expect(existsSync(path)).toBe(true);
+      // RIFF....WEBP
+      const header = readFileSync(path).subarray(0, 12).toString('latin1');
+      expect(header).toMatch(/^RIFF.{4}WEBP$/s);
+    },
+  );
 });

@@ -2,6 +2,7 @@ import {
   getShape,
   hexToRgb,
   SHAPE_VIEWBOX,
+  shapeItemPath,
   type BackgroundLayer,
   type FormTheme,
 } from '@formyx/shared';
@@ -13,6 +14,7 @@ type ShapesLayer = Extract<BackgroundLayer, { type: 'shapes' }>;
 function Shapes({ layer }: { layer: ShapesLayer }) {
   return layer.items.map((item) => {
     const shape = getShape(item.type);
+    const path = shapeItemPath(item);
     return (
       <svg
         key={item.id}
@@ -32,7 +34,7 @@ function Shapes({ layer }: { layer: ShapesLayer }) {
       >
         {shape.draw.kind === 'stroke' ? (
           <path
-            d={shape.path}
+            d={path}
             fill="none"
             stroke="currentColor"
             strokeWidth={shape.draw.width}
@@ -40,7 +42,7 @@ function Shapes({ layer }: { layer: ShapesLayer }) {
             strokeLinejoin="round"
           />
         ) : (
-          <path d={shape.path} fill="currentColor" fillRule={shape.draw.fillRule} />
+          <path d={path} fill="currentColor" fillRule={shape.draw.fillRule} />
         )}
       </svg>
     );
@@ -64,6 +66,8 @@ function Layer({
         'absolute',
         // A drifting layer is a little larger than its area, so its edges never show.
         drifts ? '-inset-[6%] motion-safe:animate-form-drift' : 'inset-0',
+        // Narrow forms put shapes behind the text, so creators can leave them out there.
+        layer.type === 'shapes' && layer.hideOnMobile && '@max-xl:hidden',
       )}
       style={layerStyle(layer, theme)}
     >
@@ -103,14 +107,16 @@ export function ThemeBackground({ theme, sticky = false, className }: Background
       <div
         className={cn('relative w-full overflow-clip', sticky ? 'sticky top-0 h-dvh' : 'h-full')}
       >
-        {theme.background.layers.map((layer) => (
-          <Layer
-            key={layer.id}
-            layer={layer}
-            theme={theme}
-            animate={theme.motion.animatedBackground}
-          />
-        ))}
+        {theme.background.layers.map((layer) =>
+          layer.hidden ? null : (
+            <Layer
+              key={layer.id}
+              layer={layer}
+              theme={theme}
+              animate={theme.motion.animatedBackground}
+            />
+          ),
+        )}
         {showOverlay && (
           <div
             data-overlay

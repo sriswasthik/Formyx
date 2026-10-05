@@ -1,8 +1,11 @@
 import {
   getTexture,
+  isPatternTexture,
+  textureTile,
   type BackgroundLayer,
   type FormTheme,
   type GradientStop,
+  type TextureId,
 } from '@formyx/shared';
 import type * as React from 'react';
 
@@ -14,6 +17,26 @@ export function cssUrl(url: string): string {
 /** Where the app serves a file from its `public/` folder. */
 export function publicAsset(file: string): string {
   return `${import.meta.env.BASE_URL}${file}`;
+}
+
+const tileUrls = new Map<string, string>();
+
+/**
+ * The mask image of a texture at a density: a data URL of its code-drawn SVG tile (built once
+ * per texture and density), or its WebP file.
+ */
+export function textureMaskUrl(id: TextureId, density?: number): string {
+  if (!isPatternTexture(id)) {
+    const { draw } = getTexture(id);
+    return cssUrl(publicAsset(draw.kind === 'photo' ? draw.file : ''));
+  }
+  const key = `${id}:${density ?? ''}`;
+  let url = tileUrls.get(key);
+  if (!url) {
+    url = `url("data:image/svg+xml,${encodeURIComponent(textureTile(id, density).svg)}")`;
+    tileUrls.set(key, url);
+  }
+  return url;
 }
 
 function stopList(stops: readonly GradientStop[]): string {
@@ -65,20 +88,25 @@ export function layerStyle(layer: BackgroundLayer, theme: FormTheme): React.CSSP
           .join(', '),
       };
     case 'texture': {
-      // Textures are masks: the tint shows through the tile's pattern.
+      // Textures are masks: the tint shows through the tile's pattern. Code-drawn tiles mask
+      // by alpha; photo tiles are greyscale and mask by luminance.
       const texture = getTexture(layer.assetId);
-      const mask = cssUrl(publicAsset(texture.file));
+      const mask = textureMaskUrl(layer.assetId, layer.density);
       const size = `${Math.round(texture.tileSize * layer.scale)}px`;
+      const mode = texture.draw.kind === 'photo' ? 'luminance' : 'alpha';
       return {
         ...common,
         backgroundColor: layer.tint ?? theme.colors.text,
         maskImage: mask,
         maskSize: size,
         maskRepeat: 'repeat',
+        maskMode: mode,
         WebkitMaskImage: mask,
         WebkitMaskSize: size,
         WebkitMaskRepeat: 'repeat',
-      };
+        // Safari's prefixed equivalent of mask-mode.
+        WebkitMaskSourceType: mode,
+      } as React.CSSProperties;
     }
     case 'image':
       return {

@@ -1,5 +1,6 @@
 import {
   fontStack,
+  LAYOUT_WIDTHS_PX,
   mixHex,
   SOFT_BUTTON_TINT,
   type FormTheme,
@@ -9,12 +10,6 @@ import type * as React from 'react';
 
 /** CSS custom properties, which React's style typing does not know. */
 export type CssVariables = Record<`--${string}`, string>;
-
-export const LAYOUT_WIDTHS_PX: Record<FormTheme['layout']['width'], number> = {
-  narrow: 560,
-  regular: 640,
-  wide: 760,
-};
 
 const SHADOWS: Record<ThemeComponents['shadow'], string> = {
   none: 'none',
