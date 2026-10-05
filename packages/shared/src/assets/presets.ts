@@ -1,11 +1,14 @@
 import { mixHex } from '../color.js';
+import { meshFromPalette } from '../theme/mesh.js';
 import { createDefaultTheme } from '../theme/migrate.js';
+import { SCATTER_RECIPES, shapesFromRecipe, type ScatterRecipeId } from '../theme/scatter.js';
 import type { FormTheme } from '../theme/schema.js';
 import { buttonTextOn, solidLayer, surfaceColors } from '../theme/surfaces.js';
 import { isSameTheme } from '../theme/theme-utils.js';
 import { assetIds, FORMYX_LICENSE, FORMYX_SOURCE, type Asset } from './asset.js';
+import { getPalette } from './palettes.js';
 
-export const PRESET_CATEGORIES = ['plain', 'gradient', 'textured', 'layout'] as const;
+export const PRESET_CATEGORIES = ['plain', 'gradient', 'textured', 'shapes', 'layout'] as const;
 export type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 
 export interface ThemePreset<Id extends string = string> extends Asset<Id, PresetCategory> {
@@ -21,6 +24,18 @@ const midnightSurface = '#11151C';
 const seaGlassSurface = '#E6F2EE';
 const studioSurface = '#F3EBDD';
 const editorialPanel = '#FBFAF7';
+const sunriseSurface = '#FFF1E6';
+const blueprintSurface = '#1D3557';
+const confettiSurface = '#FFF8EC';
+const botanicalSurface = '#1E3B2F';
+const pastelSurface = '#FDF8F3';
+const monoSurface = '#FAFAFA';
+
+function recipe(id: ScatterRecipeId) {
+  const found = SCATTER_RECIPES.find((candidate) => candidate.id === id);
+  if (!found) throw new Error(`Unknown recipe: ${id}`);
+  return found;
+}
 
 const presetThemes = {
   minimal: base,
@@ -233,6 +248,228 @@ const presetThemes = {
     },
     layout: { ...base.layout, mode: 'split', alignment: 'end' },
   },
+
+  'sunrise-mesh': {
+    ...base,
+    background: {
+      layers: [
+        solidLayer(sunriseSurface),
+        {
+          id: 'mesh',
+          type: 'mesh',
+          points: meshFromPalette(getPalette('sunset').colors, 21),
+          opacity: 1,
+          blendMode: 'normal',
+        },
+        {
+          id: 'grain',
+          type: 'texture',
+          assetId: 'grain',
+          scale: 1,
+          density: 0.4,
+          opacity: 0.18,
+          blendMode: 'soft-light',
+          tint: '#7C2D12',
+        },
+      ],
+    },
+    typography: { ...base.typography, headingFont: 'fraunces', headingWeight: 600 },
+    colors: {
+      ...surfaceColors('#FFFFFF'),
+      inputBackground: '#FFF8F3',
+      primary: '#B5452B',
+      buttonText: buttonTextOn('#B5452B'),
+    },
+    components: {
+      inputStyle: 'filled',
+      buttonStyle: 'pill',
+      radius: 12,
+      containerStyle: 'floating',
+      shadow: 'lg',
+    },
+    layout: { ...base.layout, mode: 'card' },
+    motion: { ...base.motion, animatedBackground: true },
+  },
+
+  blueprint: {
+    ...base,
+    background: {
+      layers: [
+        solidLayer(blueprintSurface),
+        {
+          id: 'grid-fine',
+          type: 'texture',
+          assetId: 'grid',
+          scale: 0.75,
+          density: 0,
+          opacity: 0.1,
+          blendMode: 'normal',
+          tint: '#FFFFFF',
+        },
+        {
+          id: 'grid-major',
+          type: 'texture',
+          assetId: 'grid',
+          scale: 3,
+          density: 0.3,
+          opacity: 0.14,
+          blendMode: 'normal',
+          tint: '#FFFFFF',
+        },
+      ],
+    },
+    typography: {
+      ...base.typography,
+      headingFont: 'dm-sans',
+      bodyFont: 'dm-sans',
+      headingWeight: 700,
+    },
+    colors: {
+      ...surfaceColors(blueprintSurface),
+      inputBackground: '#21406A',
+      inputBorder: '#7F9CC4',
+      primary: '#F2C94C',
+      buttonText: buttonTextOn('#F2C94C'),
+    },
+    components: { ...base.components, radius: 2 },
+  },
+
+  'confetti-party': {
+    ...base,
+    background: {
+      layers: [
+        solidLayer(confettiSurface),
+        shapesFromRecipe(recipe('confetti'), getPalette('bold').colors, 2024, 'confetti'),
+      ],
+    },
+    typography: {
+      ...base.typography,
+      headingFont: 'nunito',
+      bodyFont: 'nunito',
+      headingWeight: 800,
+    },
+    colors: {
+      ...surfaceColors('#FFFFFF'),
+      primary: '#2349C9',
+      buttonText: buttonTextOn('#2349C9'),
+    },
+    components: {
+      inputStyle: 'outlined',
+      buttonStyle: 'pill',
+      radius: 14,
+      containerStyle: 'card',
+      shadow: 'md',
+    },
+    layout: { ...base.layout, mode: 'card' },
+  },
+
+  botanical: {
+    ...base,
+    background: {
+      layers: [
+        {
+          id: 'forest',
+          type: 'linear',
+          angle: 200,
+          stops: [
+            { color: '#25483A', position: 0 },
+            { color: botanicalSurface, position: 100 },
+          ],
+          opacity: 1,
+          blendMode: 'normal',
+        },
+        {
+          id: 'contours',
+          type: 'texture',
+          assetId: 'topographic',
+          scale: 1.25,
+          density: 0.5,
+          opacity: 0.1,
+          blendMode: 'normal',
+          tint: '#D8E8C8',
+        },
+        {
+          ...shapesFromRecipe(recipe('blobs'), ['#244536', '#21402F', '#284A3A'], 7, 'leaves'),
+          hideOnMobile: true,
+        },
+      ],
+    },
+    typography: {
+      ...base.typography,
+      headingFont: 'fraunces',
+      bodyFont: 'dm-sans',
+      headingWeight: 500,
+      letterSpacing: 0,
+    },
+    colors: {
+      ...surfaceColors(botanicalSurface),
+      mutedText: '#C5D0CA',
+      error: '#FECACA',
+      inputBackground: '#24463A',
+      inputBorder: '#7FA08E',
+      primary: '#E9C46A',
+      buttonText: buttonTextOn('#E9C46A'),
+    },
+    components: { ...base.components, radius: 10 },
+  },
+
+  'pastel-blobs': {
+    ...base,
+    background: {
+      layers: [
+        solidLayer(pastelSurface),
+        {
+          ...shapesFromRecipe(recipe('blobs'), getPalette('soft-pastel').colors, 31, 'blobs'),
+          hideOnMobile: true,
+        },
+      ],
+    },
+    typography: {
+      ...base.typography,
+      headingFont: 'nunito',
+      bodyFont: 'nunito',
+      headingWeight: 800,
+    },
+    colors: {
+      ...surfaceColors(pastelSurface),
+      error: '#B91C1C',
+      inputBackground: '#FFFFFF',
+      primary: '#B15171',
+      buttonText: buttonTextOn('#B15171'),
+    },
+    components: { ...base.components, buttonStyle: 'pill', radius: 16 },
+  },
+
+  'minimal-mono': {
+    ...base,
+    background: {
+      layers: [
+        solidLayer(monoSurface),
+        {
+          id: 'dots',
+          type: 'texture',
+          assetId: 'dots',
+          scale: 1,
+          density: 0.15,
+          opacity: 0.12,
+          blendMode: 'normal',
+        },
+      ],
+    },
+    typography: { ...base.typography, headingWeight: 700, letterSpacing: -0.01 },
+    colors: {
+      ...surfaceColors(monoSurface),
+      primary: '#18181B',
+      buttonText: buttonTextOn('#18181B'),
+    },
+    components: {
+      inputStyle: 'underline',
+      buttonStyle: 'solid',
+      radius: 0,
+      containerStyle: 'none',
+      shadow: 'none',
+    },
+  },
 } satisfies Record<string, FormTheme>;
 
 type PresetId = keyof typeof presetThemes;
@@ -298,6 +535,66 @@ export const THEME_PRESETS = [
     source: FORMYX_SOURCE,
     description: 'Split page, forest green and Fraunces headings.',
     theme: presetThemes.editorial,
+  },
+  {
+    id: 'sunrise-mesh',
+    name: 'Sunrise mesh',
+    category: 'gradient',
+    tier: 'pro',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    description: 'A warm, drifting mesh behind a floating card.',
+    theme: presetThemes['sunrise-mesh'],
+  },
+  {
+    id: 'blueprint',
+    name: 'Blueprint grid',
+    category: 'textured',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    description: 'Drafting blue with fine and major grid lines.',
+    theme: presetThemes.blueprint,
+  },
+  {
+    id: 'confetti-party',
+    name: 'Confetti party',
+    category: 'shapes',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    description: 'Bright confetti around a friendly card.',
+    theme: presetThemes['confetti-party'],
+  },
+  {
+    id: 'botanical',
+    name: 'Botanical',
+    category: 'textured',
+    tier: 'pro',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    description: 'Deep greens, contour lines and leafy shapes.',
+    theme: presetThemes.botanical,
+  },
+  {
+    id: 'pastel-blobs',
+    name: 'Pastel blobs',
+    category: 'shapes',
+    tier: 'pro',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    description: 'Soft pastel blobs and a rounded typeface.',
+    theme: presetThemes['pastel-blobs'],
+  },
+  {
+    id: 'minimal-mono',
+    name: 'Minimal mono',
+    category: 'plain',
+    tier: 'free',
+    license: FORMYX_LICENSE,
+    source: FORMYX_SOURCE,
+    description: 'Black on white, underlined fields and a faint dot grid.',
+    theme: presetThemes['minimal-mono'],
   },
 ] as const satisfies readonly ThemePreset<PresetId>[];
 
