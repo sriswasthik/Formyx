@@ -28,7 +28,6 @@ export interface ReadabilityIssue {
   minimum: number;
 }
 
-
 /** Whether the form's text sits on the container colour rather than on the background. */
 export function hasFilledContainer(theme: FormTheme): boolean {
   return (
