@@ -21,6 +21,8 @@ interface ThemeRendererProps {
   children: React.ReactNode;
   /** Under the form, outside its container, such as "Made with Formyx". */
   footer?: React.ReactNode;
+  /** A progress bar along the top or bottom edge, as the theme places it. */
+  progress?: React.ReactNode;
   className?: string;
 }
 
@@ -66,14 +68,11 @@ const ALIGNMENT: Record<FormTheme['layout']['alignment'], string> = {
   end: 'ml-auto',
 };
 
-type DrawnLayout = Exclude<FormTheme['layout']['mode'], 'conversational'>;
+type DrawnLayout = FormTheme['layout']['mode'];
 
-/**
- * The conversational layout's one-question-at-a-time flow comes with the Design Studio; until
- * then it is laid out as a card, which is what it starts from.
- */
-function drawnLayout(theme: FormTheme): DrawnLayout {
-  return theme.layout.mode === 'conversational' ? 'card' : theme.layout.mode;
+/** Layouts that sit the form in the middle of the screen, over the background. */
+function isCentered(layout: DrawnLayout): boolean {
+  return layout === 'card' || layout === 'conversational';
 }
 
 interface ColumnProps {
@@ -88,11 +87,12 @@ function Column({ theme, variant, layout, children }: ColumnProps) {
   const boxed = layout !== 'split' && theme.components.containerStyle !== 'none';
   const align = layout === 'split' ? ALIGNMENT.center : ALIGNMENT[theme.layout.alignment];
   // Cards carry their cover image; classic pages show it across the top of the page.
-  const cover = layout === 'card' && <FormCover theme={theme} />;
+  const centered = isCentered(layout);
+  const cover = centered && <FormCover theme={theme} />;
 
   if (!boxed) {
     return (
-      <div className={cn('w-full max-w-(--form-width)', align, layout === 'card' && 'my-auto')}>
+      <div className={cn('w-full max-w-(--form-width)', align, centered && 'my-auto')}>
         {cover}
         <div className={CONTENT_PADDING[variant]}>{children}</div>
       </div>
@@ -100,7 +100,7 @@ function Column({ theme, variant, layout, children }: ColumnProps) {
   }
 
   return (
-    <div className={cn('flex w-full flex-col', GUTTER[variant], layout === 'card' && 'my-auto')}>
+    <div className={cn('flex w-full flex-col', GUTTER[variant], centered && 'my-auto')}>
       <div
         data-form-container={theme.components.containerStyle}
         className={cn(
@@ -135,9 +135,17 @@ function TopLogo({ theme }: { theme: FormTheme }) {
  * public form and embeds all go through this, so they always look the same. Sizes follow the
  * renderer's own width (container queries), so a narrow canvas shows the phone layout.
  */
-export function ThemeRenderer({ theme, variant, children, footer, className }: ThemeRendererProps) {
+export function ThemeRenderer({
+  theme,
+  variant,
+  children,
+  footer,
+  progress,
+  className,
+}: ThemeRendererProps) {
   useThemeFonts(theme);
-  const layout = drawnLayout(theme);
+  const layout = theme.layout.mode;
+  const atTop = theme.layout.progress.position === 'top';
   const column = (
     <Column theme={theme} variant={variant} layout={layout}>
       {children}
@@ -171,18 +179,22 @@ export function ThemeRenderer({ theme, variant, children, footer, className }: T
               <FormCover theme={theme} className="absolute inset-0 h-full @xl:h-full" />
             </div>
             <div className="flex flex-1 flex-col bg-(--form-bg)">
+              {atTop && progress}
               <TopLogo theme={theme} />
               {column}
               {footer}
+              {!atTop && progress}
             </div>
           </div>
         ) : (
           <>
             <ThemeBackground theme={theme} sticky={variant === 'page'} />
+            {atTop && progress}
             <TopLogo theme={theme} />
             {layout === 'classic' && <FormCover theme={theme} />}
             {column}
             {footer}
+            {!atTop && progress}
           </>
         )}
       </div>
