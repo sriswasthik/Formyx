@@ -1,4 +1,11 @@
-import { createEmptyForm, createField, hasRole, type Role } from '@formyx/shared';
+import {
+  brandKitFromTheme,
+  createDefaultTheme,
+  createEmptyForm,
+  createField,
+  hasRole,
+  type Role,
+} from '@formyx/shared';
 import request from 'supertest';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createSecretBox } from '../lib/webhook-signature.js';
@@ -24,6 +31,7 @@ interface Fixture {
   submissionId: string;
   inviteId: string;
   webhookId: string;
+  brandKitId: string;
   /** A viewer whose role can be changed, or who can be removed, without side effects. */
   memberId: string;
 }
@@ -40,6 +48,7 @@ interface Endpoint {
   prepare?: (fixture: Fixture) => Promise<unknown>;
 }
 
+const defaultTheme = createDefaultTheme();
 const forms = (f: Fixture) => `/api/forms/${f.formId}`;
 const workspace = (f: Fixture) => `/api/workspaces/${f.workspaceId}`;
 
@@ -231,6 +240,38 @@ const ENDPOINTS: Endpoint[] = [
     ok: 204,
     call: (as, f) => as.delete(`${workspace(f)}/invites/${f.inviteId}`),
   },
+  // Brand kits
+  {
+    name: 'list brand kits',
+    minRole: 'VIEWER',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/brand-kits`),
+  },
+  {
+    name: 'save a brand kit',
+    minRole: 'EDITOR',
+    ok: 201,
+    call: (as, f) =>
+      as.post(`${workspace(f)}/brand-kits`, { name: 'Kit', kit: brandKitFromTheme(defaultTheme) }),
+  },
+  {
+    name: 'rename a brand kit',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.patch(`${workspace(f)}/brand-kits/${f.brandKitId}`, { name: 'Renamed' }),
+  },
+  {
+    name: 'delete a brand kit',
+    minRole: 'EDITOR',
+    ok: 204,
+    call: (as, f) => as.delete(`${workspace(f)}/brand-kits/${f.brandKitId}`),
+  },
+  {
+    name: 'choose the default brand kit',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.put(`${workspace(f)}/default-brand-kit`, { brandKitId: f.brandKitId }),
+  },
 ];
 
 type Caller = Role | 'OUTSIDER' | 'SIGNED_OUT';
@@ -278,6 +319,9 @@ beforeEach(async () => {
       secretEncrypted: createSecretBox(TEST_JWT_SECRET).encrypt('whsec_test'),
     },
   });
+  const brandKit = await prisma.brandKit.create({
+    data: { workspaceId: team.workspaceId, name: 'Kit', kit: brandKitFromTheme(defaultTheme) },
+  });
   const { version } = await prisma.form.findUniqueOrThrow({
     where: { id: form.id },
     select: { version: true },
@@ -291,6 +335,7 @@ beforeEach(async () => {
     submissionId: submission.id,
     inviteId: invite.id,
     webhookId: webhook.id,
+    brandKitId: brandKit.id,
     memberId: member.id,
   };
 });
