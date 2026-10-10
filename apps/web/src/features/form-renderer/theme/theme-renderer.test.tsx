@@ -6,9 +6,10 @@ import {
   type FontId,
   type FormTheme,
 } from '@formyx/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
-import { FONT_LOADERS, loadFont } from './fonts';
+import { FONT_LOADERS } from './font-loaders';
+import { loadFont } from './fonts';
 import { ThemeRenderer, type ThemeVariant } from './theme-renderer';
 
 const base = createDefaultTheme();
@@ -127,12 +128,29 @@ describe('ThemeRenderer', () => {
     expect(media?.contains(screen.getByRole('heading', { name: 'Feedback' }))).toBe(false);
   });
 
-  it('lays out the conversational layout as a card until its own flow lands', () => {
+  it('centres the conversational layout over the background, with the cover inside', () => {
     const { container } = renderTheme({
       ...base,
-      layout: { ...base.layout, mode: 'conversational' },
+      layout: { ...base.layout, mode: 'conversational', coverImage },
     });
-    expect(root(container)).toHaveAttribute('data-layout', 'card');
+    expect(root(container)).toHaveAttribute('data-layout', 'conversational');
+    expect(container.querySelector('[data-form-cover]')?.parentElement).not.toBe(root(container));
+  });
+
+  it.each(['top', 'bottom'] as const)('puts the progress bar at the %s edge', (position) => {
+    const theme: FormTheme = {
+      ...base,
+      layout: { ...base.layout, progress: { style: 'line', position } },
+    };
+    const { container } = render(
+      <ThemeRenderer theme={theme} variant="page" progress={<div data-testid="progress" />}>
+        <h1>Feedback</h1>
+      </ThemeRenderer>,
+    );
+    const children = [...root(container).children];
+    const at = children.indexOf(screen.getByTestId('progress'));
+    // After the background layers when on top; the very last thing when at the bottom.
+    expect(at).toBe(position === 'top' ? 1 : children.length - 1);
   });
 
   it('shows the cover across a classic page, and inside a card', () => {
@@ -170,7 +188,7 @@ describe('ThemeRenderer', () => {
     expect(header.querySelector('[data-form-logo]')).toBeNull();
   });
 
-  it('loads the fonts it uses, and no others', () => {
+  it('loads the fonts it uses, and no others', async () => {
     const original = { ...FONT_LOADERS };
     const fake = (font: FontId) => {
       const loader = vi.fn(() => Promise.resolve({}));
@@ -195,13 +213,15 @@ describe('ThemeRenderer', () => {
         bodyFont: 'space-grotesk',
       },
     });
-    expect(loaders['playfair-display']).toHaveBeenCalledTimes(1);
-    expect(loaders['space-grotesk']).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(loaders['playfair-display']).toHaveBeenCalledTimes(1);
+      expect(loaders['space-grotesk']).toHaveBeenCalledTimes(1);
+    });
     expect(loaders.nunito).not.toHaveBeenCalled();
 
     // However many forms use a font, it loads once.
     renderTheme({ ...base, typography: { ...base.typography, headingFont: 'playfair-display' } });
-    void loadFont('playfair-display');
+    await loadFont('playfair-display');
     expect(loaders['playfair-display']).toHaveBeenCalledTimes(1);
   });
 });

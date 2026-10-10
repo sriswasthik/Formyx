@@ -1,7 +1,8 @@
 import { createDefaultTheme, FONTS, fontStack } from '@formyx/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FALLBACK_FACES } from './font-fallbacks';
-import { FONT_LOADERS, themeFontsReady } from './fonts';
+import { FONT_LOADERS } from './font-loaders';
+import { themeFontsReady } from './fonts';
 
 const theme = {
   ...createDefaultTheme(),
