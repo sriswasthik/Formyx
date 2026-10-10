@@ -17,6 +17,8 @@ export interface FieldRendererProps {
   error?: string | undefined;
   /** Prefix for element ids; unique per rendered form. */
   idPrefix: string;
+  /** The question's number, when the theme numbers questions. */
+  number?: string | undefined;
 }
 
 function renderControl(field: Field, props: Omit<ControlProps, 'field'>) {
@@ -56,6 +58,7 @@ export const FieldRenderer = memo(function FieldRenderer({
   onChange,
   error,
   idPrefix,
+  number,
 }: FieldRendererProps) {
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +89,13 @@ export const FieldRenderer = memo(function FieldRenderer({
 
   return (
     <div ref={rootRef} className={rootClass}>
-      <FieldFrame field={field} ids={ids} group={GROUP_TYPES.includes(field.type)} error={error}>
+      <FieldFrame
+        field={field}
+        ids={ids}
+        group={GROUP_TYPES.includes(field.type)}
+        error={error}
+        number={number}
+      >
         {renderControl(field, {
           controlId: ids.control,
           describedBy: describedBy(ids, field, error),

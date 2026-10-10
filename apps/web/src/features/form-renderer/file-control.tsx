@@ -5,6 +5,7 @@ import { isUploadCancelled, uploadErrorMessage } from '@/lib/uploads';
 import { cn } from '@/lib/utils';
 import { useFileUploads } from './file-uploads';
 import { acceptAttribute, fileHint } from './file-types';
+import { boxSurface } from './styles';
 import type { ControlProps } from './types';
 
 type Transfer =
@@ -34,7 +35,8 @@ function FileRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-(--form-radius) border border-(--form-border-strong) px-3.5 py-3',
+        boxSurface,
+        'flex items-center gap-3 px-3.5 py-3',
         invalid && 'border-(--form-danger)',
       )}
     >
@@ -258,8 +260,9 @@ export function FileControl({
           if (file) void start(file);
         }}
         className={cn(
-          'flex cursor-pointer flex-col items-center gap-2 rounded-(--form-radius) border border-dashed border-(--form-border-strong) px-6 py-8 text-center',
-          'transition-colors duration-150 ease-standard hover:bg-(--form-hover)',
+          boxSurface,
+          'flex cursor-pointer flex-col items-center gap-2 border-dashed px-6 py-8 text-center',
+          'transition-colors duration-150 ease-standard hover:bg-(--form-choice-bg-hover)',
           'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)',
           dragging && 'border-(--form-accent) bg-(--form-accent-subtle)',
           invalid && 'border-(--form-danger)',

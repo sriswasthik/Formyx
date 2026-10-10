@@ -7,7 +7,7 @@ import {
   type FormTheme,
   type SubmittedAnswers,
 } from '@formyx/shared';
-import { CircleCheck, LoaderCircle } from 'lucide-react';
+import { CircleCheck } from 'lucide-react';
 import { AnimatePresence, LazyMotion, m, useReducedMotion } from 'motion/react';
 import { useCallback, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
@@ -15,7 +15,8 @@ import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
 import { FormLogo } from './branding';
 import { FileUploadsContext, type FileUploader, type FileUploads } from './file-uploads';
-import { submitButton } from './styles';
+import { FormButton } from './form-button';
+import { questionNumbers } from './numbering';
 import { ThemeRenderer, type ThemeVariant } from './theme/theme-renderer';
 
 /** How a handed-over submission went. Problems keep the form open to fix them. */
@@ -89,6 +90,15 @@ export function FormView({
   const [uploading, setUploadingIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const visibleIds = useMemo(() => evaluateVisibility(schema, answers), [schema, answers]);
+  const numbering = theme.typography.questionNumbering;
+  const numbers = useMemo(
+    () =>
+      questionNumbers(
+        schema.fields.filter((field) => visibleIds.has(field.id)),
+        numbering,
+      ),
+    [schema.fields, visibleIds, numbering],
+  );
   const errorCount = Object.keys(errors).length;
   // Questions that appear or go away open and close smoothly, or at once with less motion.
   const reveal = reduceMotion ? { duration: 0 } : { duration: DURATION.base, ease: EASE_STANDARD };
@@ -221,6 +231,7 @@ export function FormView({
                           field={field}
                           mode="respondent"
                           idPrefix={idPrefix}
+                          number={numbers.get(field.id)}
                           value={answers[field.id]}
                           error={errors[field.id]}
                           onChange={handleChange}
@@ -231,12 +242,13 @@ export function FormView({
               </AnimatePresence>
               {hiddenFields}
               <div className="flex flex-col items-start gap-3">
-                <button type="submit" className={submitButton} disabled={status === 'submitting'}>
-                  {status === 'submitting' && (
-                    <LoaderCircle className="motion-safe:animate-spin" aria-hidden />
-                  )}
+                <FormButton
+                  type="submit"
+                  busy={status === 'submitting'}
+                  disabled={status === 'submitting'}
+                >
                   {schema.settings.submitButtonText}
-                </button>
+                </FormButton>
                 <p role="alert" className="form-text-sm text-(--form-danger) empty:hidden">
                   {formError ??
                     (errorCount > 0 &&

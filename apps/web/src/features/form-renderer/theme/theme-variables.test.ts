@@ -146,6 +146,29 @@ describe('themeVariables', () => {
     });
   });
 
+  it('moves hover borders and fills towards the primary colour', () => {
+    const outlined = themeVariables(withComponents({ inputStyle: 'outlined' }));
+    expect(outlined['--form-input-border-hover']).toBe(mixHex('#4370BD', '#C3C3C4', 55));
+    expect(outlined['--form-choice-border-hover']).toBe(mixHex('#4370BD', '#C3C3C4', 55));
+    const filled = themeVariables(withComponents({ inputStyle: 'filled' }));
+    expect(filled['--form-input-bg-hover']).toBe(mixHex('#4370BD', '#FFFFFF', 6));
+    expect(filled['--form-box-border']).not.toBe('transparent');
+  });
+
+  it.each([
+    ['list', '10px'],
+    ['cards', '14px'],
+    ['pills', '9999px'],
+    ['buttons', '10px'],
+  ] as const)('rounds %s choices', (choiceStyle, radius) => {
+    expect(themeVariables(withComponents({ choiceStyle }))['--form-choice-radius']).toBe(radius);
+  });
+
+  it('uses the container radius the theme sets, if any', () => {
+    const card = withComponents({ containerStyle: 'card', containerRadius: 32 });
+    expect(themeVariables(card)['--form-container-radius']).toBe('32px');
+  });
+
   it('gives the split layout no container: its form side is the panel', () => {
     const split = {
       ...withComponents({ containerStyle: 'card' }),

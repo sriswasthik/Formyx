@@ -3,6 +3,7 @@ import type * as React from 'react';
 import { cn } from '@/lib/utils';
 import { FormCover, FormLogo } from '../branding';
 import { ThemeBackground } from './background';
+import { FormThemeContext } from './theme-context';
 import { useThemeFonts } from './fonts';
 import { themeStyle } from './theme-variables';
 
@@ -37,11 +38,26 @@ const GUTTER: Record<ThemeVariant, string> = {
   embed: 'p-3 @xl:p-5',
 };
 
-/** Space inside a container. */
-const CONTAINER_PADDING: Record<ThemeVariant, string> = {
-  page: 'px-6 py-8 @xl:px-10 @xl:py-10',
-  frame: 'px-6 py-8 @xl:px-10 @xl:py-10',
-  embed: 'px-5 py-6 @xl:px-8 @xl:py-8',
+/** Space inside a container, by the theme's container padding. */
+const CONTAINER_PADDING: Record<
+  FormTheme['components']['containerPadding'],
+  Record<ThemeVariant, string>
+> = {
+  compact: {
+    page: 'px-5 py-6 @xl:px-7 @xl:py-7',
+    frame: 'px-5 py-6 @xl:px-7 @xl:py-7',
+    embed: 'px-4 py-5 @xl:px-6 @xl:py-6',
+  },
+  regular: {
+    page: 'px-6 py-8 @xl:px-10 @xl:py-10',
+    frame: 'px-6 py-8 @xl:px-10 @xl:py-10',
+    embed: 'px-5 py-6 @xl:px-8 @xl:py-8',
+  },
+  spacious: {
+    page: 'px-6 py-10 @xl:px-14 @xl:py-14',
+    frame: 'px-6 py-10 @xl:px-14 @xl:py-14',
+    embed: 'px-5 py-8 @xl:px-10 @xl:py-10',
+  },
 };
 
 const ALIGNMENT: Record<FormTheme['layout']['alignment'], string> = {
@@ -95,7 +111,9 @@ function Column({ theme, variant, layout, children }: ColumnProps) {
         )}
       >
         {cover}
-        <div className={CONTAINER_PADDING[variant]}>{children}</div>
+        <div className={CONTAINER_PADDING[theme.components.containerPadding][variant]}>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -127,42 +145,47 @@ export function ThemeRenderer({ theme, variant, children, footer, className }: T
   );
 
   return (
-    <div
-      data-form-theme
-      data-layout={layout}
-      className={cn(
-        '@container relative isolate flex flex-col',
-        variant === 'page' && 'min-h-dvh',
-        className,
-      )}
-      style={themeStyle(theme)}
-    >
-      {layout === 'split' ? (
-        <div
-          className={cn(
-            'flex flex-1 flex-col @3xl:flex-row',
-            theme.layout.alignment === 'start' && '@3xl:flex-row-reverse',
-          )}
-        >
-          <div data-split-media className="relative isolate h-44 shrink-0 @3xl:h-auto @3xl:flex-1">
-            <ThemeBackground theme={theme} sticky={variant === 'page'} />
-            <FormCover theme={theme} className="absolute inset-0 h-full @xl:h-full" />
+    <FormThemeContext.Provider value={theme}>
+      <div
+        data-form-theme
+        data-layout={layout}
+        className={cn(
+          '@container relative isolate flex flex-col',
+          variant === 'page' && 'min-h-dvh',
+          className,
+        )}
+        style={themeStyle(theme)}
+      >
+        {layout === 'split' ? (
+          <div
+            className={cn(
+              'flex flex-1 flex-col @3xl:flex-row',
+              theme.layout.alignment === 'start' && '@3xl:flex-row-reverse',
+            )}
+          >
+            <div
+              data-split-media
+              className="relative isolate h-44 shrink-0 @3xl:h-auto @3xl:flex-1"
+            >
+              <ThemeBackground theme={theme} sticky={variant === 'page'} />
+              <FormCover theme={theme} className="absolute inset-0 h-full @xl:h-full" />
+            </div>
+            <div className="flex flex-1 flex-col bg-(--form-bg)">
+              <TopLogo theme={theme} />
+              {column}
+              {footer}
+            </div>
           </div>
-          <div className="flex flex-1 flex-col bg-(--form-bg)">
+        ) : (
+          <>
+            <ThemeBackground theme={theme} sticky={variant === 'page'} />
             <TopLogo theme={theme} />
+            {layout === 'classic' && <FormCover theme={theme} />}
             {column}
             {footer}
-          </div>
-        </div>
-      ) : (
-        <>
-          <ThemeBackground theme={theme} sticky={variant === 'page'} />
-          <TopLogo theme={theme} />
-          {layout === 'classic' && <FormCover theme={theme} />}
-          {column}
-          {footer}
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </FormThemeContext.Provider>
   );
 }

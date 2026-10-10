@@ -5,7 +5,8 @@ import { Plus } from 'lucide-react';
 import { AnimatePresence, m } from 'motion/react';
 import { useMemo } from 'react';
 import { FormLogo } from '@/features/form-renderer/branding';
-import { submitButton } from '@/features/form-renderer/styles';
+import { FormButton } from '@/features/form-renderer/form-button';
+import { questionNumbers } from '@/features/form-renderer/numbering';
 import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,8 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
   const selectField = useEditorStore((state) => state.selectField);
   const dropIndex = useDropIndex();
   const ids = useMemo(() => fields.map((field) => field.id), [fields]);
+  const numbering = theme.typography.questionNumbering;
+  const numbers = useMemo(() => questionNumbers(fields, numbering), [fields, numbering]);
 
   const data: DragData = { kind: 'canvas' };
   const { setNodeRef } = useDroppable({ id: CANVAS_DROP_ID, data });
@@ -78,6 +81,7 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
                         index={index}
                         total={ids.length}
                         showDropIndicator={dropIndex === index}
+                        number={numbers.get(id)}
                         onOpenSettings={onOpenSettings}
                       />
                     </m.div>
@@ -106,7 +110,7 @@ export function EditorCanvas({ theme, emptyHint, onOpenSettings }: EditorCanvasP
             )}
 
             <div className="mt-10">
-              <span className={submitButton}>{submitText}</span>
+              <FormButton as="span">{submitText}</FormButton>
             </div>
           </div>
         </ThemeRenderer>

@@ -2,6 +2,7 @@ import {
   fontStack,
   LAYOUT_WIDTHS_PX,
   mixHex,
+  RADIUS_MAX,
   SOFT_BUTTON_TINT,
   type FormTheme,
   type ThemeComponents,
@@ -29,75 +30,115 @@ function inputVariables(theme: FormTheme): CssVariables {
   const { colors, components } = theme;
   const radius = `${components.radius}px`;
   const tint = mixHex(colors.text, colors.containerBackground, 5);
+  // Hovering darkens a border towards the primary colour, or tints a fill with it.
+  const borderHover = mixHex(colors.primary, colors.inputBorder, 55);
+  const fillHover = (fill: string) => mixHex(colors.primary, fill, 6);
+  const boxBorder = mixHex(colors.text, colors.containerBackground, 14);
 
   switch (components.inputStyle) {
     case 'filled':
       return {
         '--form-input-bg': colors.inputBackground,
+        '--form-input-bg-hover': fillHover(colors.inputBackground),
         '--form-input-border': 'transparent',
         '--form-input-border-hover': 'transparent',
         '--form-input-border-width': '1px',
         '--form-input-radius': radius,
         '--form-textarea-radius': radius,
         '--form-input-px': '0.875rem',
+        '--form-box-bg': colors.inputBackground,
+        '--form-box-border': boxBorder,
+        '--form-box-radius': radius,
       };
     case 'underline':
       return {
         '--form-input-bg': 'transparent',
+        '--form-input-bg-hover': 'transparent',
         '--form-input-border': colors.inputBorder,
-        '--form-input-border-hover': colors.mutedText,
+        '--form-input-border-hover': borderHover,
         '--form-input-border-width': '0 0 1px 0',
         '--form-input-radius': '0px',
         '--form-textarea-radius': '0px',
         '--form-input-px': '0px',
+        '--form-box-bg': 'transparent',
+        '--form-box-border': colors.inputBorder,
+        '--form-box-radius': radius,
       };
     case 'pill':
       return {
         '--form-input-bg': colors.inputBackground,
+        '--form-input-bg-hover': colors.inputBackground,
         '--form-input-border': colors.inputBorder,
-        '--form-input-border-hover': colors.mutedText,
+        '--form-input-border-hover': borderHover,
         '--form-input-border-width': '1px',
         '--form-input-radius': PILL,
         '--form-textarea-radius': '1.25rem',
         '--form-input-px': '1.125rem',
+        '--form-box-bg': colors.inputBackground,
+        '--form-box-border': colors.inputBorder,
+        '--form-box-radius': '1.25rem',
       };
     case 'minimal':
       return {
         '--form-input-bg': tint,
+        '--form-input-bg-hover': fillHover(tint),
         '--form-input-border': 'transparent',
         '--form-input-border-hover': 'transparent',
         '--form-input-border-width': '1px',
         '--form-input-radius': radius,
         '--form-textarea-radius': radius,
         '--form-input-px': '0.875rem',
+        '--form-box-bg': tint,
+        '--form-box-border': boxBorder,
+        '--form-box-radius': radius,
       };
     case 'outlined':
       return {
         '--form-input-bg': colors.inputBackground,
+        '--form-input-bg-hover': colors.inputBackground,
         '--form-input-border': colors.inputBorder,
-        '--form-input-border-hover': colors.mutedText,
+        '--form-input-border-hover': borderHover,
         '--form-input-border-width': '1px',
         '--form-input-radius': radius,
         '--form-textarea-radius': radius,
         '--form-input-px': '0.875rem',
+        '--form-box-bg': colors.inputBackground,
+        '--form-box-border': colors.inputBorder,
+        '--form-box-radius': radius,
       };
   }
 }
 
-/** Choice rows and rating buttons: boxes even when inputs are underlined. */
+/**
+ * Choice rows, cards, pills and buttons, and rating buttons: boxes even when inputs are
+ * underlined. Hovering moves the border or fill towards the primary colour.
+ */
 function choiceVariables(theme: FormTheme): CssVariables {
   const { colors, components } = theme;
   const filled = components.inputStyle === 'filled' || components.inputStyle === 'minimal';
+  const background =
+    components.inputStyle === 'minimal'
+      ? mixHex(colors.text, colors.containerBackground, 5)
+      : components.inputStyle === 'underline'
+        ? 'transparent'
+        : colors.inputBackground;
+  const pill = components.inputStyle === 'pill' || components.choiceStyle === 'pills';
   return {
-    '--form-choice-bg':
-      components.inputStyle === 'minimal'
-        ? mixHex(colors.text, colors.containerBackground, 5)
-        : components.inputStyle === 'underline'
-          ? 'transparent'
-          : colors.inputBackground,
+    '--form-choice-bg': background,
+    '--form-choice-bg-hover': mixHex(
+      colors.primary,
+      background === 'transparent' ? colors.containerBackground : background,
+      6,
+    ),
     '--form-choice-border': filled ? 'transparent' : colors.inputBorder,
-    '--form-choice-border-hover': filled ? 'transparent' : colors.mutedText,
-    '--form-choice-radius': components.inputStyle === 'pill' ? PILL : `${components.radius}px`,
+    '--form-choice-border-hover': filled
+      ? 'transparent'
+      : mixHex(colors.primary, colors.inputBorder, 55),
+    '--form-choice-radius': pill
+      ? PILL
+      : components.choiceStyle === 'cards'
+        ? `${Math.min(components.radius + 4, RADIUS_MAX)}px`
+        : `${components.radius}px`,
   };
 }
 
@@ -133,7 +174,10 @@ function buttonVariables(theme: FormTheme): CssVariables {
 function containerVariables(theme: FormTheme): CssVariables {
   const { colors, components } = theme;
   const style = theme.layout.mode === 'split' ? 'none' : components.containerStyle;
-  const radius = containerRadius(components.radius);
+  const radius =
+    components.containerRadius === undefined
+      ? containerRadius(components.radius)
+      : `${components.containerRadius}px`;
   const outline = mixHex(colors.text, colors.containerBackground, 12);
 
   switch (style) {

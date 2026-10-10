@@ -8,12 +8,19 @@ interface FieldFrameProps {
   /** Several inputs (radios, checkboxes): rendered as a fieldset with a legend. */
   group: boolean;
   error: string | undefined;
+  /** Shown before the label, as the theme numbers questions. */
+  number?: string | undefined;
   children: React.ReactNode;
 }
 
-function LabelText({ field }: { field: Field }) {
+function LabelText({ field, number }: { field: Field; number?: string | undefined }) {
   return (
     <>
+      {number && (
+        <span data-question-number className="mr-2 text-(--form-muted) tabular-nums">
+          {number}.
+        </span>
+      )}
       {field.label || <span className="text-(--form-muted)">Untitled question</span>}
       {field.required && (
         <>
@@ -29,7 +36,7 @@ function LabelText({ field }: { field: Field }) {
 }
 
 /** Label, description, control and error of one question, wired for assistive technology. */
-export function FieldFrame({ field, ids, group, error, children }: FieldFrameProps) {
+export function FieldFrame({ field, ids, group, error, number, children }: FieldFrameProps) {
   const labelClass = 'form-text leading-snug font-medium break-words';
   const description = field.description && (
     <p id={ids.description} className="form-text-sm whitespace-pre-wrap text-(--form-muted)">
@@ -46,7 +53,7 @@ export function FieldFrame({ field, ids, group, error, children }: FieldFramePro
     return (
       <fieldset className="flex min-w-0 flex-col gap-2">
         <legend id={ids.label} className={labelClass}>
-          <LabelText field={field} />
+          <LabelText field={field} number={number} />
         </legend>
         {description}
         <div className="pt-1">{children}</div>
@@ -58,7 +65,7 @@ export function FieldFrame({ field, ids, group, error, children }: FieldFramePro
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <label id={ids.label} htmlFor={ids.control} className={labelClass}>
-        <LabelText field={field} />
+        <LabelText field={field} number={number} />
       </label>
       {description}
       <div className="pt-1">{children}</div>
