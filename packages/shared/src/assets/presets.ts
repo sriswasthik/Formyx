@@ -327,6 +327,7 @@ const presetThemes = {
       headingFont: 'dm-sans',
       bodyFont: 'dm-sans',
       headingWeight: 700,
+      questionNumbering: 'number',
     },
     colors: {
       ...surfaceColors(blueprintSurface),
@@ -335,7 +336,8 @@ const presetThemes = {
       primary: '#F2C94C',
       buttonText: buttonTextOn('#F2C94C'),
     },
-    components: { ...base.components, radius: 2 },
+    components: { ...base.components, radius: 2, choiceStyle: 'cards' },
+    layout: { ...base.layout, progress: { style: 'steps', position: 'top' } },
   },
 
   'confetti-party': {
@@ -364,6 +366,9 @@ const presetThemes = {
       radius: 14,
       containerStyle: 'card',
       shadow: 'md',
+      choiceStyle: 'pills',
+      buttonSize: 'lg',
+      buttonArrow: true,
     },
     layout: { ...base.layout, mode: 'card' },
   },
@@ -476,7 +481,10 @@ const presetThemes = {
       radius: 0,
       containerStyle: 'none',
       shadow: 'none',
+      choiceStyle: 'buttons',
+      buttonFullWidth: true,
     },
+    layout: { ...base.layout, progress: { style: 'line', position: 'top' } },
   },
 } satisfies Record<string, FormTheme>;
 
