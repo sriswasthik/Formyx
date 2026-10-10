@@ -18,7 +18,7 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 
 - **Editor.** Drag and drop questions (mouse, touch and keyboard), 12 question types, templates, undo and redo, autosave with conflict detection, keyboard shortcuts, and a tabbed layout on small screens.
 - **Conditional logic.** Show a question only when earlier answers match, with comparisons that fit each question type, combined with all or any.
-- **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), registry fonts, input, button and container styles, and classic, card or split layouts. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
+- **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), 40 open-licence fonts with pairings, input, choice, button and container styles, question numbers, progress bars, and classic, card, split or one-question-at-a-time layouts. Brand kits carry a workspace's logo, colours and fonts from form to form, and a look can be suggested from a logo. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
 - **Plans.** Free, Pro and Business entitlements, checked through shared helpers. Everything is unlocked during the beta; when enforced, anyone can try Pro styles in the editor, but publishing them needs Pro.
 - **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code or an embed snippet; close and reopen forms, or close them automatically after a date or a number of responses.
 - **Embeds.** One `<script>` and a `<div>` put a form in any page. It resizes itself and tells the page when someone submits.
@@ -80,7 +80,7 @@ flowchart LR
 
 **Signed webhooks.** Each webhook has its own secret, shown once and stored encrypted (AES-256-GCM). Every delivery carries `X-Formyx-Signature: sha256=<HMAC of the raw body>`, so receivers can check it came from Formyx and was not changed; retries reuse the same body and signature. URLs must be public `https` addresses, checked again at connection time against the resolved IP, so webhooks cannot reach private networks. The retry queue is in memory: deliveries waiting for a retry are lost on restart (see the roadmap).
 
-**The public form is its own small bundle.** Respondents download 180 KB (gzip) with no editor, dashboard or chart code; an ESLint rule keeps those imports out and CI fails if the bundle grows past its 190 KB budget. Embeds load the same page in an iframe, which isolates the form's styles and scripts from the host page; the two talk over `postMessage` with origin and source checks.
+**The public form is its own small bundle.** Respondents download 195 KB (gzip) with no editor, dashboard or chart code; an ESLint rule keeps those imports out and CI fails if the bundle grows past its 195 KB budget. The conversational flow, font files and their loaders arrive only when a form needs them. Embeds load the same page in an iframe, which isolates the form's styles and scripts from the host page; the two talk over `postMessage` with origin and source checks.
 
 **One shared demo account.** "Try the demo" signs everyone in to the same account, reset every night, rather than creating a sandbox per visitor. It costs nothing per visit and the data always looks lived-in. Anything that would reach outside Formyx (emails, invites, webhooks, uploads) or change the workspace itself is refused for that account.
 
@@ -206,13 +206,13 @@ Share › Embed gives a snippet for any page:
 
 | Route                  | JS + CSS (KB, gzip) |
 | ---------------------- | ------------------- |
-| Public form `/f/:slug` | 190                 |
-| Landing                | 206                 |
-| Forms dashboard        | 260                 |
-| Responses              | 280                 |
-| Editor                 | 344                 |
+| Public form `/f/:slug` | 195                 |
+| Landing                | 207                 |
+| Forms dashboard        | 263                 |
+| Responses              | 284                 |
+| Editor                 | 363                 |
 
-`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 190 KB budget. The Design Studio, presets and readability checks load only in the editor; a form's fonts, their resized fallbacks and photo textures load only when a form uses them.
+`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 195 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars; it has almost no headroom left). The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
 
 Lighthouse on the public form, served from a production build: **99** performance, **100** accessibility, **100** best practices and **100** SEO on desktop (first contentful paint 0.7 s, no layout shift). On Lighthouse's simulated slow 4G phone, performance is **75 to 83** and the other three stay at 100.
 
@@ -337,32 +337,40 @@ Submissions are validated against the published snapshot, with problems returned
 A theme (v2, `packages/shared/src/theme`) describes how a form looks to respondents:
 
 - **Background:** ordered layers, each with an opacity and blend mode, and optionally hidden. A layer is a solid colour, a linear or radial gradient, a mesh gradient (4 to 8 colour points), a texture, a set of shapes or an image with a focal point. An overlay (colour, opacity, backdrop blur) keeps text readable over busy backgrounds.
-- **Typography:** heading and body fonts, base size, heading weight, letter spacing and alignment.
+- **Typography:** heading and body fonts, base size, heading weight, letter spacing, alignment and question numbers (none, 1. 2. 3. or A. B. C.).
 - **Colours:** primary, text, muted text, container, input background and border, button text, error.
-- **Components:** input style (outlined, filled, underline, pill, minimal), button style (solid, outline, soft, pill), corner radius, container style (none, card, floating, bordered) and shadow.
-- **Layout:** classic, card or split, plus width, alignment, logo position and cover image. The conversational layout (one question at a time) is in the schema; it draws as a card until its own flow lands.
+- **Components:** input style (outlined, filled, underline, pill, minimal) for every question type, choice style (list, cards, pills, buttons), button style (solid, outline, soft, pill) with size, full width and an arrow, corner radius, and container style (none, card, floating, bordered) with its padding, radius and shadow. Hover and focus take the primary colour.
+- **Layout:** classic, card, split screen or conversational (one question at a time), plus width, alignment (or which side the form takes in a split), logo position, cover image, a progress bar (line, steps or percentage, at the top or bottom) and auto-advance.
 - **Motion and branding:** page transition, an optional slow background drift (always off with reduced motion), and the "Made with Formyx" badge.
 
-**Assets.** Fonts, textures, shapes, gradient palettes and presets live in a registry (`packages/shared/src/assets`). Each has an id, name, category, tier (free or Pro), licence and source. Saved themes refer to them by id, so ids are permanent. Fonts are OFL variable fonts served from our own origin, loaded only when a form shows them, each with a local fallback resized to its metrics so text does not move when it arrives.
+**Assets.** Fonts, textures, shapes, gradient palettes and presets live in a registry (`packages/shared/src/assets`). Each has an id, name, category, tier (free or Pro), licence and source. Saved themes refer to them by id, so ids are permanent. Settings added to v2 after it shipped (choice style, numbering, progress and the rest) have defaults, so themes saved before them still read without a migration.
+
+- **Fonts:** 40 fonts from Fontsource, all under the SIL Open Font License 1.1, served from our own origin and loaded only when a form shows them. Sans: Inter, DM Sans, Manrope, Plus Jakarta Sans, Work Sans, Figtree, Outfit, Public Sans, Sora. Serif: Source Serif, Lora, Merriweather, Libre Baskerville, Crimson Pro, Literata, EB Garamond\*, Newsreader\*. Display: Fraunces\*, Playfair Display\*, Space Grotesk\*, Bricolage Grotesque\*, Syne\*, Unbounded\*, Bodoni Moda\*, DM Serif Display\*. Rounded: Nunito, Quicksand, Comfortaa, Fredoka, Baloo 2. Handwritten: Kalam, Patrick Hand, Caveat\*, Dancing Script\*. Mono: JetBrains Mono, IBM Plex Mono, Roboto Mono, Source Code Pro, Fira Code, Space Mono (\* Pro). Each has a local fallback resized to its metrics, so text does not move when it arrives: measured in Chromium for the first eight, worked out from published metrics for the rest by `apps/web/scripts/font-fallback-metrics.mjs`. Seven pairings (Editorial, Friendly, Corporate, Playful, Elegant, Technical, Handmade) set heading and body fonts in one click.
 
 - **Textures** are masks over a tint colour, so one texture works on any background. Nine are SVG tiles drawn in code from a density (grain and paper fibre with `feTurbulence`, dots, grid, diagonal lines, cross-hatch, checker, waves, topographic contours). Paper, linen and concrete are greyscale WebP tiles (31 to 50 KB) rendered from seeded noise by `e2e/scripts/render-textures.mjs`, so they are ours to release as CC0.
 - **Shapes** include seeded blobs (`blobPath(seed)`), stars, arches, waves, confetti and geometric pieces. Sets of them come from scatter recipes; `scatterPositions` spreads shapes away from each other and from the text column, the same way for the same seed. Positions are percentages, so they follow the form's size, and a shapes layer can stay off phones.
 - **Palettes** feed mesh gradients: `meshFromPalette` and `shuffleMesh` lay points out from a seed.
 - **Presets:** twelve looks, from Minimal and Paper to Sunrise mesh, Blueprint grid, Confetti party, Botanical, Pastel blobs and Minimal mono. Tests check that each validates, passes the readability guard and has the tier its features call for.
 
-**Readability guard.** `themeReadabilityIssues` composites the visible layers the way the browser draws them (opacity, blend modes, gradient geometry, texture coverage, shapes under the text) at points across the text column on a desktop and a phone screen, then through the overlay. Images count as any colour, so text over a photo needs an overlay or a card. Text must reach 4.5:1 and the primary colour 3:1 (WCAG AA). `readabilityFixes` offers one-click fixes (the lightest overlay that works, a card, or text colours that read), each only if it clears every text issue.
+**Readability guard.** `themeReadabilityIssues` composites the visible layers the way the browser draws them (opacity, blend modes, gradient geometry, texture coverage, shapes under the text) at points across the text column on a desktop and a phone screen, then through the overlay. Images count as any colour, so text over a photo needs an overlay or a card. Text must reach 4.5:1 and the primary colour 3:1 (WCAG AA); so must button text on choices drawn as buttons, and an underlined field's line (3:1), since the line is all there is of it. `readabilityFixes` offers one-click fixes (the lightest overlay that works, a card, or text colours that read), each only if it clears every text issue.
 
 **Drawing.** `ThemeRenderer` (`apps/web/src/features/form-renderer/theme`) turns a theme into `--form-*` CSS variables, draws the layers with CSS and SVG only, and lays the form out. It sizes everything with container queries, so the editor shows exactly what a respondent on that width sees.
 
-**Design Studio.** The editor's Design tab (`apps/web/src/features/form-editor/design`): a wider panel beside a live preview at desktop or phone width, with a full-screen mode, and stacked under the preview on phones. Its sections are Presets; Background (a sortable layer list with show/hide, duplicate, delete, opacity and blend mode, plus editors for every layer kind and the overlay); Colours; and Typography, Components and Layout, which for now hold fonts, corners, logo, cover and badge. Mesh points, shapes, gradient centres and image focal points can be dragged on the preview or moved with the arrow keys; each drag is one undo step. The readability guard shows its warning and fixes at the top of the panel.
+**Design Studio.** The editor's Design tab (`apps/web/src/features/form-editor/design`): a wider panel beside a live preview at desktop or phone width, with a full-screen mode, and stacked under the preview on phones. Its sections are Presets (with brand kits and the theme from a logo); Background (a sortable layer list with show/hide, duplicate, delete, opacity and blend mode, plus editors for every layer kind and the overlay); Colours; Typography (a font picker that shows each font in itself, with search, a category filter and keyboard picking, plus pairings, weights, size, spacing, alignment and numbering); Components; and Layout. For a conversational form the preview steps through the questions. Mesh points, shapes, gradient centres and image focal points can be dragged on the preview or moved with the arrow keys; each drag is one undo step. The readability guard shows its warning and fixes at the top of the panel.
+
+**Conversational layout.** One question per screen (`apps/web/src/features/form-renderer/conversational`). Enter continues (Ctrl or Cmd + Enter in long text, where Enter adds a line); the up and down arrows and Page Up/Down move where the focused control does not use arrows itself, and Alt + arrow everywhere. Single choices, ratings and dropdown picks move on by themselves when made with a click, tap or Enter/Space, never with arrow keys, which only move between options. Each step is checked before moving on; sending checks them all and returns to the first problem, including ones the server finds. Focus follows each new step, a live region says "Question 2 of 5", steps fade or slide (instantly with reduced motion), and on phones the buttons stay above the on-screen keyboard. The step logic is plain functions in `steps.ts`, tracked by question id so conditional questions never make the flow jump.
+
+**Brand kits.** A kit is a theme's logo, colours and fonts, plus the plain colour a form takes with it (`packages/shared/src/brand-kits.ts`). Editors save one from the Studio, apply one in a click (undo puts the look back) and choose the one new forms start with; workspace settings list, rename and delete them. Applying a kit leaves a form's layout, components and any background other than a plain colour alone, and the readability guard says if its text no longer reads there. A kit's logo must have been uploaded to one of the workspace's forms; other forms may then take it on. Free plans get one kit and Pro ten (`LIMIT_REACHED` past that, when limits are enforced).
+
+**Theme from a logo.** The Studio reads a small copy of a chosen logo on a canvas, on the creator's device, and finds its colours with median-cut quantization refined by k-means, leaving out transparent and near-white background pixels (`extractPalette`). `suggestThemeFromPalette` builds a look from them: the brand colour darkened until every button and choice style reads, a page faintly tinted with it, a glow of a second colour where that stays readable, and free fonts to suit. The logo uploads meanwhile and comes with the look.
 
 **Versions.** v1 themes (Sprint 7) still read: `storedFormThemeSchema` upgrades them with `migrateTheme`, which keeps their look. Respondents see the theme from the last publish (`publishedTheme`), like the questions.
 
 ## Plans and entitlements
 
-Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, branding removal, AI and Google Sheets) and limits (responses per month, upload size, AI credits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
+Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, branding removal, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
 
-`ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor explains that Pro plans are coming soon. Limits are reported but not enforced yet.
+`ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor explains that Pro plans are coming soon. Limits are reported; the brand kit limit is the first one enforced (`403 LIMIT_REACHED` when `ENTITLEMENTS_MODE=enforced`).
 
 ## File uploads
 
@@ -388,6 +396,9 @@ Every request that touches a workspace checks the caller's role in it. Owners ma
 | `GET`, `POST /api/workspaces/:workspaceId/invites`           | Owners  | Open invites; invites `{ email, role }` by email         |
 | `POST .../invites/:inviteId/resend`, `DELETE .../:inviteId`  | Owners  | A fresh link (the old one stops working), or withdraws   |
 | `GET /api/invites/:token`, `POST /api/invites/:token/accept` | Link    | What the invite is for; joins (signed in, invited email) |
+| `GET /api/workspaces/:workspaceId/brand-kits`                | Members | Brand kits, newest first, and the default one            |
+| `POST .../brand-kits`, `PATCH`, `DELETE .../:brandKitId`     | Editors | Saves, renames or changes, deletes a kit                 |
+| `PUT /api/workspaces/:workspaceId/default-brand-kit`         | Editors | The kit new forms start with (`null` for none)           |
 
 Every change in this table is refused for the demo account.
 
@@ -408,23 +419,24 @@ Editors manage a form's webhooks from its settings in the editor (Webhooks › M
 
 Run from the repository root:
 
-| Script                                       | Does                                                                                                                 |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                                   | Starts web and api together, with reload                                                                             |
-| `pnpm build`                                 | Builds every package                                                                                                 |
-| `pnpm lint`                                  | ESLint across the repo                                                                                               |
-| `pnpm typecheck`                             | TypeScript in every package                                                                                          |
-| `pnpm test`                                  | Vitest in every package (API tests need Postgres)                                                                    |
-| `pnpm test:e2e`                              | Playwright (starts both dev servers if they are not running)                                                         |
-| `pnpm db:up`                                 | Starts Postgres in Docker (`db:down` stops it)                                                                       |
-| `pnpm db:migrate`                            | Creates and applies migrations in development                                                                        |
-| `pnpm db:deploy`                             | Applies pending migrations (CI and production)                                                                       |
-| `pnpm db:studio`                             | Opens Prisma Studio                                                                                                  |
-| `pnpm --filter @formyx/e2e render:textures`  | Renders the paper, linen and concrete WebP textures                                                                  |
-| `pnpm --filter @formyx/api db:seed:demo`     | Sets up or resets the demo account                                                                                   |
-| `pnpm --filter @formyx/api db:migrate-forms` | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
-| `pnpm --filter @formyx/web size`             | Reports the gzip size of every route                                                                                 |
-| `pnpm format`                                | Formats with Prettier (`format:check` to verify)                                                                     |
+| Script                                            | Does                                                                                                                 |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                        | Starts web and api together, with reload                                                                             |
+| `pnpm build`                                      | Builds every package                                                                                                 |
+| `pnpm lint`                                       | ESLint across the repo                                                                                               |
+| `pnpm typecheck`                                  | TypeScript in every package                                                                                          |
+| `pnpm test`                                       | Vitest in every package (API tests need Postgres)                                                                    |
+| `pnpm test:e2e`                                   | Playwright (starts both dev servers if they are not running)                                                         |
+| `pnpm db:up`                                      | Starts Postgres in Docker (`db:down` stops it)                                                                       |
+| `pnpm db:migrate`                                 | Creates and applies migrations in development                                                                        |
+| `pnpm db:deploy`                                  | Applies pending migrations (CI and production)                                                                       |
+| `pnpm db:studio`                                  | Opens Prisma Studio                                                                                                  |
+| `pnpm --filter @formyx/e2e render:textures`       | Renders the paper, linen and concrete WebP textures                                                                  |
+| `pnpm --filter @formyx/api db:seed:demo`          | Sets up or resets the demo account                                                                                   |
+| `pnpm --filter @formyx/api db:migrate-forms`      | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
+| `pnpm --filter @formyx/web size`                  | Reports the gzip size of every route                                                                                 |
+| `node apps/web/scripts/font-fallback-metrics.mjs` | Works out resized local fallbacks for newly added fonts (run after adding one, then Prettier)                        |
+| `pnpm format`                                     | Formats with Prettier (`format:check` to verify)                                                                     |
 
 ## How packages share code
 
