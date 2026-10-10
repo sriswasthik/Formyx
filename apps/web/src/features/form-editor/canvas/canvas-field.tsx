@@ -29,6 +29,8 @@ interface CanvasFieldProps {
   total: number;
   /** A palette item is being dragged to just above this question. */
   showDropIndicator: boolean;
+  /** The question's number, when the theme numbers questions. */
+  number?: string | undefined;
   onOpenSettings?: () => void;
 }
 
@@ -38,6 +40,7 @@ export const CanvasField = memo(function CanvasField({
   index,
   total,
   showDropIndicator,
+  number,
   onOpenSettings,
 }: CanvasFieldProps) {
   const field = useEditorStore((state) => state.schema.fields.find((item) => item.id === id));
@@ -133,7 +136,7 @@ export const CanvasField = memo(function CanvasField({
               <span className="truncate">{logic}</span>
             </p>
           )}
-          <FieldRenderer field={field} mode="editor" idPrefix="canvas" />
+          <FieldRenderer field={field} mode="editor" idPrefix="canvas" number={number} />
         </div>
       </div>
 

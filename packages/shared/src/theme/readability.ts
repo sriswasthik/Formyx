@@ -18,7 +18,8 @@ import {
   type GradientStop,
 } from './schema.js';
 
-export type ReadabilityPart = 'text' | 'mutedText' | 'error' | 'primary' | 'button' | 'inputText';
+export type ReadabilityPart =
+  'text' | 'mutedText' | 'error' | 'primary' | 'button' | 'inputText' | 'inputBorder';
 
 export interface ReadabilityIssue {
   part: ReadabilityPart;
@@ -326,15 +327,32 @@ export function themeReadabilityIssues(theme: FormTheme): ReadabilityIssue[] {
         TEXT_MIN_CONTRAST,
       );
     }
+    // An underlined input is only its line, so the line has to stand out (WCAG 1.4.11).
+    if (components.inputStyle === 'underline') {
+      check('inputBorder', colors.inputBorder, surface, UI_MIN_CONTRAST);
+    }
   }
-  if (components.buttonStyle === 'solid' || components.buttonStyle === 'pill') {
+  // Solid buttons, and choices drawn as buttons once picked, put button text on the primary.
+  if (
+    components.buttonStyle === 'solid' ||
+    components.buttonStyle === 'pill' ||
+    components.choiceStyle === 'buttons'
+  ) {
     check('button', colors.buttonText, colors.primary, TEXT_MIN_CONTRAST);
   }
   // Underlined and minimal inputs have no fill of their own: their text is checked above.
   if (components.inputStyle !== 'underline' && components.inputStyle !== 'minimal') {
     check('inputText', colors.text, colors.inputBackground, TEXT_MIN_CONTRAST);
   }
-  const order: ReadabilityPart[] = ['text', 'mutedText', 'error', 'primary', 'button', 'inputText'];
+  const order: ReadabilityPart[] = [
+    'text',
+    'mutedText',
+    'error',
+    'primary',
+    'button',
+    'inputText',
+    'inputBorder',
+  ];
   return order.flatMap((part) => worst.get(part) ?? []);
 }
 
@@ -344,7 +362,13 @@ export function primaryHasEnoughContrast(theme: FormTheme): boolean {
 }
 
 /** The parts the text fixes are about: reading the questions, hints and errors. */
-const TEXT_PARTS: readonly ReadabilityPart[] = ['text', 'mutedText', 'error', 'inputText'];
+const TEXT_PARTS: readonly ReadabilityPart[] = [
+  'text',
+  'mutedText',
+  'error',
+  'inputText',
+  'inputBorder',
+];
 
 export function hasTextIssues(issues: readonly ReadabilityIssue[]): boolean {
   return issues.some((issue) => TEXT_PARTS.includes(issue.part));
@@ -372,9 +396,11 @@ function overlayColorFor(theme: FormTheme): string {
  */
 function withReadableSecondaryText(theme: FormTheme, recompute = false): FormTheme {
   const surfaces = textSurfaces(theme);
-  const { text, mutedText, error } = theme.colors;
+  const { text, mutedText, error, inputBorder } = theme.colors;
   const reads = (color: string) =>
     surfaces.every((surface) => contrastRatio(color, surface) >= TEXT_MIN_CONTRAST);
+  const standsOut = (color: string) =>
+    surfaces.every((surface) => contrastRatio(color, surface) >= UI_MIN_CONTRAST);
   const dark = readableTextColor(text, '#18181B', '#FFFFFF') === '#FFFFFF';
   const middle = surfaces[Math.floor(surfaces.length / 2)] ?? theme.colors.containerBackground;
   return {
@@ -397,6 +423,12 @@ function withReadableSecondaryText(theme: FormTheme, recompute = false): FormThe
                 : ['#F87171', '#FCA5A5', '#FECACA'],
               surfaces,
             ),
+      // Only an underlined input depends on its line being seen.
+      inputBorder:
+        theme.components.inputStyle !== 'underline' || (standsOut(inputBorder) && !recompute)
+          ? inputBorder
+          : ([40, 50, 60, 70, 80].map((percent) => mixHex(text, middle, percent)).find(standsOut) ??
+            text),
     },
   };
 }

@@ -229,3 +229,52 @@ describe('formThemeSchema (v2)', () => {
     ]);
   });
 });
+
+describe('settings added after theme v2 shipped', () => {
+  it('fill in their defaults for themes saved before them', () => {
+    const { questionNumbering: _numbering, ...typography } = base.typography;
+    const {
+      choiceStyle: _choice,
+      buttonSize: _size,
+      buttonFullWidth: _full,
+      buttonArrow: _arrow,
+      containerPadding: _padding,
+      ...components
+    } = base.components;
+    const { progress: _progress, autoAdvance: _advance, ...layout } = base.layout;
+    const saved = { ...base, typography, components, layout };
+
+    expect(formThemeSchema.parse(saved)).toEqual(base);
+  });
+
+  it('keep the values a theme sets', () => {
+    const styled: FormTheme = {
+      ...base,
+      typography: { ...base.typography, questionNumbering: 'letter' },
+      components: {
+        ...base.components,
+        choiceStyle: 'pills',
+        buttonSize: 'lg',
+        buttonFullWidth: true,
+        buttonArrow: true,
+        containerPadding: 'spacious',
+        containerRadius: 28,
+      },
+      layout: {
+        ...base.layout,
+        progress: { style: 'steps', position: 'bottom' },
+        autoAdvance: false,
+      },
+    };
+    expect(formThemeSchema.parse(styled)).toEqual(styled);
+  });
+
+  it.each([
+    ['a choice style it does not offer', { choiceStyle: 'tiles' }, 'components.choiceStyle'],
+    ['a container radius above 40px', { containerRadius: 48 }, 'components.containerRadius'],
+  ])('refuses %s', (_case, components, path) => {
+    expect(issuePaths({ ...base, components: { ...base.components, ...components } })).toContain(
+      path,
+    );
+  });
+});

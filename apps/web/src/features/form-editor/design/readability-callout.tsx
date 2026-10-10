@@ -18,6 +18,7 @@ const PART_LABELS: Record<ReadabilityPart, string> = {
   primary: 'The accent colour',
   button: 'Button labels',
   inputText: 'Answers in fields',
+  inputBorder: 'Underlined fields',
 };
 
 /**

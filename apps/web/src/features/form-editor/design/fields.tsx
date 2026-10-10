@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import type * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -9,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { parseHexInput } from './hex';
 
@@ -164,6 +166,36 @@ export function SelectField<T extends string>({
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+interface SwitchFieldProps {
+  label: string;
+  description?: React.ReactNode;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+/** An on/off setting with its label and an optional line about it. */
+export function SwitchField({ label, description, checked, onChange }: SwitchFieldProps) {
+  const id = useId();
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={id}>{label}</Label>
+        {description && (
+          <p id={`${id}-hint`} className="flex items-center gap-1.5 text-12 text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+      <Switch
+        id={id}
+        aria-describedby={description ? `${id}-hint` : undefined}
+        checked={checked}
+        onCheckedChange={onChange}
+      />
     </div>
   );
 }

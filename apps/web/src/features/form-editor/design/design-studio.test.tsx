@@ -172,14 +172,12 @@ describe('DesignStudio', () => {
     expect(store.getState().theme.colors.inputBackground).toBe('#F4F4F5');
   });
 
-  it('switches to a plain background and corners', async () => {
+  it('switches to a plain background and square corners', async () => {
     const { user, store } = renderStudio();
     await openSection(user, 'Components');
-    await user.click(
-      within(screen.getByRole('radiogroup', { name: 'Corners' })).getByRole('radio', {
-        name: /Sharp/,
-      }),
-    );
+    const corners = screen.getByRole('slider', { name: 'Corner radius' });
+    corners.focus();
+    await user.keyboard('{Home}');
     await openSection(user, 'Colours');
     await user.click(
       within(screen.getByRole('radiogroup', { name: 'Plain background' })).getByRole('radio', {
@@ -201,11 +199,14 @@ describe('DesignStudio', () => {
     const { user, store } = renderStudio();
     await openSection(user, 'Typography');
 
-    await user.click(screen.getByRole('combobox', { name: 'Headings' }));
+    await user.click(screen.getByRole('button', { name: /Headings/ }));
     expect(screen.getByRole('option', { name: /Fraunces/ })).toHaveTextContent('Pro');
     await user.click(screen.getByRole('option', { name: /Fraunces/ }));
-    await user.click(screen.getByRole('combobox', { name: 'Text' }));
-    await user.click(screen.getByRole('option', { name: /DM Sans/ }));
+    await user.click(screen.getByRole('button', { name: /^Text/ }));
+    // Search narrows the list; arrow keys and Enter pick from it.
+    await user.keyboard('dm sa');
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    await user.keyboard('{ArrowDown}{Enter}');
 
     expect(store.getState().theme.typography).toMatchObject({
       headingFont: 'fraunces',
@@ -610,5 +611,98 @@ describe('parseHexInput', () => {
     ['', null],
   ])('%j -> %j', (input, expected) => {
     expect(parseHexInput(input)).toBe(expected);
+  });
+});
+
+describe('the Typography, Components and Layout sections', () => {
+  const radio = (group: string, name: RegExp) =>
+    within(screen.getByRole('radiogroup', { name: group })).getByRole('radio', { name });
+
+  it('applies a font pairing in one step: both fonts and a heading weight', async () => {
+    const { user, store } = renderStudio();
+    await openSection(user, 'Typography');
+    await user.click(radio('Font pairing', /Editorial/));
+    expect(store.getState().theme.typography).toMatchObject({
+      headingFont: 'fraunces',
+      bodyFont: 'source-serif-4',
+      headingWeight: 600,
+    });
+    expect(radio('Font pairing', /Editorial/)).toBeChecked();
+
+    await user.click(radio('Question numbers', /Letters/));
+    expect(store.getState().theme.typography.questionNumbering).toBe('letter');
+  });
+
+  it('keeps the heading weight to one the new heading font has', async () => {
+    const { user, store } = renderStudio();
+    await openSection(user, 'Typography');
+    await user.click(screen.getByRole('button', { name: /Headings/ }));
+    await user.keyboard('patrick');
+    await user.keyboard('{Enter}');
+    expect(store.getState().theme.typography).toMatchObject({
+      headingFont: 'patrick-hand',
+      headingWeight: 400,
+    });
+  });
+
+  it('styles choices and buttons, and the container once there is one', async () => {
+    const { user, store } = renderStudio();
+    await openSection(user, 'Components');
+    await user.click(radio('Choice style', /Pills/));
+    await user.click(radio('Button size', /Large/));
+    await user.click(screen.getByRole('switch', { name: 'Arrow after the text' }));
+    expect(screen.queryByRole('radiogroup', { name: 'Padding' })).not.toBeInTheDocument();
+    await user.click(radio('Container style', /Card/));
+    await user.click(radio('Padding', /Spacious/));
+
+    expect(store.getState().theme.components).toMatchObject({
+      choiceStyle: 'pills',
+      buttonSize: 'lg',
+      buttonArrow: true,
+      containerStyle: 'card',
+      containerPadding: 'spacious',
+    });
+    // The canvas's submit button follows.
+    expect(document.querySelector('[data-editor-canvas] [data-button-arrow]')).not.toBeNull();
+
+    const text = screen.getByRole('textbox', { name: 'Submit button text' });
+    await user.clear(text);
+    await user.type(text, 'Send it');
+    expect(store.getState().schema.settings.submitButtonText).toBe('Send it');
+  });
+
+  it('sets the layout, its progress bar and, one question at a time, auto-advance', async () => {
+    const { user, store } = renderStudio();
+    await openSection(user, 'Layout');
+    expect(screen.queryByRole('switch', { name: /Move on/ })).not.toBeInTheDocument();
+    await user.click(radio('Layout', /One at a time/));
+    await user.click(radio('Progress bar', /Steps/));
+    await user.click(radio('Progress bar position', /Bottom/));
+    await user.click(screen.getByRole('switch', { name: /Move on after a single choice/ }));
+
+    expect(store.getState().theme.layout).toMatchObject({
+      mode: 'conversational',
+      progress: { style: 'steps', position: 'bottom' },
+      autoAdvance: false,
+    });
+  });
+
+  it('steps through a conversational form’s questions in the preview', async () => {
+    const base = createDefaultTheme();
+    const form = makeFormDetail(
+      [
+        { ...createField('short_text'), label: 'Your name' },
+        { ...createField('email'), label: 'Your email' },
+      ],
+      { theme: { ...base, layout: { ...base.layout, mode: 'conversational' } } },
+    );
+    const studio = createStudioStore();
+    const { user } = renderWithEditor(<Studio studio={studio} withPreview />, form);
+
+    expect(await screen.findByRole('textbox', { name: 'Your name' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next question' }));
+    expect(await screen.findByRole('textbox', { name: 'Your email' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Question shown' })).toHaveTextContent('2 of 2');
+    expect(screen.getByRole('button', { name: 'Next question' })).toBeDisabled();
   });
 });

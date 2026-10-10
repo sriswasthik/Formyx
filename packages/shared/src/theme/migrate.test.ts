@@ -67,12 +67,19 @@ describe('migrateTheme', () => {
         radius: V1_RADII_PX[v1.radius],
         containerStyle: 'none',
         shadow: 'none',
+        choiceStyle: 'list',
+        buttonSize: 'md',
+        buttonFullWidth: false,
+        buttonArrow: false,
+        containerPadding: 'regular',
       });
       expect(v2.layout).toEqual({
         mode: 'classic',
         width: 'regular',
         alignment: 'center',
         logoPosition: 'above_title',
+        progress: { style: 'none', position: 'top' },
+        autoAdvance: true,
       });
       expect(v2.branding).toEqual({ showFormyxBadge: true });
     },
@@ -144,7 +151,12 @@ describe('createDefaultTheme', () => {
           "text": "#18181B",
         },
         "components": {
+          "buttonArrow": false,
+          "buttonFullWidth": false,
+          "buttonSize": "md",
           "buttonStyle": "solid",
+          "choiceStyle": "list",
+          "containerPadding": "regular",
           "containerStyle": "none",
           "inputStyle": "outlined",
           "radius": 10,
@@ -152,8 +164,13 @@ describe('createDefaultTheme', () => {
         },
         "layout": {
           "alignment": "center",
+          "autoAdvance": true,
           "logoPosition": "above_title",
           "mode": "classic",
+          "progress": {
+            "position": "top",
+            "style": "none",
+          },
           "width": "regular",
         },
         "motion": {
@@ -171,6 +188,7 @@ describe('createDefaultTheme', () => {
           "headingFont": "inter",
           "headingWeight": 600,
           "letterSpacing": 0,
+          "questionNumbering": "none",
           "textAlign": "left",
         },
         "version": 2,

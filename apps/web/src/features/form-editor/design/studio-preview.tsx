@@ -1,4 +1,4 @@
-import { Monitor, RotateCcw, Smartphone } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Monitor, RotateCcw, Smartphone } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -32,6 +32,11 @@ export function StudioPreview({ className, compact = false }: StudioPreviewProps
   // State rather than a ref, so the handles measure once the frame exists.
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [run, setRun] = useState(0);
+  // Conversational forms: which question the preview shows, stepped through from here.
+  const [step, setStep] = useState(0);
+  const conversational = theme.layout.mode === 'conversational';
+  const steps = schema.fields.length;
+  const shownStep = Math.min(step, Math.max(steps - 1, 0));
   const mobile = device === 'mobile';
 
   // Drift would move the background away from its handles, so it pauses while it is edited.
@@ -63,11 +68,41 @@ export function StudioPreview({ className, compact = false }: StudioPreviewProps
         </ToggleGroup>
         <div className="flex items-center gap-2 text-12 text-muted-foreground">
           {paused && <span>Drift paused while you edit the background.</span>}
+          {conversational && steps > 1 && (
+            <div role="group" aria-label="Question shown" className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Previous question"
+                disabled={shownStep === 0}
+                onClick={() => {
+                  setStep(shownStep - 1);
+                }}
+              >
+                <ChevronLeft aria-hidden />
+              </Button>
+              <span className="tabular-nums" aria-live="polite">
+                {shownStep + 1} of {steps}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Next question"
+                disabled={shownStep >= steps - 1}
+                onClick={() => {
+                  setStep(shownStep + 1);
+                }}
+              >
+                <ChevronRight aria-hidden />
+              </Button>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               setRun((current) => current + 1);
+              setStep(0);
             }}
           >
             <RotateCcw aria-hidden />
@@ -95,6 +130,7 @@ export function StudioPreview({ className, compact = false }: StudioPreviewProps
               titleAs="h2"
               variant="frame"
               uploadFile={previewUpload}
+              previewStep={conversational ? shownStep : undefined}
               className={cn('flex-1', mobile && 'min-h-[640px]')}
             />
             <PreviewHandles theme={shown} container={frame} mobile={mobile} />

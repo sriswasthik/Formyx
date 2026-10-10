@@ -64,6 +64,33 @@ describe('themeReadabilityIssues', () => {
     expect(parts(outline)).toContain('button');
   });
 
+  it('checks the line of underlined inputs (3:1), and only theirs', () => {
+    const faint: FormTheme = {
+      ...base,
+      colors: { ...base.colors, inputBorder: '#E4E4E7' },
+      components: { ...base.components, inputStyle: 'underline' },
+    };
+    expect(parts(faint)).toEqual(['inputBorder']);
+    const outlined = { ...faint, components: { ...faint.components, inputStyle: 'outlined' } };
+    expect(parts(outlined as FormTheme)).toEqual([]);
+    expect(parts(withTextColorFix(faint))).toEqual([]);
+    expect(readabilityFixes(faint).map((fix) => fix.id)).toContain('text_color');
+  });
+
+  it('checks button text on the primary colour when choices are drawn as buttons', () => {
+    const pale: FormTheme = {
+      ...base,
+      colors: { ...base.colors, primary: '#4370BD', buttonText: '#93C5FD' },
+      components: { ...base.components, buttonStyle: 'outline' },
+    };
+    expect(parts(pale)).toEqual([]);
+    const buttons: FormTheme = {
+      ...pale,
+      components: { ...pale.components, choiceStyle: 'buttons' },
+    };
+    expect(parts(buttons)).toEqual(['button']);
+  });
+
   it('reads text against every background colour, through the overlay', () => {
     const gradient: FormTheme = {
       ...base,

@@ -8,8 +8,10 @@ import { gzipSync } from 'node:zlib';
 
 const DIST = join(import.meta.dirname, '..', 'dist');
 /** What opening a public form may download before it shows, gzipped. */
-// Measured at 180 KB in Sprint 8 (from 255 KB); the headroom is for small additions only.
-const PUBLIC_FORM_BUDGET_KB = 190;
+// Measured at 180 KB in Sprint 8 (from 255 KB) and 190 KB after Sprint 10's backgrounds.
+// Sprint 11 (forty fonts, choice and button styles, progress bars) took it to 193 KB with the
+// conversational flow and the font loaders loading lazily; the headroom is for small additions.
+const PUBLIC_FORM_BUDGET_KB = 195;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',

@@ -26,6 +26,7 @@ const LIMIT_MATRIX: Record<LimitId, Record<Plan, number | null>> = {
   responses_per_month: { FREE: 100, PRO: 10_000, BUSINESS: null },
   file_upload_size_mb: { FREE: 10, PRO: 25, BUSINESS: 100 },
   ai_credits_per_month: { FREE: 20, PRO: 500, BUSINESS: 2000 },
+  brand_kits: { FREE: 1, PRO: 10, BUSINESS: null },
 };
 
 const cases = <T extends string>(ids: readonly T[]) =>
@@ -104,6 +105,7 @@ describe('resolveEntitlements', () => {
       responses_per_month: 100,
       file_upload_size_mb: 10,
       ai_credits_per_month: 20,
+      brand_kits: 1,
     });
 
     const pro = resolveEntitlements(billing(), 'enforced', now);

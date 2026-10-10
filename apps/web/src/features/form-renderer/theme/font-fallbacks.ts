@@ -1,21 +1,17 @@
 import type { FontId } from '@formyx/shared';
+import { COMPUTED_FALLBACKS } from './fallback-metrics';
 
-interface FallbackFace {
+export interface FallbackFace {
   /** A font nearly every device has. */
-  local: 'Arial' | 'Georgia';
-  /** Percentages, measured in Chromium against `local` over ordinary English text. */
+  local: 'Arial' | 'Georgia' | 'Courier New';
+  /** Percentages of the local font's own size, ascent and descent. */
   sizeAdjust: number;
   ascent: number;
   descent: number;
 }
 
-/*
- * Local fonts resized to each theme font's average width, ascent and descent, named as the
- * registry's fallbacks name them (`'DM Sans Fallback'`), so text keeps its place when the font
- * arrives. Loaded with the font itself, so pages pay only for the fonts they show. Inter's is
- * in the app's styles, since every page uses it.
- */
-const FACES: Record<Exclude<FontId, 'inter'>, FallbackFace & { family: string }> = {
+/** Measured in Chromium against `local` over ordinary English text, for the first fonts. */
+const MEASURED_FALLBACKS = {
   'source-serif-4': {
     family: 'Source Serif 4 Fallback',
     local: 'Georgia',
@@ -65,6 +61,19 @@ const FACES: Record<Exclude<FontId, 'inter'>, FallbackFace & { family: string }>
     ascent: 88.64,
     descent: 25.73,
   },
+} as const satisfies Record<string, FallbackFace & { family: string }>;
+
+/*
+ * Local fonts resized to each theme font's average width, ascent and descent, named as the
+ * registry's fallbacks name them (`'DM Sans Fallback'`), so text keeps its place when the font
+ * arrives. The rest are worked out from published metrics (scripts/font-fallback-metrics.mjs).
+ * Loaded with the font itself, so pages pay only for the fonts they show. Inter's is in the
+ * app's styles, since every page uses it. Typed against the registry, so a new font without
+ * a fallback does not compile.
+ */
+export const FALLBACK_FACES: Record<Exclude<FontId, 'inter'>, FallbackFace & { family: string }> = {
+  ...COMPUTED_FALLBACKS,
+  ...MEASURED_FALLBACKS,
 };
 
 const added = new Set<FontId>();
@@ -80,7 +89,7 @@ export function addFallbackFace(font: FontId): void {
   ) {
     return;
   }
-  const face = FACES[font];
+  const face = FALLBACK_FACES[font];
   added.add(font);
   // TypeScript's DOM types do not list `sizeAdjust` yet; every engine with FontFace takes it.
   const descriptors: FontFaceDescriptors & { sizeAdjust: string } = {

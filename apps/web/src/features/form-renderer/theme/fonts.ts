@@ -1,21 +1,5 @@
-import { getFont, type FontId, type FormTheme } from '@formyx/shared';
+import { getFont, nearestFontWeight, type FontId, type FormTheme } from '@formyx/shared';
 import { useEffect } from 'react';
-
-/**
- * How each registry font's files arrive. Inter ships with the app; the others load on first
- * use, so a form only ever fetches the fonts it shows. Typed against the registry, so adding
- * a font without a loader does not compile.
- */
-export const FONT_LOADERS: Record<FontId, (() => Promise<unknown>) | null> = {
-  inter: null,
-  'source-serif-4': () => import('@fontsource-variable/source-serif-4'),
-  nunito: () => import('@fontsource-variable/nunito'),
-  'dm-sans': () => import('@fontsource-variable/dm-sans'),
-  fraunces: () => import('@fontsource-variable/fraunces'),
-  'playfair-display': () => import('@fontsource-variable/playfair-display'),
-  'space-grotesk': () => import('@fontsource-variable/space-grotesk'),
-  'bricolage-grotesque': () => import('@fontsource-variable/bricolage-grotesque'),
-};
 
 const requested = new Map<FontId, Promise<void>>();
 
@@ -24,23 +8,20 @@ const requested = new Map<FontId, Promise<void>>();
  * fallbacks in its stack show. Resolves once the styles are in, never rejects.
  */
 export function loadFont(font: FontId): Promise<void> {
-  const load = FONT_LOADERS[font];
-  if (!load) return Promise.resolve();
+  // Inter ships with the app.
+  if (font === 'inter') return Promise.resolve();
   let loading = requested.get(font);
   if (!loading) {
-    loading = Promise.all([
-      load(),
-      // Its resized local fallback, so text does not move when the font arrives.
-      import('./font-fallbacks').then(({ addFallbackFace }) => {
-        addFallbackFace(font);
-      }),
-    ]).then(
-      () => undefined,
-      () => {
-        // The fallback fonts keep the form readable; try again next time.
-        requested.delete(font);
-      },
-    );
+    // The loaders for every font arrive together, after the form's first render.
+    loading = import('./font-loaders')
+      .then(({ loadFontFiles }) => loadFontFiles(font))
+      .then(
+        () => undefined,
+        () => {
+          // The fallback fonts keep the form readable; try again next time.
+          requested.delete(font);
+        },
+      );
     requested.set(font, loading);
   }
   return loading;
@@ -61,8 +42,10 @@ export async function themeFontsReady(
     // Without the Font Loading API (older browsers, tests), there is nothing to wait for.
     if (typeof document === 'undefined' || !('fonts' in document)) return;
     await Promise.all([
-      document.fonts.load(`${headingWeight} 1em ${getFont(headingFont).family}`),
-      document.fonts.load(`400 1em ${getFont(bodyFont).family}`),
+      document.fonts.load(
+        `${nearestFontWeight(headingFont, headingWeight)} 1em ${getFont(headingFont).family}`,
+      ),
+      document.fonts.load(`${nearestFontWeight(bodyFont, 400)} 1em ${getFont(bodyFont).family}`),
     ]);
   };
   await Promise.race([

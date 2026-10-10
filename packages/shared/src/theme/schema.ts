@@ -161,8 +161,17 @@ export const LAYOUT_ALIGNMENTS = ['start', 'center', 'end'] as const;
 export const LOGO_POSITIONS = ['above_title', 'top_left', 'top_center'] as const;
 export const PAGE_TRANSITIONS = ['none', 'fade', 'slide'] as const;
 export const TEXT_ALIGNS = ['left', 'center'] as const;
+/** How questions are numbered: not at all, 1. 2. 3., or A. B. C. */
+export const QUESTION_NUMBERING = ['none', 'number', 'letter'] as const;
+/** Single and multiple choice: a list of rows, bordered cards, wrapped pills or buttons. */
+export const CHOICE_STYLES = ['list', 'cards', 'pills', 'buttons'] as const;
+export const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;
+export const CONTAINER_PADDINGS = ['compact', 'regular', 'spacious'] as const;
+export const PROGRESS_STYLES = ['none', 'line', 'steps', 'percentage'] as const;
+export const PROGRESS_POSITIONS = ['top', 'bottom'] as const;
 
 export const RADIUS_MAX = 24;
+export const CONTAINER_RADIUS_MAX = 40;
 
 /** The form column's largest width for each layout width, in CSS pixels. */
 export const LAYOUT_WIDTHS_PX: Record<(typeof LAYOUT_WIDTHS)[number], number> = {
@@ -170,6 +179,21 @@ export const LAYOUT_WIDTHS_PX: Record<(typeof LAYOUT_WIDTHS)[number], number> = 
   regular: 640,
   wide: 760,
 };
+
+/** The theme's colours. Brand kits carry them too. */
+export const themeColorsSchema = z.object({
+  /** Buttons, selected choices, links and focus rings. */
+  primary: hexColorSchema,
+  text: hexColorSchema,
+  mutedText: hexColorSchema,
+  /** Behind the form when it sits in a container, and behind the split layout's form side. */
+  containerBackground: hexColorSchema,
+  inputBackground: hexColorSchema,
+  inputBorder: hexColorSchema,
+  /** Text on `primary`. */
+  buttonText: hexColorSchema,
+  error: hexColorSchema,
+});
 
 export const formThemeSchema = z
   .object({
@@ -197,20 +221,10 @@ export const formThemeSchema = z
       /** Added to every letter, in em. Headings stay a touch tighter than body text. */
       letterSpacing: z.number().min(-0.05).max(0.1),
       textAlign: z.enum(TEXT_ALIGNS),
+      // Settings added after v2 shipped have defaults, so themes saved before them still read.
+      questionNumbering: z.enum(QUESTION_NUMBERING).default('none'),
     }),
-    colors: z.object({
-      /** Buttons, selected choices, links and focus rings. */
-      primary: hexColorSchema,
-      text: hexColorSchema,
-      mutedText: hexColorSchema,
-      /** Behind the form when it sits in a container, and behind the split layout's form side. */
-      containerBackground: hexColorSchema,
-      inputBackground: hexColorSchema,
-      inputBorder: hexColorSchema,
-      /** Text on `primary`. */
-      buttonText: hexColorSchema,
-      error: hexColorSchema,
-    }),
+    colors: themeColorsSchema,
     components: z.object({
       inputStyle: z.enum(INPUT_STYLES),
       buttonStyle: z.enum(BUTTON_STYLES),
@@ -218,6 +232,15 @@ export const formThemeSchema = z
       radius: z.number().int().min(0).max(RADIUS_MAX),
       containerStyle: z.enum(CONTAINER_STYLES),
       shadow: z.enum(SHADOW_LEVELS),
+      choiceStyle: z.enum(CHOICE_STYLES).default('list'),
+      buttonSize: z.enum(BUTTON_SIZES).default('md'),
+      /** The submit and next buttons span the form's width. */
+      buttonFullWidth: z.boolean().default(false),
+      /** An arrow after the submit and next buttons' text. */
+      buttonArrow: z.boolean().default(false),
+      containerPadding: z.enum(CONTAINER_PADDINGS).default('regular'),
+      /** The container's corner radius in CSS pixels; a little more than `radius` if not set. */
+      containerRadius: z.number().int().min(0).max(CONTAINER_RADIUS_MAX).optional(),
     }),
     layout: z.object({
       mode: z.enum(LAYOUT_MODES),
@@ -227,6 +250,12 @@ export const formThemeSchema = z
       logoPosition: z.enum(LOGO_POSITIONS),
       /** A wide image across the top of the form. */
       coverImage: z.object({ url: httpsImageUrlSchema, focalPoint: pointSchema }).optional(),
+      /** How far along respondents are: hidden, a line, numbered steps or a percentage. */
+      progress: z
+        .object({ style: z.enum(PROGRESS_STYLES), position: z.enum(PROGRESS_POSITIONS) })
+        .default({ style: 'none', position: 'top' }),
+      /** Conversational forms move on once a single choice, rating or dropdown is answered. */
+      autoAdvance: z.boolean().default(true),
     }),
     /** Always off for people who ask their device for reduced motion. */
     motion: z.object({

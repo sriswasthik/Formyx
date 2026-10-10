@@ -1,10 +1,36 @@
 import type { FieldOfType } from '@formyx/shared';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { choiceRow, controlSurface, inputRadius, textControl } from './styles';
+import { choiceGroup, choiceOption, inputRadius, ratingOption, textControl } from './styles';
+import { useFormTheme } from './theme/theme-context';
 import type { ControlProps } from './types';
 
-/** Radios (single choice) or checkboxes (multiple choice), one bordered row per option. */
+/** The radio or checkbox drawn beside an option in the list and card styles. */
+function ChoiceIndicator({ multiple, checked }: { multiple: boolean; checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex size-4.5 shrink-0 items-center justify-center border border-(--form-border-strong) bg-(--form-bg) transition-colors duration-150',
+        multiple ? 'rounded-[min(var(--form-radius),5px)]' : 'rounded-full',
+        'peer-checked:border-(--form-accent) peer-checked:bg-(--form-accent) peer-checked:text-(--form-accent-fg)',
+      )}
+    >
+      {checked &&
+        (multiple ? (
+          <Check className="size-3" strokeWidth={3} />
+        ) : (
+          <span className="size-1.5 rounded-full bg-(--form-accent-fg)" />
+        ))}
+    </span>
+  );
+}
+
+/**
+ * Radios (single choice) or checkboxes (multiple choice) in the theme's choice style: rows,
+ * cards, pills or buttons. Native inputs keep arrow keys and screen readers working; pills
+ * and buttons mark picked options with a tick as well as colour.
+ */
 export function ChoiceControl({
   field,
   controlId,
@@ -13,7 +39,9 @@ export function ChoiceControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'single_choice' | 'multi_choice'>>) {
+  const { choiceStyle } = useFormTheme().components;
   const multiple = field.type === 'multi_choice';
+  const indicator = choiceStyle === 'list' || choiceStyle === 'cards';
   const selected = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
 
   if (field.options.length === 0) {
@@ -21,11 +49,11 @@ export function ChoiceControl({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={choiceGroup[choiceStyle]} data-choice-style={choiceStyle}>
       {field.options.map((option, index) => {
         const checked = selected.includes(option.id);
         return (
-          <label key={option.id} className={choiceRow}>
+          <label key={option.id} className={choiceOption[choiceStyle]}>
             <input
               id={index === 0 ? controlId : undefined}
               type={multiple ? 'checkbox' : 'radio'}
@@ -47,22 +75,12 @@ export function ChoiceControl({
                 onChange(next.length > 0 ? next : null);
               }}
             />
-            <span
-              aria-hidden
-              className={cn(
-                'flex size-4.5 shrink-0 items-center justify-center border border-(--form-border-strong) bg-(--form-bg) transition-colors duration-150',
-                multiple ? 'rounded-[min(var(--form-radius),5px)]' : 'rounded-full',
-                'peer-checked:border-(--form-accent) peer-checked:bg-(--form-accent) peer-checked:text-(--form-accent-fg)',
-              )}
-            >
-              {checked &&
-                (multiple ? (
-                  <Check className="size-3" strokeWidth={3} />
-                ) : (
-                  <span className="size-1.5 rounded-full bg-(--form-accent-fg)" />
-                ))}
-            </span>
-            <span className="min-w-0 flex-1 break-words">
+            {indicator ? (
+              <ChoiceIndicator multiple={multiple} checked={checked} />
+            ) : (
+              checked && <Check aria-hidden className="-ml-1 size-4 shrink-0" strokeWidth={2.5} />
+            )}
+            <span className={cn('min-w-0 break-words', indicator && 'flex-1')}>
               {option.label || <span className="text-(--form-muted)">Untitled option</span>}
             </span>
           </label>
@@ -131,16 +149,7 @@ export function RatingControl({
   return (
     <div className="flex flex-wrap gap-2">
       {scale.map((rating) => (
-        <label
-          key={rating}
-          className={cn(
-            controlSurface,
-            'relative flex size-11 cursor-pointer items-center justify-center form-text font-medium tabular-nums',
-            'hover:bg-(--form-hover)',
-            'has-checked:border-(--form-accent) has-checked:bg-(--form-accent) has-checked:text-(--form-accent-fg)',
-            'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)',
-          )}
-        >
+        <label key={rating} className={ratingOption}>
           <input
             id={rating === 1 ? controlId : undefined}
             type="radio"

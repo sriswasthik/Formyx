@@ -1,5 +1,6 @@
 export * from './assets/index.js';
 export * from './auth.js';
+export * from './brand-kits.js';
 export * from './color.js';
 export * from './entitlements/index.js';
 export * from './errors.js';

@@ -12,6 +12,7 @@ import { useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { FormView, type SubmitOutcome } from '@/features/form-renderer/form-view';
+import { preloadFormLayout } from '@/features/form-renderer/conversational/load-conversational';
 import { themeFontsReady } from '@/features/form-renderer/theme/fonts';
 import { ApiRequestError } from '@/lib/api';
 import { isEmbedded } from '@/lib/embed';
@@ -136,8 +137,14 @@ export function PublicFormPage() {
     queryKey: ['public-form', slug],
     queryFn: async () => {
       const form = await getPublicForm(slug);
-      // The skeleton stays a moment longer so the form's text never jumps as fonts arrive.
-      if (form.status === 'open') await themeFontsReady(form.theme, FONT_WAIT_MS);
+      // The skeleton stays a moment longer so the form's text never jumps as fonts arrive,
+      // and a conversational form's flow is ready to draw.
+      if (form.status === 'open') {
+        await Promise.all([
+          themeFontsReady(form.theme, FONT_WAIT_MS),
+          preloadFormLayout(form.theme),
+        ]);
+      }
       return form;
     },
     // The form must not change under someone halfway through it.

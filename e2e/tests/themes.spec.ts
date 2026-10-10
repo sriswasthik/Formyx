@@ -35,10 +35,8 @@ test('designs a form in the editor and publishes the design with it', async ({ p
     .getByRole('radio', { name: 'Dark' })
     .click();
   await page.getByRole('tab', { name: 'Components' }).click();
-  await page
-    .getByRole('radiogroup', { name: 'Corners' })
-    .getByRole('radio', { name: 'Sharp' })
-    .click();
+  await page.getByRole('slider', { name: 'Corner radius' }).focus();
+  await page.keyboard.press('Home');
   await expectSaved(page);
 
   // Publishing takes the design to respondents.

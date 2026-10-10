@@ -12,6 +12,7 @@ import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { routeParam } from '../lib/route-param.js';
 import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
+import { createBrandKitService } from '../services/brand-kit-service.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormService } from '../services/form-service.js';
 import { createUploadChecks } from '../services/upload-checks.js';
@@ -25,10 +26,15 @@ export function createFormsRouter(
   { requireAuth, requireWorkspaceRole, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
-  const forms = createFormService(prisma, createEntitlementService(prisma, env.ENTITLEMENTS_MODE));
+  const entitlements = createEntitlementService(prisma, env.ENTITLEMENTS_MODE);
+  const forms = createFormService(prisma, entitlements);
+  const brandKits = createBrandKitService(prisma, entitlements);
   const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
 
-  /** Checks images (logo, cover, image layers) new to this form were uploaded for it. */
+  /**
+   * Checks images (logo, cover, image layers) new to this form were uploaded for it. Logos
+   * from the workspace's brand kits were checked when the kit was saved.
+   */
   async function checkThemeImages(formId: string, theme: FormTheme): Promise<void> {
     const urls = themeImageUrls(theme);
     if (urls.length === 0) return;
@@ -38,8 +44,11 @@ export function createFormsRouter(
         known ? themeImageUrls(known) : [],
       ),
     );
-    for (const url of urls) {
-      if (!known.has(url)) await uploads.verifyThemeImage(formId, url);
+    const unknown = urls.filter((url) => !known.has(url));
+    if (unknown.length === 0) return;
+    const kitLogos = new Set(await brandKits.logoUrls(current.workspaceId));
+    for (const url of unknown) {
+      if (!kitLogos.has(url)) await uploads.verifyThemeImage(formId, url);
     }
   }
 

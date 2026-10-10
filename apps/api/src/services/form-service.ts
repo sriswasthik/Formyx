@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  applyBrandKit,
   copyFormTitle,
   createDefaultTheme,
   findPublishIssues,
@@ -23,6 +24,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import { escapeLikePattern } from '../lib/like-pattern.js';
 import type { Database } from '../lib/prisma.js';
+import { workspaceDefaultKit } from './brand-kit-service.js';
 import type { EntitlementService } from './entitlement-service.js';
 
 const SLUG_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -208,14 +210,16 @@ export function createFormService(
       return forms.map(toSummary);
     },
 
-    create(workspaceId, userId, { templateId, title }) {
+    async create(workspaceId, userId, { templateId, title }) {
       const template = getFormTemplate(templateId);
+      // New forms start in the workspace's default brand kit, if it has one.
+      const kit = await workspaceDefaultKit(prisma, workspaceId);
       return insert({
         workspaceId,
         createdById: userId,
         title: title ?? template.defaultTitle,
         draftSchema: template.build(),
-        theme: createDefaultTheme(),
+        theme: kit ? applyBrandKit(createDefaultTheme(), kit) : createDefaultTheme(),
       });
     },
 
