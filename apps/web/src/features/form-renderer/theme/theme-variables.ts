@@ -26,6 +26,16 @@ function containerRadius(radius: number): string {
   return radius === 0 ? '0px' : `${Math.min(radius + 8, 32)}px`;
 }
 
+/**
+ * What filled fields are filled with: the field colour, or a faint tint of the text where
+ * the field colour is the page's own (as in plain themes), so they never disappear.
+ */
+function fieldFill({ colors }: FormTheme): string {
+  return colors.inputBackground.toUpperCase() === colors.containerBackground.toUpperCase()
+    ? mixHex(colors.text, colors.containerBackground, 6)
+    : colors.inputBackground;
+}
+
 function inputVariables(theme: FormTheme): CssVariables {
   const { colors, components } = theme;
   const radius = `${components.radius}px`;
@@ -38,15 +48,15 @@ function inputVariables(theme: FormTheme): CssVariables {
   switch (components.inputStyle) {
     case 'filled':
       return {
-        '--form-input-bg': colors.inputBackground,
-        '--form-input-bg-hover': fillHover(colors.inputBackground),
+        '--form-input-bg': fieldFill(theme),
+        '--form-input-bg-hover': fillHover(fieldFill(theme)),
         '--form-input-border': 'transparent',
         '--form-input-border-hover': 'transparent',
         '--form-input-border-width': '1px',
         '--form-input-radius': radius,
         '--form-textarea-radius': radius,
         '--form-input-px': '0.875rem',
-        '--form-box-bg': colors.inputBackground,
+        '--form-box-bg': fieldFill(theme),
         '--form-box-border': boxBorder,
         '--form-box-radius': radius,
       };
@@ -121,7 +131,9 @@ function choiceVariables(theme: FormTheme): CssVariables {
       ? mixHex(colors.text, colors.containerBackground, 5)
       : components.inputStyle === 'underline'
         ? 'transparent'
-        : colors.inputBackground;
+        : components.inputStyle === 'filled'
+          ? fieldFill(theme)
+          : colors.inputBackground;
   const pill = components.inputStyle === 'pill' || components.choiceStyle === 'pills';
   return {
     '--form-choice-bg': background,

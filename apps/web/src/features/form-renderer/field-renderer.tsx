@@ -19,6 +19,8 @@ export interface FieldRendererProps {
   idPrefix: string;
   /** The question's number, when the theme numbers questions. */
   number?: string | undefined;
+  /** `large` in conversational forms, where each question has the page to itself. */
+  size?: 'regular' | 'large';
 }
 
 function renderControl(field: Field, props: Omit<ControlProps, 'field'>) {
@@ -59,6 +61,7 @@ export const FieldRenderer = memo(function FieldRenderer({
   error,
   idPrefix,
   number,
+  size = 'regular',
 }: FieldRendererProps) {
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +76,12 @@ export const FieldRenderer = memo(function FieldRenderer({
   if (field.type === 'statement') {
     return (
       <div ref={rootRef} className={cn(rootClass, 'flex flex-col gap-2')}>
-        <p className="form-text leading-relaxed whitespace-pre-wrap">
+        <p
+          className={cn(
+            size === 'large' ? 'form-text-lg' : 'form-text',
+            'leading-relaxed whitespace-pre-wrap',
+          )}
+        >
           {field.label || <span className="text-(--form-muted)">Untitled statement</span>}
         </p>
         {field.description && (
@@ -95,6 +103,7 @@ export const FieldRenderer = memo(function FieldRenderer({
         group={GROUP_TYPES.includes(field.type)}
         error={error}
         number={number}
+        size={size}
       >
         {renderControl(field, {
           controlId: ids.control,

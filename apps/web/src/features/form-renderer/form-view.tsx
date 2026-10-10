@@ -7,9 +7,10 @@ import {
 } from '@formyx/shared';
 import { CircleCheck } from 'lucide-react';
 import { AnimatePresence, LazyMotion, m, useReducedMotion } from 'motion/react';
-import { lazy, Suspense, useCallback, useId, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useId, useMemo, useState, type ReactNode } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import type { ConversationProgress } from './conversational/conversational-form';
+import { useConversational } from './conversational/load-conversational';
 import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
 import { FormLogo } from './branding';
@@ -21,13 +22,6 @@ import { ThemeRenderer, type ThemeVariant } from './theme/theme-renderer';
 import { useFormResponse, type SubmitOutcome } from './use-form-response';
 
 export type { SubmitOutcome } from './use-form-response';
-
-/** Only conversational forms download the one-question-at-a-time flow. */
-const ConversationalForm = lazy(() =>
-  import('./conversational/conversational-form').then((module) => ({
-    default: module.ConversationalForm,
-  })),
-);
 
 interface FormViewProps {
   title: string;
@@ -88,6 +82,8 @@ export function FormView({
   const response = useFormResponse({ schema, onSubmit, uploadFile });
   const { answers, errors, formError, status, visibleIds, fileUploads, handleChange } = response;
   const conversational = theme.layout.mode === 'conversational';
+  // Only conversational forms download the one-question-at-a-time flow.
+  const conversationalModule = useConversational(conversational);
   const [conversation, setConversation] = useState<ConversationProgress | null>(null);
   const onProgress = useCallback((progress: ConversationProgress) => {
     setConversation(progress);
@@ -227,15 +223,8 @@ export function FormView({
         ) : (
           <FileUploadsContext.Provider value={fileUploads}>
             {conversational ? (
-              <Suspense
-                fallback={
-                  <div className="flex flex-col">
-                    {header}
-                    <div className="min-h-[min(28rem,60dvh)]" />
-                  </div>
-                }
-              >
-                <ConversationalForm
+              conversationalModule ? (
+                <conversationalModule.ConversationalForm
                   schema={schema}
                   theme={theme}
                   response={response}
@@ -246,7 +235,12 @@ export function FormView({
                   onProgress={onProgress}
                   previewStep={previewStep}
                 />
-              </Suspense>
+              ) : (
+                // Where it has not been preloaded: the title, where the flow will start.
+                <div className="flex min-h-[min(24rem,55dvh)] flex-col justify-center">
+                  {header}
+                </div>
+              )
             ) : (
               classic
             )}

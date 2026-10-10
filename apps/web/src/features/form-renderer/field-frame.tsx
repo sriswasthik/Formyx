@@ -1,5 +1,6 @@
 import type { Field } from '@formyx/shared';
 import type * as React from 'react';
+import { cn } from '@/lib/utils';
 import type { FieldIds } from './field-ids';
 
 interface FieldFrameProps {
@@ -10,6 +11,8 @@ interface FieldFrameProps {
   error: string | undefined;
   /** Shown before the label, as the theme numbers questions. */
   number?: string | undefined;
+  /** `large`: one question at a time, where the question is the page's focus. */
+  size?: 'regular' | 'large';
   children: React.ReactNode;
 }
 
@@ -36,8 +39,19 @@ function LabelText({ field, number }: { field: Field; number?: string | undefine
 }
 
 /** Label, description, control and error of one question, wired for assistive technology. */
-export function FieldFrame({ field, ids, group, error, number, children }: FieldFrameProps) {
-  const labelClass = 'form-text leading-snug font-medium break-words';
+export function FieldFrame({
+  field,
+  ids,
+  group,
+  error,
+  number,
+  size = 'regular',
+  children,
+}: FieldFrameProps) {
+  const labelClass = cn(
+    size === 'large' ? 'form-text-lg' : 'form-text',
+    'leading-snug font-medium break-words',
+  );
   const description = field.description && (
     <p id={ids.description} className="form-text-sm whitespace-pre-wrap text-(--form-muted)">
       {field.description}

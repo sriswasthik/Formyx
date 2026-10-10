@@ -89,7 +89,15 @@ describe('themeVariables', () => {
 
   it.each([
     ['outlined', { '--form-input-border-width': '1px', '--form-input-radius': '10px' }],
-    ['filled', { '--form-input-border': 'transparent', '--form-input-bg': '#FFFFFF' }],
+    [
+      'filled',
+      {
+        '--form-input-border': 'transparent',
+        // On a plain page the field colour is the page's own, so fields take a faint tint.
+        '--form-input-bg': mixHex('#18181B', '#FFFFFF', 6),
+        '--form-choice-bg': mixHex('#18181B', '#FFFFFF', 6),
+      },
+    ],
     [
       'underline',
       {
@@ -127,6 +135,12 @@ describe('themeVariables', () => {
     expect(themeVariables(withComponents({ buttonStyle }))).toMatchObject(expected);
   });
 
+  it('keeps a filled field colour that differs from the page', () => {
+    const paper = THEME_PRESETS.find((preset) => preset.id === 'paper')?.theme;
+    if (!paper) throw new Error('No Paper preset');
+    expect(themeVariables(paper)['--form-input-bg']).toBe(paper.colors.inputBackground);
+  });
+
   it('gives containers their fill, border, radius and shadow', () => {
     const card = themeVariables(withComponents({ containerStyle: 'card', shadow: 'sm' }));
     expect(card['--form-container-bg']).toBe('#FFFFFF');
@@ -151,7 +165,9 @@ describe('themeVariables', () => {
     expect(outlined['--form-input-border-hover']).toBe(mixHex('#4370BD', '#C3C3C4', 55));
     expect(outlined['--form-choice-border-hover']).toBe(mixHex('#4370BD', '#C3C3C4', 55));
     const filled = themeVariables(withComponents({ inputStyle: 'filled' }));
-    expect(filled['--form-input-bg-hover']).toBe(mixHex('#4370BD', '#FFFFFF', 6));
+    expect(filled['--form-input-bg-hover']).toBe(
+      mixHex('#4370BD', mixHex('#18181B', '#FFFFFF', 6), 6),
+    );
     expect(filled['--form-box-border']).not.toBe('transparent');
   });
 

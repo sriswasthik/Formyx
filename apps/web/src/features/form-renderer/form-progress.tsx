@@ -46,7 +46,8 @@ export function FormProgress({ theme, value, total, current }: FormProgressProps
       data-form-progress={style}
       data-position={position}
       className={cn(
-        'z-10 flex w-full items-center gap-3 px-4 py-3 @xl:px-6',
+        // It floats over the form as it scrolls; clicks go through to what is under it.
+        'pointer-events-none z-10 flex w-full items-center gap-3 px-4 py-2 @xl:px-6',
         position === 'top' ? 'sticky top-0' : 'sticky bottom-0',
       )}
     >

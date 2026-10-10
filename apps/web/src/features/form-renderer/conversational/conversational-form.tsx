@@ -255,9 +255,10 @@ export function ConversationalForm({
       <p aria-live="polite" className="sr-only">
         {steps.length > 0 && `Question ${index + 1} of ${steps.length}`}
       </p>
-      {/* The title stays the page's heading for screen readers after the first question. */}
-      <div className={cn(index > 0 && 'sr-only')}>{header}</div>
-      <div className="flex min-h-[min(28rem,60dvh)] flex-col justify-center">
+      {/* The title and the question are centred together; after the first question the
+          title stays the page's heading for screen readers only. */}
+      <div className="flex min-h-[min(24rem,55dvh)] flex-col justify-center">
+        <div className={cn(index > 0 && 'sr-only')}>{header}</div>
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <m.div
             key={shownId ?? 'empty'}
@@ -275,6 +276,7 @@ export function ConversationalForm({
                 field={field}
                 mode="respondent"
                 idPrefix={idPrefix}
+                size="large"
                 number={numbers.get(field.id)}
                 value={answers[field.id]}
                 error={errors[field.id]}
