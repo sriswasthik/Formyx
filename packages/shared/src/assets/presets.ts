@@ -121,6 +121,7 @@ const presetThemes = {
       buttonText: buttonTextOn('#2C6A6E'),
     },
     components: {
+      ...base.components,
       inputStyle: 'filled',
       buttonStyle: 'pill',
       radius: 12,
@@ -235,11 +236,13 @@ const presetThemes = {
     },
     colors: {
       ...surfaceColors(editorialPanel),
-      inputBorder: mixHex('#1C1917', editorialPanel, 40),
+      // Underlined inputs are only their line: 3:1 against the panel.
+      inputBorder: mixHex('#1C1917', editorialPanel, 50),
       primary: '#2F5D46',
       buttonText: buttonTextOn('#2F5D46'),
     },
     components: {
+      ...base.components,
       inputStyle: 'underline',
       buttonStyle: 'outline',
       radius: 0,
@@ -281,6 +284,7 @@ const presetThemes = {
       buttonText: buttonTextOn('#B5452B'),
     },
     components: {
+      ...base.components,
       inputStyle: 'filled',
       buttonStyle: 'pill',
       radius: 12,
@@ -354,6 +358,7 @@ const presetThemes = {
       buttonText: buttonTextOn('#2349C9'),
     },
     components: {
+      ...base.components,
       inputStyle: 'outlined',
       buttonStyle: 'pill',
       radius: 14,
@@ -459,10 +464,13 @@ const presetThemes = {
     typography: { ...base.typography, headingWeight: 700, letterSpacing: -0.01 },
     colors: {
       ...surfaceColors(monoSurface),
+      // Underlined inputs are only their line: 3:1 against the page.
+      inputBorder: mixHex('#18181B', monoSurface, 50),
       primary: '#18181B',
       buttonText: buttonTextOn('#18181B'),
     },
     components: {
+      ...base.components,
       inputStyle: 'underline',
       buttonStyle: 'solid',
       radius: 0,

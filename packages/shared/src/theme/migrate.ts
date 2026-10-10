@@ -53,6 +53,7 @@ export function migrateTheme(v1: FormThemeV1): FormTheme {
       headingWeight: 600,
       letterSpacing: 0,
       textAlign: 'left',
+      questionNumbering: 'none',
     },
     colors: { primary, buttonText: buttonTextOn(primary), ...surfaceColors(surface) },
     components: {
@@ -61,12 +62,19 @@ export function migrateTheme(v1: FormThemeV1): FormTheme {
       radius: V1_RADII[v1.radius],
       containerStyle: 'none',
       shadow: 'none',
+      choiceStyle: 'list',
+      buttonSize: 'md',
+      buttonFullWidth: false,
+      buttonArrow: false,
+      containerPadding: 'regular',
     },
     layout: {
       mode: 'classic',
       width: 'regular',
       alignment: 'center',
       logoPosition: 'above_title',
+      progress: { style: 'none', position: 'top' },
+      autoAdvance: true,
       ...(v1.coverUrl !== undefined && { coverImage: { url: v1.coverUrl, focalPoint: CENTER } }),
     },
     // v1 faded the thank-you message in while moving it up a little.
