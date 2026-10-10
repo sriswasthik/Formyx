@@ -1,4 +1,4 @@
-import { FONTS, fontStack, type FontId } from '@formyx/shared';
+import { FONT_CATEGORY_LABELS, FONTS, fontStack, type FontId } from '@formyx/shared';
 import { useId } from 'react';
 import { Label } from '@/components/ui/label';
 import {
@@ -12,13 +12,6 @@ import { ProBadge } from '@/features/entitlements/pro-badge';
 import { loadFont } from '@/features/form-renderer/theme/fonts';
 import { useEditorStore } from '../../editor-store-context';
 import { StudioGroup } from '../studio-group';
-
-const FONT_CATEGORY_LABELS = {
-  sans: 'Sans serif',
-  serif: 'Serif',
-  rounded: 'Rounded',
-  display: 'Display',
-} as const;
 
 interface FontSelectProps {
   label: string;

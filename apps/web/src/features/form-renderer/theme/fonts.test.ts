@@ -1,6 +1,7 @@
-import { createDefaultTheme, fontStack } from '@formyx/shared';
+import { createDefaultTheme, FONTS, fontStack } from '@formyx/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { themeFontsReady } from './fonts';
+import { FALLBACK_FACES } from './font-fallbacks';
+import { FONT_LOADERS, themeFontsReady } from './fonts';
 
 const theme = {
   ...createDefaultTheme(),
@@ -72,5 +73,23 @@ describe('addFallbackFace', () => {
     ]);
     expect(fontStack('dm-sans')).toMatch(/^'DM Sans Variable', 'DM Sans Fallback', /);
     vi.unstubAllGlobals();
+  });
+});
+
+describe('the font registry in the web app', () => {
+  it('loads every font but Inter on demand, with a resized fallback under its stack’s name', () => {
+    for (const font of FONTS) {
+      if (font.id === 'inter') {
+        expect(FONT_LOADERS.inter).toBeNull();
+        continue;
+      }
+      expect(FONT_LOADERS[font.id]).toBeTypeOf('function');
+      const face = FALLBACK_FACES[font.id];
+      expect(font.fallback.startsWith(`'${face.family}', `)).toBe(true);
+      expect(face.sizeAdjust).toBeGreaterThan(50);
+      expect(face.sizeAdjust).toBeLessThan(150);
+      expect(face.ascent).toBeGreaterThan(50);
+      expect(face.descent).toBeGreaterThan(5);
+    }
   });
 });

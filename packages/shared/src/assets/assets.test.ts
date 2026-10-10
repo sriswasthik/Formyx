@@ -5,7 +5,8 @@ import { createDefaultTheme } from '../theme/migrate.js';
 import { readabilityFixes, themeReadabilityIssues } from '../theme/readability.js';
 import { formThemeSchema } from '../theme/schema.js';
 import { ASSET_TIERS, type Asset } from './asset.js';
-import { FONTS, fontStack } from './fonts.js';
+import { FONT_PAIRINGS, pairingTier } from './font-pairings.js';
+import { FONT_CATEGORIES, FONT_IDS, FONTS, fontStack, nearestFontWeight } from './fonts.js';
 import { GRADIENT_PALETTES } from './palettes.js';
 import { applyPreset, matchingPreset, THEME_PRESETS } from './presets.js';
 import { blobPath, SHAPES, shapeItemPath } from './shapes.js';
@@ -47,8 +48,80 @@ describe('fonts', () => {
     expect(fontStack('inter')).toBe(
       "'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, sans-serif",
     );
-    for (const font of FONTS)
-      expect(fontStack(font.id)).toMatch(/^'[^']+ Variable', .+, (sans-)?serif$/);
+    for (const font of FONTS) {
+      expect(fontStack(font.id)).toMatch(
+        /^'[^']+', '[^']+ Fallback', .+, ((sans-)?serif|cursive|monospace)$/,
+      );
+    }
+  });
+
+  it('are all open-licensed, from Fontsource', () => {
+    for (const font of FONTS) {
+      expect(font.license).toBe('OFL-1.1');
+      expect(font.source).toBe(`https://fontsource.org/fonts/${font.id}`);
+    }
+  });
+
+  it('offer about forty fonts in every category, a third or so of them Pro', () => {
+    expect(FONTS.length).toBeGreaterThanOrEqual(38);
+    for (const category of FONT_CATEGORIES) {
+      expect(FONTS.filter((font) => font.category === category).length).toBeGreaterThan(1);
+    }
+    const pro = FONTS.filter((font) => font.tier === 'pro').length;
+    expect(pro / FONTS.length).toBeGreaterThan(0.2);
+    expect(pro / FONTS.length).toBeLessThan(0.45);
+  });
+
+  it('keep the ids and families saved themes already use', () => {
+    const shipped = {
+      inter: "'Inter Variable'",
+      'source-serif-4': "'Source Serif 4 Variable'",
+      nunito: "'Nunito Variable'",
+      'dm-sans': "'DM Sans Variable'",
+      fraunces: "'Fraunces Variable'",
+      'playfair-display': "'Playfair Display Variable'",
+      'space-grotesk': "'Space Grotesk Variable'",
+      'bricolage-grotesque': "'Bricolage Grotesque Variable'",
+    } as const;
+    for (const [id, family] of Object.entries(shipped)) {
+      expect(FONTS.find((font) => font.id === id)?.family).toBe(family);
+    }
+  });
+
+  it('list their weights, lightest first, and draw others with the nearest', () => {
+    for (const font of FONTS) {
+      expect(font.weights.length).toBeGreaterThan(0);
+      expect([...font.weights].sort((a, b) => a - b)).toEqual(font.weights);
+      expect(font.weights).toContain(400);
+    }
+    expect(nearestFontWeight('inter', 640)).toBe(600);
+    expect(nearestFontWeight('inter', 650)).toBe(700);
+    expect(nearestFontWeight('patrick-hand', 700)).toBe(400);
+    expect(nearestFontWeight('kalam', 600)).toBe(700);
+    expect(nearestFontWeight('space-mono', 550)).toBe(700);
+  });
+});
+
+describe('font pairings', () => {
+  it('include the five named styles, each with two real fonts', () => {
+    const ids = FONT_PAIRINGS.map((pairing) => pairing.id);
+    expect(ids).toEqual(
+      expect.arrayContaining(['editorial', 'friendly', 'corporate', 'playful', 'elegant']),
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const pairing of FONT_PAIRINGS) {
+      expect(FONT_IDS).toContain(pairing.headingFont);
+      expect(FONT_IDS).toContain(pairing.bodyFont);
+      expect(nearestFontWeight(pairing.headingFont, pairing.headingWeight)).toBe(
+        pairing.headingWeight,
+      );
+    }
+  });
+
+  it('are Pro when either font is', () => {
+    expect(pairingTier({ headingFont: 'fraunces', bodyFont: 'inter' })).toBe('pro');
+    expect(pairingTier({ headingFont: 'inter', bodyFont: 'caveat' })).toBe('pro');
+    expect(pairingTier({ headingFont: 'manrope', bodyFont: 'inter' })).toBe('free');
   });
 });
 
