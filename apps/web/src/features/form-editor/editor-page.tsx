@@ -27,6 +27,7 @@ import { useAutosave } from './autosave/use-autosave';
 import { focusQuestion } from './canvas/focus-question';
 import { findDraftIssues, firstFieldWithIssue } from './draft-issues';
 import { EditorEntitlementsContext } from './editor-entitlements';
+import { EditorWorkspaceContext } from './editor-workspace';
 import { EditorLayout } from './editor-layout';
 import { createEditorStore } from './editor-store';
 import { EditorStoreContext } from './editor-store-context';
@@ -195,77 +196,79 @@ function FormEditor({ form }: { form: FormDetail }) {
   return (
     <EditorStoreContext.Provider value={store}>
       <EditorEntitlementsContext.Provider value={entitlements}>
-        <PublishIssuesContext.Provider value={publishIssues}>
-          <h1 className="sr-only">Edit form</h1>
-          <EditorLayout
-            form={form}
-            navigation={
-              <FormNav
-                formId={form.id}
-                current="edit"
-                canEdit
-                published={form.publishedSchema !== null}
-                shareRef={shareButton}
-                onShare={() => {
-                  setShare({ open: true, justPublished: false });
-                }}
-              />
-            }
-            actions={
-              <PublishControls
-                form={form}
-                pending={publishing.pending}
-                primaryRef={publishButton}
-                onPublish={() => void publish()}
-                onClose={() => void publishing.close()}
-                onReopen={() => void publishing.reopen()}
-              />
-            }
-            status={
-              <SaveStatus
-                state={saveState}
-                onRetry={() => {
-                  autosaver.retryNow();
-                }}
-                onReload={() => void reloadLatest()}
-                onShowIssues={showIssues}
-              />
-            }
-          />
-          <ConflictDialog
-            open={saveState.kind === 'conflict' && !conflictDismissed}
-            onOpenChange={(open) => {
-              if (!open) setConflictDismissed(true);
-            }}
-            onReload={() => void reloadLatest()}
-            reloading={reloading}
-          />
-          <PublishIssuesDialog
-            open={issuesOpen}
-            onOpenChange={setIssuesOpen}
-            issues={publishIssues}
-            onShow={showQuestion}
-          />
-          <UpgradeDialog
-            open={upgrade.open}
-            onOpenChange={(open) => {
-              setUpgrade((current) => ({ ...current, open }));
-            }}
-            features={upgrade.features}
-            returnFocusTo={publishButton}
-          />
-          <ShareDialog
-            open={share.open}
-            onOpenChange={(open) => {
-              setShare((current) => ({ ...current, open }));
-            }}
-            slug={form.slug}
-            closed={form.status === 'CLOSED'}
-            justPublished={share.justPublished}
-            returnFocusTo={inlineNav ? shareButton : publishButton}
-          />
-          <LeaveGuard autosaver={autosaver} />
-        </PublishIssuesContext.Provider>
+        <EditorWorkspaceContext.Provider value={form.workspaceId}>
+          <PublishIssuesContext.Provider value={publishIssues}>
+            <h1 className="sr-only">Edit form</h1>
+            <EditorLayout
+              form={form}
+              navigation={
+                <FormNav
+                  formId={form.id}
+                  current="edit"
+                  canEdit
+                  published={form.publishedSchema !== null}
+                  shareRef={shareButton}
+                  onShare={() => {
+                    setShare({ open: true, justPublished: false });
+                  }}
+                />
+              }
+              actions={
+                <PublishControls
+                  form={form}
+                  pending={publishing.pending}
+                  primaryRef={publishButton}
+                  onPublish={() => void publish()}
+                  onClose={() => void publishing.close()}
+                  onReopen={() => void publishing.reopen()}
+                />
+              }
+              status={
+                <SaveStatus
+                  state={saveState}
+                  onRetry={() => {
+                    autosaver.retryNow();
+                  }}
+                  onReload={() => void reloadLatest()}
+                  onShowIssues={showIssues}
+                />
+              }
+            />
+            <ConflictDialog
+              open={saveState.kind === 'conflict' && !conflictDismissed}
+              onOpenChange={(open) => {
+                if (!open) setConflictDismissed(true);
+              }}
+              onReload={() => void reloadLatest()}
+              reloading={reloading}
+            />
+            <PublishIssuesDialog
+              open={issuesOpen}
+              onOpenChange={setIssuesOpen}
+              issues={publishIssues}
+              onShow={showQuestion}
+            />
+            <UpgradeDialog
+              open={upgrade.open}
+              onOpenChange={(open) => {
+                setUpgrade((current) => ({ ...current, open }));
+              }}
+              features={upgrade.features}
+              returnFocusTo={publishButton}
+            />
+            <ShareDialog
+              open={share.open}
+              onOpenChange={(open) => {
+                setShare((current) => ({ ...current, open }));
+              }}
+              slug={form.slug}
+              closed={form.status === 'CLOSED'}
+              justPublished={share.justPublished}
+              returnFocusTo={inlineNav ? shareButton : publishButton}
+            />
+            <LeaveGuard autosaver={autosaver} />
+          </PublishIssuesContext.Provider>
+        </EditorWorkspaceContext.Provider>
       </EditorEntitlementsContext.Provider>
     </EditorStoreContext.Provider>
   );

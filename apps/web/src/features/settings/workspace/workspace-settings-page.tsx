@@ -2,6 +2,7 @@ import { Building2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
+import { BrandKitsCard } from '@/features/brand-kits/brand-kits-card';
 import { CreateWorkspaceDialog } from '@/features/workspaces/create-workspace-dialog';
 import { useActiveWorkspace } from '@/features/workspaces/use-active-workspace';
 import { InvitesCard } from './invites-card';
@@ -9,7 +10,7 @@ import { MembersCard } from './members-card';
 import { WorkspaceDangerZone } from './workspace-danger-zone';
 import { WorkspaceNameCard } from './workspace-name-card';
 
-/** The active workspace: its name, members, invites, and leaving or deleting it. */
+/** The active workspace: its name, members, invites, brand kits, and leaving or deleting it. */
 export function WorkspaceSettingsPage() {
   const workspace = useActiveWorkspace();
   const [creating, setCreating] = useState(false);
@@ -43,6 +44,7 @@ export function WorkspaceSettingsPage() {
       <WorkspaceNameCard workspace={workspace} />
       <MembersCard workspace={workspace} />
       {workspace.role === 'OWNER' && <InvitesCard workspace={workspace} />}
+      <BrandKitsCard workspace={workspace} />
       <WorkspaceDangerZone workspace={workspace} />
     </div>
   );
