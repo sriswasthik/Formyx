@@ -29,6 +29,8 @@ export interface UploadChecks {
   verifyAnswers(form: { id: string; schema: FormSchema }, answers: Answers): Promise<Answers>;
   /** Checks a logo or cover image was uploaded for this form, as an image. */
   verifyThemeImage(formId: string, url: string): Promise<void>;
+  /** The form a theme image was uploaded for, by where it is stored; `null` if none. */
+  themeImageFormId(url: string): string | null;
 }
 
 interface CheckOptions {
@@ -99,6 +101,13 @@ export function createUploadChecks({ storage, root }: CheckOptions): UploadCheck
         });
       }
       return verified;
+    },
+
+    themeImageFormId(url) {
+      const publicId = storage?.publicIdOf(url);
+      const prefix = `${root}/themes/`;
+      if (!publicId?.startsWith(prefix)) return null;
+      return publicId.slice(prefix.length).split('/')[0] || null;
     },
 
     async verifyThemeImage(formId, url) {

@@ -37,6 +37,7 @@ model User {
   subscriptions FormSubscription[]
   invitesSent   Invite[]
   webhooks      Webhook[]
+  brandKits     BrandKit[]
 
   @@map("users")
 }
@@ -61,21 +62,46 @@ enum PlanStatus {
 }
 
 model Workspace {
-  id          String       @id @default(cuid())
-  name        String
-  slug        String       @unique
+  id                String       @id @default(cuid())
+  name              String
+  slug              String       @unique
   /// No payments yet: every workspace is on FREE. ENTITLEMENTS_MODE decides whether it matters.
-  plan        Plan         @default(FREE)
-  planStatus  PlanStatus   @default(ACTIVE) @map("plan_status")
+  plan              Plan         @default(FREE)
+  planStatus        PlanStatus   @default(ACTIVE) @map("plan_status")
   /// When a TRIALING plan falls back to FREE.
-  trialEndsAt DateTime?    @map("trial_ends_at")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  memberships Membership[]
-  forms       Form[]
-  invites     Invite[]
+  trialEndsAt       DateTime?    @map("trial_ends_at")
+  /// The brand kit new forms start with. Cleared when that kit is deleted.
+  defaultBrandKitId String?      @unique @map("default_brand_kit_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  memberships       Membership[]
+  forms             Form[]
+  invites           Invite[]
+  brandKits         BrandKit[]   @relation("WorkspaceBrandKits")
+  defaultBrandKit   BrandKit?    @relation("DefaultBrandKit", fields: [defaultBrandKitId], references: [id], onDelete: SetNull)
 
   @@map("workspaces")
+}
+
+/// A workspace's logo, colours and fonts, saved from a form's theme and applied to others.
+model BrandKit {
+  id          String     @id @default(cuid())
+  workspaceId String     @map("workspace_id")
+  name        String
+  /// Validated with the shared `brandKitDataSchema`.
+  kit         Json
+  /// Null once its creator's account is deleted; the kit stays with its workspace.
+  createdById String?    @map("created_by_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  workspace   Workspace  @relation("WorkspaceBrandKits", fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  defaultFor  Workspace? @relation("DefaultBrandKit")
+
+  // Listed per workspace, newest first.
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([createdById])
+  @@map("brand_kits")
 }
 
 model Membership {
