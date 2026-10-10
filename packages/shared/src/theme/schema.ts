@@ -180,6 +180,21 @@ export const LAYOUT_WIDTHS_PX: Record<(typeof LAYOUT_WIDTHS)[number], number> = 
   wide: 760,
 };
 
+/** The theme's colours. Brand kits carry them too. */
+export const themeColorsSchema = z.object({
+  /** Buttons, selected choices, links and focus rings. */
+  primary: hexColorSchema,
+  text: hexColorSchema,
+  mutedText: hexColorSchema,
+  /** Behind the form when it sits in a container, and behind the split layout's form side. */
+  containerBackground: hexColorSchema,
+  inputBackground: hexColorSchema,
+  inputBorder: hexColorSchema,
+  /** Text on `primary`. */
+  buttonText: hexColorSchema,
+  error: hexColorSchema,
+});
+
 export const formThemeSchema = z
   .object({
     version: z.literal(THEME_VERSION),
@@ -209,19 +224,7 @@ export const formThemeSchema = z
       // Settings added after v2 shipped have defaults, so themes saved before them still read.
       questionNumbering: z.enum(QUESTION_NUMBERING).default('none'),
     }),
-    colors: z.object({
-      /** Buttons, selected choices, links and focus rings. */
-      primary: hexColorSchema,
-      text: hexColorSchema,
-      mutedText: hexColorSchema,
-      /** Behind the form when it sits in a container, and behind the split layout's form side. */
-      containerBackground: hexColorSchema,
-      inputBackground: hexColorSchema,
-      inputBorder: hexColorSchema,
-      /** Text on `primary`. */
-      buttonText: hexColorSchema,
-      error: hexColorSchema,
-    }),
+    colors: themeColorsSchema,
     components: z.object({
       inputStyle: z.enum(INPUT_STYLES),
       buttonStyle: z.enum(BUTTON_STYLES),

@@ -22,6 +22,8 @@ export const ERROR_CODES = [
   'DEMO_RESTRICTED',
   /** The workspace's plan does not include a feature this needs; `details.features` lists them. */
   'UPGRADE_REQUIRED',
+  /** The workspace has as many of something as its plan allows; `details.limit` says what. */
+  'LIMIT_REACHED',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

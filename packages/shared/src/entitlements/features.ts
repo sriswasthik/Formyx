@@ -91,6 +91,11 @@ export const LIMITS = {
     unit: 'credits',
     values: { FREE: 20, PRO: 500, BUSINESS: 2000 },
   },
+  brand_kits: {
+    name: 'Brand kits',
+    unit: 'kits',
+    values: { FREE: 1, PRO: 10, BUSINESS: null },
+  },
 } as const satisfies Record<string, LimitDefinition>;
 
 export type LimitId = keyof typeof LIMITS;
