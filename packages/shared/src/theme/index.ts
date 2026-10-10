@@ -1,5 +1,6 @@
 export * from './buttons.js';
 export * from './images.js';
+export * from './logo-palette.js';
 export * from './migrate.js';
 export * from './readability.js';
 export * from './schema.js';

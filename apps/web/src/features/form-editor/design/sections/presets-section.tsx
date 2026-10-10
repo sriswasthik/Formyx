@@ -2,6 +2,7 @@ import { applyPreset } from '@formyx/shared';
 import { useEditorStore } from '../../editor-store-context';
 import { useEditorWorkspaceId } from '../../editor-workspace';
 import { BrandKitGroup } from '../brand-kit-group';
+import { LogoThemeGroup } from '../logo-theme-group';
 import { PresetPicker } from '../preset-picker';
 import { StudioGroup } from '../studio-group';
 
@@ -16,6 +17,7 @@ export function PresetsSection() {
   return (
     <>
       {workspaceId && <BrandKitGroup workspaceId={workspaceId} />}
+      <LogoThemeGroup />
       <StudioGroup
         title="Presets"
         description="A starting point. Your logo, cover image and branding stay as they are."

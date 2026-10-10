@@ -1,10 +1,4 @@
-import {
-  BYTES_PER_MB,
-  fileExtension,
-  THEME_IMAGE_FORMATS,
-  THEME_IMAGE_MAX_MB,
-  type ThemeImageKind,
-} from '@formyx/shared';
+import type { ThemeImageKind } from '@formyx/shared';
 import { ImageUp } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
@@ -16,8 +10,7 @@ import {
   uploadToStorage,
 } from '@/lib/uploads';
 import { cn } from '@/lib/utils';
-
-const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
+import { THEME_IMAGE_ACCEPT, themeImageProblem } from './theme-image';
 
 const COPY: Record<ThemeImageKind, { noun: string; hint: string }> = {
   logo: { noun: 'logo', hint: 'Shown above the title. PNG, JPG, WebP or GIF, up to 5 MB.' },
@@ -30,17 +23,6 @@ const COPY: Record<ThemeImageKind, { noun: string; hint: string }> = {
     hint: 'Fills the page behind the form. PNG, JPG, WebP or GIF, up to 5 MB.',
   },
 };
-
-function imageProblem(file: File): string | null {
-  if (!(THEME_IMAGE_FORMATS as readonly string[]).includes(fileExtension(file.name))) {
-    return 'Choose a PNG, JPG, WebP or GIF image.';
-  }
-  if (file.size > THEME_IMAGE_MAX_MB * BYTES_PER_MB) {
-    return `This image is too big. The limit is ${THEME_IMAGE_MAX_MB} MB.`;
-  }
-  if (file.size === 0) return 'This file is empty.';
-  return null;
-}
 
 interface ThemeImageFieldProps {
   kind: ThemeImageKind;
@@ -66,7 +48,7 @@ export function ThemeImageField({ kind, url, onChange }: ThemeImageFieldProps) {
   });
 
   const upload = async (file: File) => {
-    const problem = imageProblem(file);
+    const problem = themeImageProblem(file);
     setError(problem);
     if (problem) return;
 
@@ -172,7 +154,7 @@ export function ThemeImageField({ kind, url, onChange }: ThemeImageFieldProps) {
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        accept={THEME_IMAGE_ACCEPT}
         tabIndex={-1}
         aria-hidden
         className="sr-only"
