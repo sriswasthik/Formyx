@@ -20,6 +20,8 @@ const FEATURE_MATRIX: Record<FeatureId, Record<Plan, boolean>> = {
   ai_generate: { FREE: false, PRO: true, BUSINESS: true },
   ai_insights: { FREE: false, PRO: false, BUSINESS: true },
   google_sheets: { FREE: false, PRO: true, BUSINESS: true },
+  advanced_logic: { FREE: false, PRO: true, BUSINESS: true },
+  quiz_mode: { FREE: false, PRO: true, BUSINESS: true },
 };
 
 const LIMIT_MATRIX: Record<LimitId, Record<Plan, number | null>> = {

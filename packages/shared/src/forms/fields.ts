@@ -49,6 +49,12 @@ const baseField = {
 const placeholder = z.string().max(200, 'Use 200 characters or fewer').optional();
 const options = z.array(fieldOptionSchema).max(MAX_OPTIONS, `Use ${MAX_OPTIONS} options or fewer`);
 
+/** Each respondent sees the options in their own order; the last one can stay put ("Other"). */
+const shuffle = {
+  shuffleOptions: z.boolean().optional(),
+  keepLastOption: z.boolean().optional(),
+};
+
 function textValidation(limit: number) {
   const length = z.number().int().min(0).max(limit);
   return z
@@ -96,12 +102,14 @@ export const singleChoiceFieldSchema = z.object({
   ...baseField,
   type: z.literal('single_choice'),
   options,
+  ...shuffle,
 });
 
 export const multiChoiceFieldSchema = z.object({
   ...baseField,
   type: z.literal('multi_choice'),
   options,
+  ...shuffle,
 });
 
 export const dropdownFieldSchema = z.object({
@@ -109,6 +117,7 @@ export const dropdownFieldSchema = z.object({
   type: z.literal('dropdown'),
   placeholder,
   options,
+  ...shuffle,
 });
 
 const ratingScaleMessage = `Use a whole number from ${RATING_SCALE_MIN} to ${RATING_SCALE_MAX}`;
@@ -185,6 +194,7 @@ export const pictureChoiceFieldSchema = z.object({
   options: z.array(pictureOptionSchema).max(MAX_OPTIONS, `Use ${MAX_OPTIONS} options or fewer`),
   /** Several pictures may be picked. */
   multiple: z.boolean(),
+  ...shuffle,
 });
 
 export const yesNoFieldSchema = z.object({ ...baseField, type: z.literal('yes_no') });
@@ -221,7 +231,13 @@ export const sliderFieldSchema = z.object({
 
 export const MIN_RANKING_OPTIONS = 2;
 
-export const rankingFieldSchema = z.object({ ...baseField, type: z.literal('ranking'), options });
+export const rankingFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('ranking'),
+  options,
+  /** Starting each respondent on their own order, so the first option is not favoured. */
+  ...shuffle,
+});
 
 export const MAX_MATRIX_ROWS = 30;
 export const MAX_MATRIX_COLUMNS = 12;

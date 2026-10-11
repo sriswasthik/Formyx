@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { FORM_SCHEMA_VERSION, formSchema, type FormSchema } from './form-schema.js';
 import { DEFAULT_PHONE_COUNTRY } from './phone.js';
+import { createEndScreen, DEFAULT_END_SCREEN_ID } from './logic-factories.js';
 import { escapeRichText } from './rich-text.js';
 
 type SchemaData = Record<string, unknown>;
@@ -15,6 +16,7 @@ export type FormSchemaUpgrade = (schema: SchemaData) => SchemaData;
  */
 export const FORM_SCHEMA_UPGRADES: Readonly<Record<number, FormSchemaUpgrade>> = {
   1: upgradeV1,
+  2: upgradeV2,
 };
 
 function isSchemaData(value: unknown): value is SchemaData {
@@ -46,6 +48,32 @@ function upgradeV1(schema: SchemaData): SchemaData {
           return field;
       }
     }),
+  };
+}
+
+/**
+ * v2 to v3 (Sprint 13): the thank-you message becomes the default end screen (its text
+ * escaped, as end screens are rich text), with no logic yet, and respondents' answers are
+ * kept in their browser as they go.
+ */
+function upgradeV2(schema: SchemaData): SchemaData {
+  const settings = isSchemaData(schema.settings) ? schema.settings : {};
+  const { successMessage, ...rest } = settings;
+  return {
+    ...schema,
+    version: 3,
+    settings: { ...rest, saveProgress: 'browser' },
+    logic: {
+      pages: {},
+      variables: [],
+      rules: [],
+      endScreens: [
+        createEndScreen({
+          id: DEFAULT_END_SCREEN_ID,
+          message: typeof successMessage === 'string' ? escapeRichText(successMessage) : '',
+        }),
+      ],
+    },
   };
 }
 

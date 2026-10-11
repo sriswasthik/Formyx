@@ -56,6 +56,16 @@ export const FEATURES = {
     description: 'Send every response to a spreadsheet.',
     minPlan: 'PRO',
   },
+  advanced_logic: {
+    name: 'Advanced logic',
+    description: 'Page jumps, calculations, several end screens, redirects and save for later.',
+    minPlan: 'PRO',
+  },
+  quiz_mode: {
+    name: 'Quizzes',
+    description: 'Right answers, points, scores and a pass mark.',
+    minPlan: 'PRO',
+  },
 } as const satisfies Record<string, FeatureDefinition>;
 
 export type FeatureId = keyof typeof FEATURES;

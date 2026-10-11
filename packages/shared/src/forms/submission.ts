@@ -6,7 +6,8 @@ import {
   PIN_CODE_PATTERN,
   TIME_PATTERN,
 } from './answer-values.js';
-import { evaluateVisibility, isAnswered, type AnswerValue, type Answers } from './answers.js';
+import { resolvePath } from '../logic/navigation.js';
+import { isAnswered, type AnswerValue, type Answers } from './answers.js';
 import { MAX_MATRIX_ROWS, MAX_OPTIONS, type Field, type FieldOfType } from './fields.js';
 import {
   fileAnswerSchema,
@@ -359,18 +360,19 @@ function withoutEmpty(answers: Record<string, unknown>): SubmittedAnswers {
 }
 
 /**
- * A Zod schema for the answers to `schema`, built for the questions visible with `answers`.
- * Hidden questions are skipped, so their required flag does not apply, and answers to them,
- * to unknown questions or to statements are stripped. Parsing returns the normalised answers.
+ * A Zod schema for the answers to `schema`, built for the questions the respondent saw:
+ * shown by their conditions, on a page on their route (see `resolvePath`). Other questions
+ * are skipped, so their required flag does not apply, and answers to them, to unknown
+ * questions or to statements are stripped. Parsing returns the normalised answers.
  */
 export function buildSubmissionValidator(
   schema: FormSchema,
   answers: Answers,
 ): z.ZodType<SubmittedAnswers> {
-  const visible = evaluateVisibility(schema, answers);
+  const { active } = resolvePath(schema, answers);
   const shape: Record<string, z.ZodType> = {};
   for (const field of schema.fields) {
-    const fieldSchema = visible.has(field.id) ? answerSchema(field) : null;
+    const fieldSchema = active.has(field.id) ? answerSchema(field) : null;
     if (fieldSchema) shape[field.id] = fieldSchema;
   }
   return z.object(shape).transform(withoutEmpty);
