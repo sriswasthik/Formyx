@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { validationIssueSchema } from '../errors.js';
 import { storedFormThemeSchema } from '../theme/migrate.js';
 import { formSchema } from './form-schema.js';
-import { formTemplateIdSchema } from './templates.js';
+import { formTemplateIdSchema } from './template-ids.js';
 
 export const FORM_STATUSES = ['DRAFT', 'PUBLISHED', 'CLOSED'] as const;
 export const formStatusSchema = z.enum(FORM_STATUSES);

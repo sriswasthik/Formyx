@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formSchema } from './form-schema.js';
-import { FORM_TEMPLATE_IDS, FORM_TEMPLATES, getFormTemplate } from './templates.js';
+import { FORM_TEMPLATE_IDS } from './template-ids.js';
+import { FORM_TEMPLATES, getFormTemplate } from './templates.js';
 
 describe('form templates', () => {
   it('has a template for every id', () => {

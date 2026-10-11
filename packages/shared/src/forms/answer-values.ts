@@ -16,7 +16,12 @@ export const ADDRESS_PART_LABELS: Record<AddressPart, string> = {
   state: 'State',
 };
 
-/** An Indian postal address. Line 2 is optional. */
+/**
+ * An Indian postal address. Line 2 is optional. A type rather than an interface (here and
+ * for date ranges) so it is assignable to Prisma's JSON input type, which needs an index
+ * signature that interfaces never get implicitly.
+ */
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type AddressAnswer = {
   line1: string;
   line2?: string;
@@ -41,6 +46,7 @@ export function isAddressAnswer(value: unknown): value is AddressAnswer {
 }
 
 /** Two calendar days (YYYY-MM-DD), the end on or after the start. */
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type DateRangeAnswer = { start: string; end: string };
 
 export function isDateRangeAnswer(value: unknown): value is DateRangeAnswer {

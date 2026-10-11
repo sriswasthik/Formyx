@@ -9,7 +9,7 @@ import { isAnswerableFieldType } from './field-types.js';
 import type { Field, FieldOfType } from './fields.js';
 import { isFileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
-import { formatPhone } from './phone.js';
+import { formatPhone } from './phone-lookup.js';
 
 /** The questions of `schema` that collect an answer: everything except content blocks. */
 export function answerableFields(schema: FormSchema): Field[] {

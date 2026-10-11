@@ -1,12 +1,8 @@
-import { z } from 'zod';
 import { createDefaultSettings, createEmptyForm, createField, createOption } from './factories.js';
 import type { ChoiceFieldType, FieldType } from './field-types.js';
 import type { FieldOfType } from './fields.js';
 import { FORM_SCHEMA_VERSION, type FormSchema } from './form-schema.js';
-
-export const FORM_TEMPLATE_IDS = ['blank', 'event_registration', 'feedback_survey'] as const;
-export const formTemplateIdSchema = z.enum(FORM_TEMPLATE_IDS);
-export type FormTemplateId = z.infer<typeof formTemplateIdSchema>;
+import type { FormTemplateId } from './template-ids.js';
 
 export interface FormTemplate {
   id: FormTemplateId;
