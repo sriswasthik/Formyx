@@ -233,9 +233,10 @@ function MatrixCards({ field, controlId, describedBy, answer, onPick }: TablePro
             }}
           >
             <ChevronLeft aria-hidden className="size-4" />
-            Previous
+            Previous<span className="sr-only"> row</span>
           </button>
           <span className="form-text-sm text-(--form-muted) tabular-nums" aria-live="polite">
+            <span className="sr-only">Row </span>
             {index + 1} of {total}
           </span>
           <button
@@ -246,7 +247,7 @@ function MatrixCards({ field, controlId, describedBy, answer, onPick }: TablePro
               show(index + 1);
             }}
           >
-            Next
+            Next<span className="sr-only"> row</span>
             <ChevronRight aria-hidden className="size-4" />
           </button>
         </div>

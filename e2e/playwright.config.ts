@@ -2,6 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 import { AUTH_STATE_PATH, OUTBOX_DIR } from './tests/helpers.js';
 
 const isCI = Boolean(process.env.CI);
+// Ports can move, to run the tests beside a dev server that already uses the usual ones.
+const webPort = process.env.E2E_WEB_PORT ?? '5173';
+const apiPort = process.env.E2E_API_PORT ?? '4000';
+const FAKE_SERVICES_PORT = process.env.E2E_FAKE_PORT ?? '4590';
+const fakeServices = `http://localhost:${FAKE_SERVICES_PORT}`;
 
 export default defineConfig({
   testDir: './tests',
@@ -13,7 +18,7 @@ export default defineConfig({
   // a heavy page (charts, tables) can take several seconds.
   expect: { timeout: 15_000 },
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${webPort}`,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -43,11 +48,18 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // Cloudinary and India Post, faked: uploads and PIN codes without outside calls.
+      command: `node scripts/fake-cloudinary.mjs ${FAKE_SERVICES_PORT}`,
+      url: `${fakeServices}/health`,
+      reuseExistingServer: !isCI,
+      timeout: 30_000,
+    },
+    {
       // Without `watch`: tests need no reloads, and on Windows `tsx watch` stalls while loading
       // the Prisma client when stdin is a pipe, as Playwright makes it.
       command:
         'pnpm --filter @formyx/api exec tsx --conditions=@formyx/source --env-file-if-exists=.env src/index.ts',
-      url: 'http://localhost:4000/api/health',
+      url: `http://localhost:${apiPort}/api/health`,
       reuseExistingServer: !isCI,
       timeout: 60_000,
       env: {
@@ -58,13 +70,21 @@ export default defineConfig({
         EMAIL_OUTBOX_DIR: OUTBOX_DIR,
         // Tests receive webhooks on 127.0.0.1.
         WEBHOOK_ALLOW_PRIVATE_URLS: 'true',
+        PORT: apiPort,
+        // Uploads go to the fake Cloudinary, signed with a made-up account.
+        CLOUDINARY_CLOUD_NAME: 'formyx-e2e',
+        CLOUDINARY_API_KEY: 'e2e-key',
+        CLOUDINARY_API_SECRET: 'e2e-secret',
+        CLOUDINARY_API_URL: fakeServices,
+        PINCODE_API_URL: `${fakeServices}/pincode`,
       },
     },
     {
-      command: 'pnpm --filter @formyx/web dev',
-      url: 'http://localhost:5173',
+      command: `pnpm --filter @formyx/web dev --port ${webPort}`,
+      url: `http://localhost:${webPort}`,
       reuseExistingServer: !isCI,
       timeout: 60_000,
+      env: { API_PROXY_TARGET: `http://localhost:${apiPort}` },
     },
   ],
 });
