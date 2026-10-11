@@ -152,7 +152,7 @@ function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
 
 type MobileTab = 'build' | 'design' | 'logic' | 'settings' | 'preview';
 
-/** Phones and tablets: Build / Settings / Preview tabs, and the palette in a bottom sheet. */
+/** Phones and tablets: Build / Design / Logic / Settings / Preview tabs; the palette in a sheet. */
 function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
   const theme = useEditorStore((state) => state.theme);
   const [tab, setTab] = useState<MobileTab>('build');

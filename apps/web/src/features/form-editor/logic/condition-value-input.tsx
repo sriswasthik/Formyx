@@ -19,6 +19,25 @@ interface ConditionValueInputProps {
   onChange: (value: string | number | undefined, typing?: boolean) => void;
 }
 
+/** Whole numbers from `from` to `to`, for scales. */
+function range(from: number, to: number): number[] {
+  return Array.from({ length: Math.max(0, to - from + 1) }, (_, index) => from + index);
+}
+
+/** The points of a scale (rating, NPS, opinion scale) a condition can compare with. */
+function scalePoints(source: Field): number[] | null {
+  switch (source.type) {
+    case 'rating':
+      return range(1, source.ratingScale);
+    case 'nps':
+      return range(0, 10);
+    case 'opinion_scale':
+      return range(source.start, source.end);
+    default:
+      return null;
+  }
+}
+
 /** The value to compare with, in a control that fits the source question's answers. */
 export function ConditionValueInput({
   id,
@@ -52,8 +71,27 @@ export function ConditionValueInput({
     );
   }
 
-  if (source.type === 'rating') {
-    const ratings = Array.from({ length: source.ratingScale }, (_, index) => index + 1);
+  if (source.type === 'yes_no') {
+    return (
+      <Select
+        value={typeof value === 'string' ? value : ''}
+        onValueChange={(next) => {
+          onChange(next);
+        }}
+      >
+        <SelectTrigger {...shared} className="w-full">
+          <SelectValue placeholder="Yes or no" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="yes">Yes</SelectItem>
+          <SelectItem value="no">No</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  const points = scalePoints(source);
+  if (points) {
     return (
       <Select
         value={typeof value === 'number' ? String(value) : ''}
@@ -62,12 +100,12 @@ export function ConditionValueInput({
         }}
       >
         <SelectTrigger {...shared} className="w-full">
-          <SelectValue placeholder="Rating" />
+          <SelectValue placeholder={source.type === 'rating' ? 'Rating' : 'Score'} />
         </SelectTrigger>
         <SelectContent>
-          {ratings.map((rating) => (
-            <SelectItem key={rating} value={String(rating)}>
-              {rating}
+          {points.map((point) => (
+            <SelectItem key={point} value={String(point)}>
+              {point}
             </SelectItem>
           ))}
         </SelectContent>
@@ -75,7 +113,7 @@ export function ConditionValueInput({
     );
   }
 
-  if (source.type === 'number') {
+  if (source.type === 'number' || source.type === 'slider' || source.type === 'currency') {
     return (
       <NumberInput
         {...shared}
@@ -88,11 +126,11 @@ export function ConditionValueInput({
     );
   }
 
-  if (source.type === 'date') {
+  if (source.type === 'date' || source.type === 'time') {
     return (
       <Input
         {...shared}
-        type="date"
+        type={source.type}
         value={typeof value === 'string' ? value : ''}
         onChange={(event) => {
           onChange(event.target.value || undefined);

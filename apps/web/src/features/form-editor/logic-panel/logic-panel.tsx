@@ -15,6 +15,7 @@ import { EndScreensSection } from './end-screens-section';
 import { PagesSection } from './pages-section';
 import { QuizSection } from './quiz-section';
 import { ValuesSection } from './values-section';
+import { warningSubject } from './warning-subject';
 
 // React Flow is large; it loads only when the map is opened.
 const LogicMap = lazy(() => import('./logic-map'));
@@ -56,7 +57,7 @@ export function LogicPanel() {
   const fields = useEditorStore((state) => state.schema.fields);
   const logic = useEditorStore((state) => state.schema.logic);
   const [mapOpen, setMapOpen] = useState(false);
-  const warnings = useMemo(() => analyzeLogic({ fields, logic }).warnings, [fields, logic]);
+  const graph = useMemo(() => analyzeLogic({ fields, logic }), [fields, logic]);
 
   return (
     <div>
@@ -76,12 +77,15 @@ export function LogicPanel() {
           Logic map
         </Button>
       </header>
-      {warnings.length > 0 && (
+      {graph.warnings.length > 0 && (
         <div role="status" className="flex flex-col gap-1.5 border-b bg-surface px-4 py-3">
-          {warnings.map((warning, index) => (
+          {graph.warnings.map((warning, index) => (
             <p key={index} className="flex gap-2 text-13">
               <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" />
-              {warning.message}
+              <span>
+                <span className="font-medium">{warningSubject(graph, warning)}:</span>{' '}
+                {warning.message}
+              </span>
             </p>
           ))}
         </div>

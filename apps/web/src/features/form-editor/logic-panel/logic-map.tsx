@@ -14,11 +14,15 @@ import {
 import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { useThemeStore } from '@/features/theme/theme-store';
+import { warningSubject } from './warning-subject';
 
 /*
- * The read-only logic map: pages top to bottom, end screens along the bottom, and arrows
- * for where each page leads. Warnings mark pages and end screens nobody can reach. A list
- * of the same routes sits beside it for keyboards and screen readers.
+ * The read-only logic map: pages top to bottom, end screens in a column beside them, and
+ * arrows for where each page leads. Arrows to end screens leave from a page's side, and jumps
+ * past pages go round the left, so no arrow crosses a page. Warnings mark pages and end
+ * screens nobody can reach. A list of the same routes sits beside it for keyboards and
+ * screen readers.
  */
 
 /** React Flow keeps node data as a record. */
@@ -27,8 +31,13 @@ interface MapNodeData extends Record<string, unknown> {
   warning: string | null;
 }
 
-const PAGE_GAP = 130;
-const SCREEN_GAP = 220;
+const PAGE_GAP = 140;
+const SCREEN_GAP = 110;
+/** From the pages' column to the end screens'. */
+const SCREEN_COLUMN_X = 320;
+/** How far a jump past pages swings out to the left, growing with each one. */
+const SKIP_OFFSET = 24;
+const SKIP_OFFSET_STEP = 16;
 
 function MapNode({ data }: NodeProps<Node<MapNodeData>>) {
   const { node, warning } = data;
@@ -41,7 +50,14 @@ function MapNode({ data }: NodeProps<Node<MapNodeData>>) {
         warning && 'border-warning',
       )}
     >
-      <Handle type="target" position={Position.Top} className="opacity-0" />
+      {page ? (
+        <>
+          <Handle id="top" type="target" position={Position.Top} className="opacity-0" />
+          <Handle id="left-in" type="target" position={Position.Left} className="opacity-0" />
+        </>
+      ) : (
+        <Handle id="left-in" type="target" position={Position.Left} className="opacity-0" />
+      )}
       <span className="text-12 font-medium text-muted-foreground">
         {page ? `Page ${node.index + 1}` : 'End screen'}
       </span>
@@ -57,7 +73,13 @@ function MapNode({ data }: NodeProps<Node<MapNodeData>>) {
           {warning}
         </span>
       )}
-      <Handle type="source" position={Position.Bottom} className="opacity-0" />
+      {page && (
+        <>
+          <Handle id="bottom" type="source" position={Position.Bottom} className="opacity-0" />
+          <Handle id="left-out" type="source" position={Position.Left} className="opacity-0" />
+          <Handle id="right" type="source" position={Position.Right} className="opacity-0" />
+        </>
+      )}
     </div>
   );
 }
@@ -80,32 +102,62 @@ function warningFor(graph: LogicGraph, node: LogicNode): string | null {
 function toFlow(graph: LogicGraph): { nodes: Node<MapNodeData>[]; edges: Edge[] } {
   const pages = graph.nodes.filter((node) => node.kind === 'page');
   const screens = graph.nodes.filter((node) => node.kind === 'end');
-  const width = Math.max(1, screens.length) * SCREEN_GAP;
+  // The end screens sit level with the middle of the pages.
+  const screensTop = Math.max(
+    0,
+    ((pages.length - 1) * PAGE_GAP - (screens.length - 1) * SCREEN_GAP) / 2,
+  );
   const nodes: Node<MapNodeData>[] = [
     ...pages.map((node, index) => ({
       id: nodeId(node),
       type: 'logic',
-      position: { x: width / 2 - 96, y: index * PAGE_GAP },
+      position: { x: 0, y: index * PAGE_GAP },
       data: { node, warning: warningFor(graph, node) },
     })),
     ...screens.map((node, index) => ({
       id: nodeId(node),
       type: 'logic',
-      position: { x: index * SCREEN_GAP, y: pages.length * PAGE_GAP + 40 },
+      position: { x: SCREEN_COLUMN_X, y: screensTop + index * SCREEN_GAP },
       data: { node, warning: warningFor(graph, node) },
     })),
   ];
-  const edges: Edge[] = graph.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.from,
-    target: edge.to,
-    type: 'smoothstep',
-    animated: false,
-    label: edge.kind === 'jump' ? (edge.conditional ? 'If…' : 'Always') : undefined,
-    markerEnd: { type: MarkerType.ArrowClosed },
-    className: cn(edge.kind === 'jump' && 'logic-jump', edge.conditional && 'logic-conditional'),
-    style: edge.conditional ? { strokeDasharray: '6 4' } : undefined,
-  }));
+  const pageIndex = new Map(pages.map((node) => [nodeId(node), node.index]));
+  let skips = 0;
+  // Arrows into end screens turn at different points between the columns, so their
+  // labels never sit on top of each other.
+  const toEnds = graph.edges.filter((edge) => !pageIndex.has(edge.to)).length;
+  let ends = 0;
+  const edges: Edge[] = graph.edges.map((edge) => {
+    const from = pageIndex.get(edge.from) ?? 0;
+    const to = pageIndex.get(edge.to);
+    // To the next page: straight down. Past pages: round the left. To an end: the right.
+    const route =
+      to === undefined
+        ? {
+            sourceHandle: 'right',
+            targetHandle: 'left-in',
+            pathOptions: { stepPosition: (ends++ + 1) / (toEnds + 1) },
+          }
+        : to === from + 1
+          ? { sourceHandle: 'bottom', targetHandle: 'top' }
+          : {
+              sourceHandle: 'left-out',
+              targetHandle: 'left-in',
+              pathOptions: { offset: SKIP_OFFSET + SKIP_OFFSET_STEP * skips++ },
+            };
+    return {
+      id: edge.id,
+      source: edge.from,
+      target: edge.to,
+      sourceHandle: route.sourceHandle,
+      targetHandle: route.targetHandle,
+      type: 'smoothstep',
+      ...('pathOptions' in route && { pathOptions: route.pathOptions }),
+      label: edge.kind === 'jump' ? (edge.conditional ? 'If…' : 'Always') : undefined,
+      markerEnd: { type: MarkerType.ArrowClosed },
+      style: edge.conditional ? { strokeDasharray: '6 4' } : undefined,
+    };
+  });
   return { nodes, edges };
 }
 
@@ -118,17 +170,17 @@ function routeText(graph: LogicGraph): string[] {
       : `end screen "${node.name}"`;
   };
   return graph.edges.map((edge) => {
-    const how =
-      edge.kind === 'next'
-        ? 'otherwise goes on to'
-        : edge.kind === 'finish'
-          ? edge.conditional
-            ? 'ends, when its conditions hold, on'
-            : 'ends on'
-          : edge.conditional
-            ? 'jumps, when its conditions hold, to'
-            : 'always jumps to';
-    return `${nameOf(edge.from)} ${how} ${nameOf(edge.to)}.`;
+    const from = nameOf(edge.from);
+    const to = nameOf(edge.to);
+    if (edge.kind === 'next') return `${from} otherwise goes on to ${to}.`;
+    if (edge.kind === 'finish') {
+      return edge.conditional
+        ? `${from} ends on ${to} when that end screen's conditions hold.`
+        : `${from} ends on ${to}.`;
+    }
+    return edge.conditional
+      ? `${from} jumps to ${to} when the jump's conditions hold.`
+      : `${from} always jumps to ${to}.`;
   });
 }
 
@@ -137,22 +189,29 @@ export default function LogicMap({ schema }: { schema: Pick<FormSchema, 'fields'
   const graph = useMemo(() => analyzeLogic(schema), [schema]);
   const flow = useMemo(() => toFlow(graph), [graph]);
   const routes = useMemo(() => routeText(graph), [graph]);
+  // React Flow marks its root `light` or `dark`, which also picks the app's tokens there.
+  const colorMode = useThemeStore((state) => state.preference);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+    // Stacked on small screens, where the body scrolls; side by side from lg. The map needs
+    // a height of its own (not one from flex) for React Flow to fill.
+    <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1 lg:flex-row lg:overflow-visible">
       <div
-        className="h-[60dvh] min-h-80 flex-1 overflow-hidden rounded-lg border bg-surface"
-        aria-hidden
+        role="group"
+        aria-label="Map of pages and end screens, with the same routes listed as text"
+        className="h-[55dvh] min-h-80 shrink-0 overflow-hidden rounded-lg border bg-surface lg:h-[60dvh] lg:flex-1 lg:shrink"
       >
         <ReactFlow
           nodes={flow.nodes}
           edges={flow.edges}
           nodeTypes={nodeTypes}
+          colorMode={colorMode}
           fitView
           nodesDraggable={false}
           nodesConnectable={false}
+          nodesFocusable={false}
+          edgesFocusable={false}
           elementsSelectable={false}
-          proOptions={{ hideAttribution: true }}
           minZoom={0.3}
         >
           <Background gap={16} size={1} />
@@ -165,19 +224,7 @@ export default function LogicMap({ schema }: { schema: Pick<FormSchema, 'fields'
             <h3 className="text-13 font-medium">Warnings</h3>
             <ul className="flex flex-col gap-1.5">
               {graph.warnings.map((warning, index) => {
-                const subject =
-                  'pageKey' in warning
-                    ? graph.nodes.find(
-                        (node) => node.kind === 'page' && node.key === warning.pageKey,
-                      )
-                    : graph.nodes.find(
-                        (node) => node.kind === 'end' && node.id === warning.endScreenId,
-                      );
-                const name = !subject
-                  ? ''
-                  : subject.kind === 'page'
-                    ? `Page ${subject.index + 1}`
-                    : subject.name;
+                const name = warningSubject(graph, warning);
                 return (
                   <li key={index} className="flex gap-2 text-13">
                     <TriangleAlert
