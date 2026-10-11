@@ -45,6 +45,7 @@ class IntersectionObserverStub {
 window.IntersectionObserver = IntersectionObserverStub;
 
 Element.prototype.scrollIntoView = function scrollIntoView() {};
+Element.prototype.scrollTo = function scrollTo() {};
 Element.prototype.hasPointerCapture = () => false;
 Element.prototype.setPointerCapture = function setPointerCapture() {};
 Element.prototype.releasePointerCapture = function releasePointerCapture() {};

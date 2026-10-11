@@ -6,6 +6,25 @@ import type { Field, FieldType } from '@formyx/shared';
  * going away (conditional logic) never makes the flow jump to a different one.
  */
 
+/** Fields with nothing to show on a step of their own. */
+const NOT_STEPS: readonly FieldType[] = ['hidden', 'page_break', 'divider'];
+
+/**
+ * The fields that get a step, out of those respondents can see: questions and content
+ * blocks, but not hidden fields, page breaks or dividers (one at a time, there is nothing
+ * to divide).
+ */
+export function stepVisibleIds(
+  fields: readonly Pick<Field, 'id' | 'type'>[],
+  visibleIds: ReadonlySet<string>,
+): Set<string> {
+  return new Set(
+    fields
+      .filter((field) => visibleIds.has(field.id) && !NOT_STEPS.includes(field.type))
+      .map((field) => field.id),
+  );
+}
+
 /** The questions shown one at a time: those respondents can see, statements included. */
 export function conversationSteps<T extends Pick<Field, 'id'>>(
   fields: readonly T[],
@@ -55,7 +74,15 @@ export function previousStep(steps: readonly Pick<Field, 'id'>[], id: string): s
  */
 export type AnswerIntent = 'pointer' | 'key' | 'arrow';
 
-const AUTO_ADVANCE_TYPES: readonly FieldType[] = ['single_choice', 'rating', 'dropdown'];
+const AUTO_ADVANCE_TYPES: readonly FieldType[] = [
+  'single_choice',
+  'rating',
+  'dropdown',
+  'yes_no',
+  'nps',
+  'opinion_scale',
+  'picture_choice',
+];
 
 /**
  * Whether answering moves on by itself: for questions with one answer, picked with a click,
@@ -64,18 +91,22 @@ const AUTO_ADVANCE_TYPES: readonly FieldType[] = ['single_choice', 'rating', 'dr
  */
 export function shouldAutoAdvance({
   type,
+  multiple = false,
   intent,
   enabled,
   isLast,
   answered,
 }: {
   type: FieldType;
+  /** Several answers may be picked (a picture choice), so one pick is not the answer yet. */
+  multiple?: boolean;
   intent: AnswerIntent | null;
   enabled: boolean;
   isLast: boolean;
   answered: boolean;
 }): boolean {
-  if (!enabled || isLast || !answered || !AUTO_ADVANCE_TYPES.includes(type)) return false;
+  if (!enabled || isLast || !answered || multiple || !AUTO_ADVANCE_TYPES.includes(type))
+    return false;
   if (type === 'dropdown') return intent === 'pointer';
   return intent === 'pointer' || intent === 'key';
 }
@@ -87,7 +118,18 @@ export function shouldAutoAdvance({
  */
 export type StepKey = 'next' | 'previous' | null;
 
-const ARROW_CONTROLS = new Set(['text', 'email', 'tel', 'number', 'date', 'radio', 'search']);
+const ARROW_CONTROLS = new Set([
+  'text',
+  'email',
+  'tel',
+  'url',
+  'number',
+  'date',
+  'time',
+  'range',
+  'radio',
+  'search',
+]);
 
 export function stepKey(
   event: Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>,

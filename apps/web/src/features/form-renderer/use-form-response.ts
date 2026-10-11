@@ -29,14 +29,23 @@ interface UseFormResponseOptions {
   schema: FormSchema;
   onSubmit?: ((answers: SubmittedAnswers) => Promise<SubmitOutcome> | SubmitOutcome) | undefined;
   uploadFile?: FileUploader | undefined;
+  /** Answers to start from, such as hidden fields filled from the link. */
+  initialAnswers?: Readonly<Record<string, AnswerValue>> | undefined;
 }
 
 /**
  * One respondent's answers to a form: which questions show, what is wrong with which answer,
  * files still uploading, and sending. Shared by the classic and conversational layouts.
  */
-export function useFormResponse({ schema, onSubmit, uploadFile }: UseFormResponseOptions) {
-  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
+export function useFormResponse({
+  schema,
+  onSubmit,
+  uploadFile,
+  initialAnswers,
+}: UseFormResponseOptions) {
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>(() => ({
+    ...initialAnswers,
+  }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<ResponseStatus>('filling');
@@ -103,6 +112,20 @@ export function useFormResponse({ schema, onSubmit, uploadFile }: UseFormRespons
     [findProblems],
   );
 
+  /** Checks several questions (a page) at once, showing their problems; returns them. */
+  const checkFields = useCallback(
+    (fieldIds: readonly string[]): Record<string, string> => {
+      const only = new Set(fieldIds);
+      const problems = findProblems(only);
+      setErrors((current) => {
+        const kept = Object.fromEntries(Object.entries(current).filter(([id]) => !only.has(id)));
+        return { ...kept, ...problems };
+      });
+      return problems;
+    },
+    [findProblems],
+  );
+
   /** Validates every visible answer and sends them; problems stay shown for the layout. */
   const submit = useCallback(async (): Promise<SubmitResult> => {
     const problems = findProblems();
@@ -135,11 +158,11 @@ export function useFormResponse({ schema, onSubmit, uploadFile }: UseFormRespons
 
   /** Back to an empty form, for "Submit another response". */
   const reset = useCallback(() => {
-    setAnswers({});
+    setAnswers({ ...initialAnswers });
     setErrors({});
     setFormError(null);
     setStatus('filling');
-  }, []);
+  }, [initialAnswers]);
 
   return {
     answers,
@@ -150,6 +173,7 @@ export function useFormResponse({ schema, onSubmit, uploadFile }: UseFormRespons
     fileUploads,
     handleChange,
     checkField,
+    checkFields,
     submit,
     reset,
   };

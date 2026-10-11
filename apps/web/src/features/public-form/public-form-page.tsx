@@ -13,6 +13,7 @@ import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
 import { FormView, type SubmitOutcome } from '@/features/form-renderer/form-view';
 import { preloadFormLayout } from '@/features/form-renderer/conversational/load-conversational';
+import { preloadFieldControls } from '@/features/form-renderer/controls/registry';
 import { themeFontsReady } from '@/features/form-renderer/theme/fonts';
 import { ApiRequestError } from '@/lib/api';
 import { isEmbedded } from '@/lib/embed';
@@ -62,9 +63,14 @@ interface LiveFormProps {
   onClosed: () => void;
   /** Set when embedded in another site: tells that page when a response was sent. */
   hostOrigin: string | null;
+  /** The link's query string, for hidden fields. */
+  linkParams: URLSearchParams;
 }
 
-function LiveForm({ form, onClosed, hostOrigin }: LiveFormProps) {
+/** Query parameters the embed adds for itself, which never fill hidden fields. */
+const EMBED_PARAMS = ['embed', 'parent'];
+
+function LiveForm({ form, onClosed, hostOrigin, linkParams }: LiveFormProps) {
   const embedded = hostOrigin !== null;
   const [openedAt] = useState(() => Date.now());
   const honeypot = useRef<HTMLInputElement>(null);
@@ -114,6 +120,7 @@ function LiveForm({ form, onClosed, hostOrigin }: LiveFormProps) {
       onSubmit={submit}
       allowAnotherResponse={false}
       uploadFile={uploadFile}
+      linkParams={linkParams}
       hiddenFields={<Honeypot inputRef={honeypot} />}
       variant={embedded ? 'embed' : 'page'}
       // Embedded, the form is a card on the host's page rather than a page of its own.
@@ -132,17 +139,24 @@ export function PublicFormPage() {
   const [searchParams] = useSearchParams();
   const [embedded] = useState(isEmbedded);
   const hostOrigin = embedded ? hostTargetOrigin(searchParams.get('parent')) : null;
+  // Fills hidden fields (?source=instagram); embedded, embed.js passes on the host page's.
+  const [linkParams] = useState(() => {
+    const params = new URLSearchParams(searchParams);
+    for (const name of EMBED_PARAMS) params.delete(name);
+    return params;
+  });
   const [closedWhileOpen, setClosedWhileOpen] = useState(false);
   const query = useQuery({
     queryKey: ['public-form', slug],
     queryFn: async () => {
       const form = await getPublicForm(slug);
       // The skeleton stays a moment longer so the form's text never jumps as fonts arrive,
-      // and a conversational form's flow is ready to draw.
+      // and a conversational form's flow and the question types' controls are ready to draw.
       if (form.status === 'open') {
         await Promise.all([
           themeFontsReady(form.theme, FONT_WAIT_MS),
           preloadFormLayout(form.theme),
+          preloadFieldControls(form.schema),
         ]);
       }
       return form;
@@ -200,6 +214,7 @@ export function PublicFormPage() {
     <LiveForm
       form={query.data}
       hostOrigin={hostOrigin}
+      linkParams={linkParams}
       onClosed={() => {
         setClosedWhileOpen(true);
       }}

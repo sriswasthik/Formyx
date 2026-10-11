@@ -13,7 +13,8 @@ import {
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { preloadFieldControls } from './controls/registry';
 import { FieldRenderer } from './field-renderer';
 import { ThemeRenderer } from './theme/theme-renderer';
 
@@ -23,6 +24,11 @@ import { ThemeRenderer } from './theme/theme-renderer';
  */
 
 const base = createDefaultTheme();
+
+// The newer question types' controls load on demand; the public form preloads them too.
+beforeAll(async () => {
+  await preloadFieldControls({ fields: FIELD_TYPES.map((type) => createField(type)) });
+});
 
 function themeWith(components: Partial<ThemeComponents>): FormTheme {
   return { ...base, components: { ...base.components, ...components } };
@@ -83,16 +89,17 @@ describe.each(INPUT_STYLES)('the %s input style', (inputStyle) => {
   const theme = themeWith({ inputStyle });
 
   it.each(FIELD_TYPES)('draws %s questions with it', async (type) => {
-    const { root, onValue, user } = setup(type, theme);
+    const { field, root, onValue, user } = setup(type, theme);
     expect(root.style.getPropertyValue('--form-input-radius')).toBe(INPUT_RADIUS[inputStyle]);
     expect(root.style.getPropertyValue('--form-input-border-hover')).not.toBe('');
 
     switch (type) {
       case 'short_text':
       case 'email':
-      case 'phone':
       case 'number':
-      case 'long_text': {
+      case 'long_text':
+      case 'url':
+      case 'currency': {
         const input = screen.getByRole('textbox', { name: 'Question' });
         expect(input.className).toContain(STYLE_SOURCE.text);
         expect(input.className).toContain('hover:border-(--form-input-border-hover)');
@@ -113,9 +120,56 @@ describe.each(INPUT_STYLES)('the %s input style', (inputStyle) => {
         expect(onValue).toHaveBeenCalledTimes(1);
         break;
       }
+      case 'phone': {
+        const input = screen.getByRole('textbox', { name: 'Question' });
+        expect(input).toHaveAttribute('type', 'tel');
+        expect(input.className).toContain(STYLE_SOURCE.text);
+        expect(screen.getByRole('combobox', { name: 'Country code' })).toHaveValue('IN');
+        await user.type(input, '98765 43210');
+        expect(onValue).toHaveBeenLastCalledWith('+919876543210');
+        break;
+      }
+      case 'time': {
+        const input = screen.getByLabelText('Question');
+        expect(input).toHaveAttribute('type', 'time');
+        expect(input.className).toContain(STYLE_SOURCE.text);
+        break;
+      }
+      case 'date_range': {
+        const group = screen.getByRole('group', { name: 'Question' });
+        const dates = group.querySelectorAll('input[type="date"]');
+        expect(dates).toHaveLength(2);
+        dates.forEach((input) => {
+          expect(input.className).toContain(STYLE_SOURCE.text);
+        });
+        break;
+      }
+      case 'color': {
+        const input = screen.getByRole('textbox', { name: 'Question' });
+        expect(input.className).toContain(STYLE_SOURCE.text);
+        await user.type(input, '#2e5aac');
+        expect(onValue).toHaveBeenLastCalledWith('#2e5aac');
+        break;
+      }
+      case 'address': {
+        const group = screen.getByRole('group', { name: 'Question' });
+        const line1 = within(group).getByRole('textbox', { name: 'Address line 1' });
+        expect(line1.className).toContain(STYLE_SOURCE.text);
+        expect(within(group).getByRole('textbox', { name: 'PIN code' })).toBeInTheDocument();
+        await user.type(line1, 'MG Road');
+        expect(onValue).toHaveBeenLastCalledWith(expect.objectContaining({ line1: 'MG Road' }));
+        break;
+      }
+      case 'slider': {
+        const slider = screen.getByRole('slider', { name: 'Question' });
+        expect(slider).toHaveAttribute('aria-valuetext', 'Not answered');
+        slider.focus();
+        await user.keyboard('{Enter}');
+        expect(onValue).toHaveBeenLastCalledWith(50);
+        break;
+      }
       case 'single_choice':
-      case 'multi_choice':
-      case 'rating': {
+      case 'multi_choice': {
         const group = screen.getByRole('group', { name: 'Question' });
         const role = type === 'multi_choice' ? 'checkbox' : 'radio';
         const [first] = within(group).getAllByRole(role);
@@ -127,6 +181,64 @@ describe.each(INPUT_STYLES)('the %s input style', (inputStyle) => {
         expect(onValue).toHaveBeenCalled();
         break;
       }
+      case 'rating':
+      case 'picture_choice':
+      case 'yes_no':
+      case 'nps':
+      case 'opinion_scale':
+      case 'matrix': {
+        const group = screen.getByRole('group', { name: 'Question' });
+        const [first] = within(group).getAllByRole('radio');
+        if (!first) throw new Error('No options');
+        first.focus();
+        await user.keyboard(' ');
+        expect(first).toBeChecked();
+        expect(onValue).toHaveBeenCalled();
+        break;
+      }
+      case 'ranking': {
+        const group = screen.getByRole('group', { name: 'Question' });
+        await user.click(within(group).getByRole('button', { name: 'Move Option 1 down' }));
+        const [first, second, third] = field.type === 'ranking' ? field.options : [];
+        expect(onValue).toHaveBeenLastCalledWith([second?.id, first?.id, third?.id]);
+        break;
+      }
+      case 'consent': {
+        // Consent starts required, which its name says.
+        const box = screen.getByRole('checkbox', { name: 'Question (required)' });
+        await user.click(box);
+        expect(onValue).toHaveBeenLastCalledWith(true);
+        break;
+      }
+      case 'signature': {
+        const group = screen.getByRole('group', { name: 'Question' });
+        expect(within(group).getByRole('button', { name: 'Draw' })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        );
+        await user.click(within(group).getByRole('button', { name: 'Type' }));
+        expect(within(group).getByRole('textbox')).toBeInTheDocument();
+        break;
+      }
+      case 'voice_note': {
+        const group = screen.getByRole('group', { name: 'Question' });
+        expect(within(group).getByRole('button', { name: 'Record' })).toBeInTheDocument();
+        break;
+      }
+      case 'image':
+        expect(screen.getByText('No image yet')).toBeInTheDocument();
+        break;
+      case 'video':
+        expect(screen.getByText('Add a YouTube or Vimeo link')).toBeInTheDocument();
+        break;
+      case 'divider':
+        expect(screen.getByRole('separator')).toBeInTheDocument();
+        break;
+      case 'page_break':
+      case 'hidden':
+        // Respondents never see these as fields.
+        expect(root.textContent).toBe('');
+        break;
       case 'file': {
         const input = screen.getByLabelText(/Question/);
         expect(input).toHaveAttribute('type', 'file');

@@ -60,6 +60,23 @@ describe('embed.js', () => {
     expect(src.searchParams.get('embed')).toBe('1');
     expect(src.searchParams.get('parent')).toBe(window.location.origin);
     expect(frameOf(a).title).toBe('Form');
+    expect(frameOf(a).allow).toBe('microphone');
+  });
+
+  it("passes the host page's query string on, for hidden fields", () => {
+    window.history.replaceState(null, '', '/landing?source=newsletter&embed=0&parent=evil');
+    try {
+      runEmbedScript();
+      const a = document.getElementById('a');
+      if (!a) throw new Error('missing');
+      const src = new URL(frameOf(a).src);
+      expect(src.searchParams.get('source')).toBe('newsletter');
+      // The embed's own parameters are always its own.
+      expect(src.searchParams.getAll('embed')).toEqual(['1']);
+      expect(src.searchParams.getAll('parent')).toEqual([window.location.origin]);
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 
   it('resizes the right iframe, only for messages from its form', () => {

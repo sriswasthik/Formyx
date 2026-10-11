@@ -1,4 +1,4 @@
-import { isAnswerableFieldType, type Field, type FormTheme } from '@formyx/shared';
+import { isShownQuestionType, type Field, type FormTheme } from '@formyx/shared';
 
 type Numbering = FormTheme['typography']['questionNumbering'];
 
@@ -26,7 +26,7 @@ export function questionNumbers(
   if (numbering === 'none') return numbers;
   let position = 0;
   for (const field of fields) {
-    if (!isAnswerableFieldType(field.type)) continue;
+    if (!isShownQuestionType(field.type)) continue;
     position += 1;
     numbers.set(field.id, numbering === 'letter' ? letters(position) : String(position));
   }

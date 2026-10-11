@@ -2,7 +2,8 @@ import { createDefaultTheme, createField, type AnswerValue, type Field } from '@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { preloadFieldControls } from './controls/registry';
 import { FieldRenderer } from './field-renderer';
 import { ThemeRenderer } from './theme/theme-renderer';
 
@@ -30,6 +31,12 @@ function setup(field: Field) {
   render(<Harness field={field} onValue={onValue} />);
   return { onValue, user: userEvent.setup() };
 }
+
+// Phone and file questions draw with controls that load on demand; the public form preloads
+// them.
+beforeAll(async () => {
+  await preloadFieldControls({ fields: [createField('phone'), createField('file')] });
+});
 
 describe('FieldRenderer in respondent mode', () => {
   it('labels text questions, marks required ones and links the description', async () => {
@@ -105,7 +112,12 @@ describe('FieldRenderer in respondent mode', () => {
   });
 
   it('shows one button per rating and supports the keyboard', async () => {
-    const { onValue, user } = setup({ ...createField('rating'), label: 'Rate us', ratingScale: 4 });
+    const { onValue, user } = setup({
+      ...createField('rating'),
+      label: 'Rate us',
+      ratingScale: 4,
+      ratingStyle: 'numbers',
+    });
 
     const ratings = screen.getAllByRole('radio');
     expect(ratings.map((radio) => radio.parentElement?.textContent)).toEqual(['1', '2', '3', '4']);

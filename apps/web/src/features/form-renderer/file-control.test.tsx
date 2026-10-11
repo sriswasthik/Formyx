@@ -7,8 +7,9 @@ import {
 } from '@formyx/shared';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { UploadError, type UploadOptions } from '@/lib/uploads';
+import { preloadFieldControls } from './controls/registry';
 import { previewUpload, type FileUploader } from './file-uploads';
 import { FormView } from './form-view';
 
@@ -19,6 +20,11 @@ const cv = {
   fileConfig: { maxSizeMb: 2, allowedTypes: ['pdf' as const] },
 };
 const SCHEMA: FormSchema = { ...createEmptyForm(), fields: [cv] };
+
+// The file control loads on demand; the public form preloads it.
+beforeAll(async () => {
+  await preloadFieldControls(SCHEMA);
+});
 
 const pdf = (name = 'cv.pdf') => new File(['%PDF-1.7 hello'], name, { type: 'application/pdf' });
 

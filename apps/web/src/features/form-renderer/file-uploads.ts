@@ -1,10 +1,10 @@
-import type { FieldOfType, FileAnswer } from '@formyx/shared';
+import type { FieldOfType, FileAnswer, UploadFieldType } from '@formyx/shared';
 import { createContext, useContext } from 'react';
 import type { UploadOptions } from '@/lib/uploads';
 
-/** Uploads a respondent's file for a question and returns the answer to send. */
+/** Uploads a respondent's file, signature or voice note and returns the answer to send. */
 export type FileUploader = (
-  field: FieldOfType<'file'>,
+  field: FieldOfType<UploadFieldType>,
   file: File,
   options: UploadOptions,
 ) => Promise<FileAnswer>;

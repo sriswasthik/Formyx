@@ -6,6 +6,7 @@ import {
   resolveStep,
   shouldAutoAdvance,
   stepKey,
+  stepVisibleIds,
 } from './steps';
 
 const fields = ['a', 'b', 'c', 'd'].map((id) => ({ id }));
@@ -78,6 +79,43 @@ describe('shouldAutoAdvance', () => {
   });
 });
 
+describe('stepVisibleIds', () => {
+  it('gives questions and content blocks a step, not hidden fields, page breaks or dividers', () => {
+    const typed = [
+      { id: 'q', type: 'short_text' },
+      { id: 'h', type: 'hidden' },
+      { id: 'p', type: 'page_break' },
+      { id: 'd', type: 'divider' },
+      { id: 'i', type: 'image' },
+      { id: 'x', type: 'email' },
+    ] as const;
+    const shown = new Set(['q', 'h', 'p', 'd', 'i']);
+    expect([...stepVisibleIds(typed, shown)]).toEqual(['q', 'i']);
+  });
+});
+
+describe('shouldAutoAdvance for newer question types', () => {
+  const answer = {
+    type: 'yes_no',
+    intent: 'pointer',
+    enabled: true,
+    isLast: false,
+    answered: true,
+  } as const;
+
+  it('moves on from one-answer scales and yes/no', () => {
+    for (const type of ['yes_no', 'nps', 'opinion_scale', 'picture_choice'] as const) {
+      expect(shouldAutoAdvance({ ...answer, type })).toBe(true);
+    }
+  });
+
+  it('waits on picture choices that take several pictures, and on sliders', () => {
+    expect(shouldAutoAdvance({ ...answer, type: 'picture_choice', multiple: true })).toBe(false);
+    expect(shouldAutoAdvance({ ...answer, type: 'slider' })).toBe(false);
+    expect(shouldAutoAdvance({ ...answer, type: 'matrix' })).toBe(false);
+  });
+});
+
 describe('stepKey', () => {
   const key = (value: string, modifiers: Partial<KeyboardEvent> = {}) => ({
     key: value,
@@ -111,5 +149,11 @@ describe('stepKey', () => {
     expect(stepKey(key('ArrowUp'), input('text'))).toBeNull();
     expect(stepKey(key('ArrowDown'), { tagName: 'SELECT' })).toBeNull();
     expect(stepKey(key('ArrowDown', { altKey: true }), input('radio'))).toBe('next');
+  });
+
+  it('leaves arrow keys to sliders and time and web address boxes', () => {
+    expect(stepKey(key('ArrowUp'), input('range'))).toBeNull();
+    expect(stepKey(key('ArrowDown'), input('time'))).toBeNull();
+    expect(stepKey(key('ArrowDown'), input('url'))).toBeNull();
   });
 });
