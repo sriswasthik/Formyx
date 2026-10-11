@@ -18,11 +18,12 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 
 - **Editor.** Drag and drop questions (mouse, touch and keyboard), 28 question types and 5 content blocks, pages, hidden fields, templates, undo and redo, autosave with conflict detection, keyboard shortcuts, and a tabbed layout on small screens.
 - **Conditional logic.** Show a question only when earlier answers match, with comparisons that fit each question type, combined with all or any.
+- **Advanced logic.** Pages with titles, jumps after a page ("if … go to page X or end screen Y"), a read-only map of pages and jumps that warns about unreachable pages, answers and values piped into text (`Thanks, {{name}}!`), calculated values (score, price, custom), quiz mode with points, a pass mark and an optional answer review, several designable end screens with redirects, shuffled questions and options, and answers saved in the browser or emailed as a link to finish later.
 - **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), 40 open-licence fonts with pairings, input, choice, button and container styles, question numbers, progress bars, and classic, card, split or one-question-at-a-time layouts. Brand kits carry a workspace's logo, colours and fonts from form to form, and a look can be suggested from a logo. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
 - **Plans.** Free, Pro and Business entitlements, checked through shared helpers. Everything is unlocked during the beta; when enforced, anyone can try Pro styles in the editor, but publishing them needs Pro.
 - **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code or an embed snippet; close and reopen forms, or close them automatically after a date or a number of responses.
 - **Embeds.** One `<script>` and a `<div>` put a form in any page. It resizes itself and tells the page when someone submits.
-- **Responses.** A live summary (views, completion rate, time to complete, responses per day, per-question charts), a searchable table, a detail view, bulk delete and CSV export.
+- **Responses.** A live summary (views, completion rate, time to complete, responses per day, a drop-off funnel, per-question charts), a searchable table, a detail view with each response's end screen, quiz mark and values, bulk delete and CSV export.
 - **Live updates.** New responses appear on the dashboard as they arrive, over Socket.IO.
 - **Teams.** Workspaces with owner, editor and viewer roles, and email invites.
 - **Integrations.** Signed webhooks with retries and a delivery log, response emails through Resend, and file uploads straight to Cloudinary.
@@ -80,7 +81,9 @@ flowchart LR
 
 **Signed webhooks.** Each webhook has its own secret, shown once and stored encrypted (AES-256-GCM). Every delivery carries `X-Formyx-Signature: sha256=<HMAC of the raw body>`, so receivers can check it came from Formyx and was not changed; retries reuse the same body and signature. URLs must be public `https` addresses, checked again at connection time against the resolved IP, so webhooks cannot reach private networks. The retry queue is in memory: deliveries waiting for a retry are lost on restart (see the roadmap).
 
-**The public form is its own small bundle.** Respondents download 195 KB (gzip) with no editor, dashboard or chart code; an ESLint rule keeps those imports out and CI fails if the bundle grows past its 195 KB budget. The conversational flow, font files and their loaders arrive only when a form needs them. Embeds load the same page in an iframe, which isolates the form's styles and scripts from the host page; the two talk over `postMessage` with origin and source checks.
+**The server decides outcomes.** Navigation, calculations, quiz marking and the choice of end screen are pure functions in `packages/shared/src/logic`. The browser runs them to show the route and piped values as people answer; the server runs them again on every submission and stores the result. Correct quiz answers never leave the server (`toPublicSchema` strips them), so the browser cannot mark a quiz, and totals sent by a client are never read. The cost: an end screen that depends on the quiz mark waits for the server's reply, which it does anyway.
+
+**The public form is its own small bundle.** Respondents download 205 KB (gzip) with no editor, dashboard or chart code; an ESLint rule keeps those imports out and CI fails if the bundle grows past its 205 KB budget. The conversational flow, font files and their loaders arrive only when a form needs them. Embeds load the same page in an iframe, which isolates the form's styles and scripts from the host page; the two talk over `postMessage` with origin and source checks.
 
 **One shared demo account.** "Try the demo" signs everyone in to the same account, reset every night, rather than creating a sandbox per visitor. It costs nothing per visit and the data always looks lived-in. Anything that would reach outside Formyx (emails, invites, webhooks, uploads) or change the workspace itself is refused for that account.
 
@@ -122,6 +125,7 @@ To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DE
 - `e2e/tests/accessibility.spec.ts` runs axe (WCAG 2.2 A and AA) on the landing page, dashboard, editor and public form, in light and dark mode, and fails on any serious or critical issue.
 - `e2e/tests/embed.spec.ts` embeds a form in a page served from another origin and checks resizing and the `formyx:submitted` event.
 - `e2e/tests/new-fields.spec.ts` fills in a three-page form with every newer question type, including a typed signature, a voice note recorded from Chromium's fake microphone and the PIN look-up, and checks the stored answers and the response drawer. `e2e/scripts/fake-cloudinary.mjs` stands in for Cloudinary and India Post (Playwright starts it), so the tests make no outside calls.
+- `e2e/tests/logic.spec.ts` takes a quiz with a jump to an end screen as three respondents, checks the server's mark, a redirect carrying an answer and the drop-off funnel, then saves answers in the browser and by an emailed link, and finishes the form from the link in another browser.
 - To run the tests beside dev servers on the usual ports, move them: `E2E_WEB_PORT`, `E2E_API_PORT` and `E2E_FAKE_PORT` (defaults 5173, 4000 and 4590).
 - Before the first `pnpm test:e2e`, install the browser once with `pnpm --filter @formyx/e2e exec playwright install chromium`. End-to-end tests sign up throwaway users in the development database, and reuse dev servers that are already running.
 
@@ -181,8 +185,9 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 - **A durable webhook queue** (a jobs table or Redis with BullMQ), so retries survive restarts.
 - **Several API instances**: Redis for rate limits and the Socket.IO adapter.
 - **A signed header from the proxy**, so the API trusts forwarded client IPs only from Vercel.
-- **Partial responses and drop-off analytics**, showing where people leave a form.
-- **Payments**, and logic that jumps between pages.
+- **Partial responses**: keeping the answers of visits that never send, beside the drop-off counts.
+- **Payments.**
+- **Backward jumps** (loops), with a guard against endless routes; jumps only go forward for now.
 - **Custom domains** for public forms, and translations of a form.
 - **Live co-editing** in the editor, building on the existing Socket.IO rooms.
 
@@ -208,13 +213,13 @@ Share › Embed gives a snippet for any page:
 
 | Route                  | JS + CSS (KB, gzip) |
 | ---------------------- | ------------------- |
-| Public form `/f/:slug` | 200                 |
+| Public form `/f/:slug` | 205                 |
 | Landing                | 208                 |
-| Forms dashboard        | 267                 |
-| Responses              | 292                 |
-| Editor                 | 379                 |
+| Forms dashboard        | 270                 |
+| Responses              | 297                 |
+| Editor                 | 397                 |
 
-`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 200 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars, and to 200 KB in Sprint 12, which measures 199.8 KB: every type's schema and validator ship with every form, so the next addition must make room first). The controls for newer question types, file uploads, image and video blocks and the phone country table load only with forms that use them. The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
+`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 205 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars, to 200 KB in Sprint 12 for the new question types, and to 205 KB in Sprint 13 for pages, jumps, piping, shuffling and saved progress; it measures 204.8 KB). End screens, saving by email, resuming from a link and the browser's own quiz marking load only when needed, and the checks that span a whole form schema (`formSchema`) stay out: the public form reads published forms with `formSchemaShape`, since the server checked them when they were published. The controls for newer question types, file uploads, image and video blocks and the phone country table load only with forms that use them. The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
 
 Lighthouse on the public form, served from a production build: **99** performance, **100** accessibility, **100** best practices and **100** SEO on desktop (first contentful paint 0.7 s, no layout shift). On Lighthouse's simulated slow 4G phone, performance is **75 to 83** and the other three stay at 100.
 
@@ -299,6 +304,20 @@ The palette groups them, with a search over names and descriptions:
 - **Lazy controls.** The controls for the newer types live in chunks loaded only by forms that use them; the public page and the editor preload a form's chunks, so they draw at once.
 - **Responses.** Summaries show the Net Promoter Score with promoters, passives and detractors, opinion scale averages, rankings by average place, matrix rows as shares and hidden field values by frequency. The table and drawer show pictures, rankings, matrix rows, addresses, signatures as images and voice notes with a player; CSV exports have a column per matrix row and per address part.
 
+### Logic
+
+Form schema v3 (Sprint 13) adds `logic` beside the questions and replaces the success message with end screens; `migrateFormSchema` upgrades v2 documents as they are read (the message becomes the default end screen, and saving progress in the browser is on). The engine is pure functions in `packages/shared/src/logic`, used by the editor, the public form and the API:
+
+- **Pages and jumps.** Page breaks make pages (`formPages`); `logic.pages` gives each an optional title, shuffled questions and jumps. A jump runs after its page: if its conditions on that page's answers (or earlier ones) hold, go to a later page or an end screen. `resolvePath(schema, answers)` follows them to give the route, the questions on it and the values so far; questions off the route are never required and their answers are dropped, as hidden ones are. Jumps only go forward, which rules out loops; `analyzeLogic` still checks the graph for the map, which warns about unreachable pages and end screens, jumps that can never run and empty pages.
+- **Values.** Variables (number, score or price, with a starting value) change by rules: "if the answer is X, add 10 to score", or add, subtract, multiply or set by a number or a numeric answer. Rules run in order, each seeing the values the ones before it left, on the answers along the route.
+- **Piping.** Labels, descriptions, page titles and end screens can hold `{{field:id}}` and `{{var:id}}`, inserted from a menu. Only earlier answers can be piped (publishing checks), and piped text is escaped in rich text.
+- **Quiz mode** (Pro). Correct answers and points per choice, yes/no, text and number question; the server marks responses and stores the score, percentage and pass or fail. End screens can show the score and review each answer.
+- **End screens.** Each has a title, rich-text message, image, button, alignment and the form's theme. A jump can end on one; otherwise the first whose conditions (answers, values or the quiz result) hold, or the first one. A redirect (`https` only) can follow after up to 10 seconds, with answers and values as query parameters. Embedded forms redirect inside the frame.
+- **Shuffling.** Questions within a page and the options of choice questions (optionally keeping the last one, such as "None of these", in place) shuffle per respondent with a seeded, repeatable order, so a reload or a resumed draft shows the same order.
+- **Saving progress** (`settings.saveProgress`). `browser` (the default) keeps answers, page and shuffle seed in `localStorage` for 30 days and offers "Start over"; `email` (Pro) also offers "Save and continue later": the API stores the answers under the SHA-256 of a random 32-byte token for 30 days and emails a link whose token sits in the URL fragment, so it never reaches a server log. The email address is not kept. Sending the response deletes the draft.
+- **On the server.** `GET` of a public form strips quiz answers (`toPublicSchema`). On submit the API validates the answers against the route, recomputes values, the quiz mark and the end screen (`computeOutcome`) and stores them as `submissions.outcome`; the response carries the outcome back for the end screen. Publishing needs `advanced_logic` for jumps, values, more than one end screen, redirects and saving by email, and `quiz_mode` for quizzes (`requiredLogicFeatures`).
+- **Responses.** The detail view and CSV export show each response's end screen, quiz score, pass or fail and values; webhooks carry them as `outcome`.
+
 ## Editor
 
 Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app/forms/:formId`). The code lives in `apps/web/src/features/form-editor`:
@@ -308,8 +327,9 @@ Editors open forms at `/app/forms/:formId/edit` (viewers get the read-only `/app
 - **Rendering.** `features/form-renderer` draws each question from the schema. It is used by the canvas (inert), the preview and the public form page, all inside `ThemeRenderer`, which turns the form's theme into `--form-*` CSS variables and draws its background and layout. A form looks the same in the app's light and dark modes.
 - **Autosave.** Saves one second after the last change, one request at a time, with the `version` the edit started from. Drafts are checked with the shared schema first; failed saves retry with backoff. A `409` pauses saving and offers to load the latest version. Leaving the editor saves pending changes first, and asks before discarding any that could not be saved.
 - **Shortcuts.** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z (or Ctrl+Y) redo, Ctrl/⌘+D duplicate, Delete or Backspace remove, Escape deselect. These apply outside text inputs; tooltips show them.
-- **Small screens.** Below 1024px the editor has Build, Design, Settings and Preview tabs, and the question types open in a bottom sheet.
-- **Logic.** A question's settings end with "Show this question only when…": conditions on earlier questions, with comparisons and values that fit each question type, combined with all or any. Questions with logic carry a Logic badge and a summary on the canvas.
+- **Small screens.** Below 1024px the editor has Build, Design, Logic, Settings and Preview tabs, and the question types open in a bottom sheet.
+- **Conditions.** A question's settings end with "Show this question only when…": conditions on earlier questions, with comparisons and values that fit each question type, combined with all or any. Questions with logic carry a Logic badge and a summary on the canvas.
+- **Logic tab.** Pages (titles, shuffled questions and jumps), Values (variables and their rules), Quiz, End screens (each with a preview) and Map, in `form-editor/logic-panel`. Labels, descriptions and end screens have an "Insert" menu for answers and values. Problems (a jump to an earlier page, a rule on a deleted question) show where they are, and removing a question removes the logic that depended on it, with an undo toast. The map uses React Flow and loads only when opened; a text list of routes beside it serves keyboard and screen reader users.
 
 ## Publishing and responses
 
@@ -321,11 +341,14 @@ Anyone with the link answers at `/f/:slug`, a separate bundle without editor or 
 - `buildSubmissionValidator(schema, answers)`: a Zod schema for the visible questions (required, text length, email, phone, number, rating, date, options), returning trimmed, typed answers.
 - `sanitizeAnswers(schema, answers)`: drops answers to hidden, unknown and statement questions.
 
-| Endpoint                                   | Does                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------- |
-| `GET /api/public/forms/:slug`              | `{ status: 'open', title, schema, theme }` or `{ status: 'closed', title }` |
-| `POST /api/public/forms/:slug/view`        | Counts a view (the page sends one per browser session)                      |
-| `POST /api/public/forms/:slug/submissions` | Stores a response: `answers`, `completionTimeMs`, `referrer`                |
+| Endpoint                                     | Does                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /api/public/forms/:slug`                | `{ status: 'open', title, schema, theme }` or `{ status: 'closed', title }`  |
+| `POST /api/public/forms/:slug/view`          | Counts a view (one per browser session); returns the visit's `token`         |
+| `POST /api/public/forms/:slug/progress`      | How far the visit got: `{ token, pageKey?, fieldId? }`, only ever forward    |
+| `POST /api/public/forms/:slug/submissions`   | Stores a response: `answers`, `completionTimeMs`, `referrer`, `viewToken`    |
+| `POST /api/public/forms/:slug/drafts`        | Saves answers to finish later and emails a link: `{ email, answers, state }` |
+| `POST /api/public/forms/:slug/drafts/resume` | The answers behind a link's `token`                                          |
 
 Submissions are validated against the published snapshot, with problems returned per question (`answers.<fieldId>`). Responses to a closed form get `410 FORM_CLOSED`, and so do responses after its `closeAt` time or once it has `closeAfterResponses` responses. The form row is locked while a response is stored, so simultaneous responses never overshoot the limit, and the response that reaches it closes the form. A hidden honeypot field (`website`) catches bots: they get a normal reply, but nothing is stored. Submissions are rate limited per IP and form (`SUBMISSION_RATE_LIMIT_MAX` per 15 minutes). Responses store the user agent and referrer, never IP addresses.
 
@@ -333,6 +356,7 @@ Submissions are validated against the published snapshot, with problems returned
 
 `/app/forms/:formId/responses` (code in `apps/web/src/features/responses`) is reached from the form's navigation (Edit · Responses · Share), the dashboard's form menu and the read-only overview. Any member of the workspace can read responses and export them; deleting them takes EDITOR or above.
 
+- **Drop-off.** How far visits got, page by page (or question by question on one-page forms), from opening the form to sending it, with the biggest drop marked. Visits report the furthest page shown and question answered under a random token, so nothing ties them to a person. Each visit counts up to the furthest page it reached (on submit the server moves it to the end of the route it worked out), so pages that jumps skip show fewer visits than the responses sent.
 - **Summary.** Views, responses, completion rate (responses per view) and average completion time over all time; responses per day for the last 7, 30 or 90 days, counted on the viewer's calendar; and a summary of each published question: shares per option, the rating distribution and average, number minimum/average/maximum, and the latest five text answers.
 - **Responses.** A table with a column per published question, sortable by date and searchable across answers (choices match by option label). Rows load 50 at a time with an opaque cursor. A row opens the full response in a side sheet. The tab, search, question filter and open response live in the URL, so links from emails and summaries land in the right place.
 - **Live.** New responses appear on top with a brief tint, and counts and charts update in place; responses deleted elsewhere disappear.
@@ -393,7 +417,7 @@ A theme (v2, `packages/shared/src/theme`) describes how a form looks to responde
 
 ## Plans and entitlements
 
-Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, branding removal, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
+Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, advanced logic, quiz mode, branding removal, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
 
 `ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor explains that Pro plans are coming soon. Limits are reported; the brand kit limit is the first one enforced (`403 LIMIT_REACHED` when `ENTITLEMENTS_MODE=enforced`).
 
@@ -434,7 +458,7 @@ Every change in this table is refused for the demo account.
 
 Editors manage a form's webhooks from its settings in the editor (Webhooks › Manage webhooks): add up to 10 endpoints, send a test event, read the last 20 deliveries and remove them.
 
-- **Requests.** Each new response is `POST`ed as JSON (`event`, `form`, `submission` with each answer's label, raw value and readable text) with `X-Formyx-Event`, `X-Formyx-Delivery` (one id per event, shared by its retries) and `X-Formyx-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed with the webhook's secret>`. Verify by computing the same over the raw bytes and comparing in constant time.
+- **Requests.** Each new response is `POST`ed as JSON (`event`, `form`, `submission` with each answer's label, raw value and readable text, and its `outcome`: end screen, values and quiz mark) with `X-Formyx-Event`, `X-Formyx-Delivery` (one id per event, shared by its retries) and `X-Formyx-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed with the webhook's secret>`. Verify by computing the same over the raw bytes and comparing in constant time.
 - **Secrets** are shown once, when the webhook is added. They are stored encrypted (AES-256-GCM with a key derived from `JWT_SECRET`), so changing `JWT_SECRET` means adding webhooks again.
 - **Retries.** No response, or anything but 2xx, is retried three times, after 2, 4 and 8 seconds, with the same body and signature. Requests time out after 10 seconds.
 - **Limitation: the queue is in memory.** Deliveries waiting for a retry are lost if the API restarts, and with several API instances each retries only its own. A durable queue (a jobs table, or Redis with BullMQ) would remove this; `apps/api/src/webhooks/dispatcher.ts` keeps the same interface either way.

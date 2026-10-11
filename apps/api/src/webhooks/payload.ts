@@ -38,7 +38,7 @@ function answersFor(schema: FormSchema | null, answers: Record<string, unknown>)
   });
 }
 
-/** The event sent when a response is saved. Each webhook gets its own event id. */
+/** Where the response ended up, with names a receiver can show; null before outcomes. */
 function outcomeFor(
   schema: FormSchema | null,
   outcome: StoredOutcome | null,
@@ -54,6 +54,7 @@ function outcomeFor(
   };
 }
 
+/** The event sent when a response is saved. Each webhook gets its own event id. */
 export function submissionPayload(
   form: FormInfo,
   submission: {
