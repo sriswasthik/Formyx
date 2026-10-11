@@ -18,7 +18,8 @@ import {
   type FileAnswer,
 } from './files.js';
 import { compactPhone, phoneNumberProblem } from './phone.js';
-import { MAX_FIELDS, type FormSchema } from './form-schema.js';
+import { MAX_FIELDS } from './form-schema-shape.js';
+import type { FormSchema } from './form-schema.js';
 import { NODE_ID_PATTERN } from './ids.js';
 
 const REQUIRED = 'This question is required';

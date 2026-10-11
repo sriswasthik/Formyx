@@ -1,5 +1,4 @@
 import {
-  draftResponseSchema,
   publicFormResponseSchema,
   submissionResponseSchema,
   viewResponseSchema,
@@ -54,7 +53,8 @@ export function saveDraft(slug: string, input: SaveDraftInput): Promise<void> {
 }
 
 /** The answers behind an emailed link's token. */
-export function resumeDraft(slug: string, token: string): Promise<DraftResponse> {
+export async function resumeDraft(slug: string, token: string): Promise<DraftResponse> {
+  const { draftResponseSchema } = await import('./draft-schema');
   return apiRequest(
     `${publicFormPath(slug)}/drafts/resume`,
     draftResponseSchema,

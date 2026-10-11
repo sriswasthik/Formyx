@@ -1,6 +1,7 @@
 import type { FieldType } from './field-types.js';
 import type { FieldOfType, FieldOption } from './fields.js';
-import { FORM_SCHEMA_VERSION, type FormSchema, type FormSettings } from './form-schema.js';
+import { FORM_SCHEMA_VERSION, type FormSettings } from './form-schema-shape.js';
+import type { FormSchema } from './form-schema.js';
 import { createId } from './ids.js';
 import { createDefaultLogic } from './logic-factories.js';
 import { DEFAULT_PHONE_COUNTRY } from './phone.js';

@@ -1,6 +1,5 @@
 import {
   buildSubmissionValidator,
-  computeOutcome,
   resolvePath,
   validateAnswers,
   type AnswerValue,
@@ -29,23 +28,24 @@ export type SubmitOutcome =
 export type ResponseStatus = 'filling' | 'submitting' | 'done';
 
 /**
- * The outcome worked out in the browser, where the server is not asked (the editor's
- * preview, which knows the quiz answers).
+ * The outcome worked out in the browser, for when the server does not say (the editor's
+ * preview). Its module loads only then; if it cannot load, the first end screen shows.
  */
-export function localOutcome(schema: FormSchema, answers: SubmittedAnswers): SubmissionOutcome {
-  const outcome = computeOutcome(schema, answers);
-  const { quiz } = outcome;
-  return {
-    endScreenId: outcome.endScreenId,
-    values: outcome.values,
-    quiz: quiz && {
-      score: quiz.score,
-      max: quiz.max,
-      percent: quiz.percent,
-      passed: quiz.passed,
-      ...(schema.logic.quiz?.revealAnswers && { review: quiz.review }),
-    },
-  };
+async function outcomeHere(
+  schema: FormSchema,
+  answers: SubmittedAnswers,
+): Promise<SubmissionOutcome> {
+  try {
+    const { localOutcome } = await import('./local-outcome');
+    return localOutcome(schema, answers);
+  } catch {
+    return {
+      // An id no end screen has: the form shows its first.
+      endScreenId: '',
+      values: {},
+      quiz: null,
+    };
+  }
 }
 
 /** What `submit` found: sent, or problems by field id (empty for a whole-form problem). */
@@ -180,7 +180,7 @@ export function useFormResponse({
         if (sent.fieldErrors) setErrors(fieldErrors);
         return { ok: false, problems: fieldErrors };
       }
-      setOutcome(sent.outcome ?? localOutcome(schema, submitted));
+      setOutcome(sent.outcome ?? (await outcomeHere(schema, submitted)));
       setStatus('done');
       return { ok: true };
     } catch {

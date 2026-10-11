@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { FORM_SCHEMA_VERSION, formSchema, type FormSchema } from './form-schema.js';
+import { formSchema, type FormSchema } from './form-schema.js';
+import { FORM_SCHEMA_VERSION } from './form-schema-shape.js';
 import { DEFAULT_PHONE_COUNTRY } from './phone.js';
 import { createEndScreen, DEFAULT_END_SCREEN_ID } from './logic-factories.js';
 import { escapeRichText } from './rich-text.js';

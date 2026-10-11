@@ -2,7 +2,8 @@ import { createDefaultSettings, createEmptyForm, createField, createOption } fro
 import { createDefaultLogic } from './logic-factories.js';
 import type { ChoiceFieldType, FieldType } from './field-types.js';
 import type { FieldOfType } from './fields.js';
-import { FORM_SCHEMA_VERSION, type FormSchema } from './form-schema.js';
+import { FORM_SCHEMA_VERSION } from './form-schema-shape.js';
+import type { FormSchema } from './form-schema.js';
 import type { FormTemplateId } from './template-ids.js';
 
 export interface FormTemplate {
