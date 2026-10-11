@@ -163,6 +163,7 @@ describe('createUploadStorage', () => {
         CLOUDINARY_CLOUD_NAME: 'demo',
         CLOUDINARY_API_KEY: 'key',
         CLOUDINARY_API_SECRET: undefined,
+        CLOUDINARY_API_URL: 'https://api.cloudinary.com',
       }),
     ).toBeNull();
     expect(
@@ -170,6 +171,7 @@ describe('createUploadStorage', () => {
         CLOUDINARY_CLOUD_NAME: 'demo',
         CLOUDINARY_API_KEY: 'key',
         CLOUDINARY_API_SECRET: 'secret',
+        CLOUDINARY_API_URL: 'https://api.cloudinary.com',
       }),
     ).not.toBeNull();
   });

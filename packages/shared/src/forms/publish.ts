@@ -135,3 +135,13 @@ export function responseLimitReached(
   if (closeAt !== undefined && now.getTime() >= new Date(closeAt).getTime()) return 'close_date';
   return null;
 }
+
+/** Every picture a form's questions show: picture-choice options and image blocks. */
+export function schemaImageUrls(schema: Pick<FormSchema, 'fields'>): string[] {
+  const urls = schema.fields.flatMap((field) => {
+    if (field.type === 'picture_choice') return field.options.map((option) => option.imageUrl);
+    if (field.type === 'image') return [field.imageUrl];
+    return [];
+  });
+  return [...new Set(urls.filter((url): url is string => url !== undefined))];
+}

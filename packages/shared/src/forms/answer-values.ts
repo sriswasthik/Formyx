@@ -17,13 +17,13 @@ export const ADDRESS_PART_LABELS: Record<AddressPart, string> = {
 };
 
 /** An Indian postal address. Line 2 is optional. */
-export interface AddressAnswer {
+export type AddressAnswer = {
   line1: string;
   line2?: string;
   pin: string;
   city: string;
   state: string;
-}
+};
 
 /** Six digits, not starting with 0. */
 export const PIN_CODE_PATTERN = /^[1-9]\d{5}$/;
@@ -41,10 +41,7 @@ export function isAddressAnswer(value: unknown): value is AddressAnswer {
 }
 
 /** Two calendar days (YYYY-MM-DD), the end on or after the start. */
-export interface DateRangeAnswer {
-  start: string;
-  end: string;
-}
+export type DateRangeAnswer = { start: string; end: string };
 
 export function isDateRangeAnswer(value: unknown): value is DateRangeAnswer {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
@@ -138,3 +135,11 @@ export function parseVideoUrl(input: string): VideoEmbed | null {
   }
   return null;
 }
+
+/** What `GET /api/public/pincodes/:pin` returns: the city and state a PIN code belongs to. */
+export const pinCodeLookupSchema = z.object({
+  pin: z.string().regex(PIN_CODE_PATTERN),
+  city: z.string(),
+  state: z.string(),
+});
+export type PinCodeLookup = z.infer<typeof pinCodeLookupSchema>;

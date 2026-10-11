@@ -10,13 +10,17 @@ import { NODE_ID_PATTERN } from './forms/ids.js';
 export const THEME_IMAGE_MAX_MB = 5;
 export const THEME_IMAGE_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] as const;
 
-export const THEME_IMAGE_KINDS = ['logo', 'cover', 'background'] as const;
+/** `content`: pictures inside the form, such as picture choices and image blocks. */
+export const THEME_IMAGE_KINDS = ['logo', 'cover', 'background', 'content'] as const;
 export const themeImageKindSchema = z.enum(THEME_IMAGE_KINDS);
 export type ThemeImageKind = z.infer<typeof themeImageKindSchema>;
 
 /** Query string of `GET /api/uploads/signature`. */
 export const uploadSignatureQuerySchema = z.discriminatedUnion('purpose', [
-  /** A respondent's file, for a file question of a published form. No account needed. */
+  /**
+   * A respondent's upload, for a file, signature or voice-note question of a published form.
+   * No account needed.
+   */
   z.object({
     purpose: z.literal('answer'),
     form: z.string().min(1).max(200),

@@ -2,10 +2,12 @@ import {
   createFormInputSchema,
   listFormsQuerySchema,
   publishFormInputSchema,
+  schemaImageUrls,
   themeImageUrls,
   updateFormInputSchema,
   type FormDetail,
   type FormListResponse,
+  type FormSchema,
   type FormTheme,
 } from '@formyx/shared';
 import { Router } from 'express';
@@ -32,18 +34,28 @@ export function createFormsRouter(
   const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
 
   /**
-   * Checks images (logo, cover, image layers) new to this form were uploaded for it. Logos
-   * from the workspace's brand kits were checked when the kit was saved.
+   * Checks images new to this form were uploaded for it: the theme's (logo, cover, image
+   * layers) and the questions' (picture choices, image blocks). Logos from the workspace's
+   * brand kits were checked when the kit was saved.
    */
-  async function checkThemeImages(formId: string, theme: FormTheme): Promise<void> {
-    const urls = themeImageUrls(theme);
+  async function checkImages(
+    formId: string,
+    { theme, draftSchema }: { theme?: FormTheme | undefined; draftSchema?: FormSchema | undefined },
+  ): Promise<void> {
+    const urls = [
+      ...(theme ? themeImageUrls(theme) : []),
+      ...(draftSchema ? schemaImageUrls(draftSchema) : []),
+    ];
     if (urls.length === 0) return;
     const current = await forms.get(formId);
-    const known = new Set(
-      [current.theme, current.publishedTheme].flatMap((known) =>
+    const known = new Set([
+      ...[current.theme, current.publishedTheme].flatMap((known) =>
         known ? themeImageUrls(known) : [],
       ),
-    );
+      ...[current.draftSchema, current.publishedSchema].flatMap((known) =>
+        known ? schemaImageUrls(known) : [],
+      ),
+    ]);
     const unknown = urls.filter((url) => !known.has(url));
     if (unknown.length === 0) return;
     const kitLogos = new Set(await brandKits.logoUrls(current.workspaceId));
@@ -94,7 +106,7 @@ export function createFormsRouter(
   router.patch('/forms/:formId', requireAuth, requireFormRole('EDITOR'), async (req, res) => {
     const input = updateFormInputSchema.parse(req.body);
     const formId = routeParam(req, 'formId');
-    if (input.theme) await checkThemeImages(formId, input.theme);
+    await checkImages(formId, input);
     const form: FormDetail = await forms.update(formId, input);
     res.json(form);
   });

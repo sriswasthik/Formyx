@@ -7,7 +7,7 @@ import {
   TIME_PATTERN,
 } from './answer-values.js';
 import { evaluateVisibility, isAnswered, type AnswerValue, type Answers } from './answers.js';
-import { MAX_OPTIONS, type Field, type FieldOfType } from './fields.js';
+import { MAX_MATRIX_ROWS, MAX_OPTIONS, type Field, type FieldOfType } from './fields.js';
 import {
   fileAnswerSchema,
   isFileAnswer,
@@ -401,11 +401,30 @@ export const HONEYPOT_FIELD = 'website';
 /** Time spent on a form, capped so a tab left open for days does not skew averages. */
 export const MAX_COMPLETION_TIME_MS = 24 * 60 * 60 * 1000;
 
+const shortText = z.string().max(500);
+const optionList = z.array(z.string().max(64)).max(MAX_OPTIONS);
+
+/** The shape of any answer, before it is checked against its question. */
 const answerValueInput = z.union([
   fileAnswerSchema,
   z.string().max(ANSWER_MAX_LENGTH.long_text * 2),
   z.number(),
-  z.array(z.string().max(64)).max(MAX_OPTIONS),
+  z.boolean(),
+  optionList,
+  // An address.
+  z.object({
+    line1: shortText,
+    line2: shortText.optional(),
+    pin: shortText,
+    city: shortText,
+    state: shortText,
+  }),
+  // A date range.
+  z.object({ start: shortText, end: shortText }),
+  // A matrix: rows to the columns picked in them.
+  z
+    .record(z.string().max(64), z.union([z.string().max(64), optionList]))
+    .refine((rows) => Object.keys(rows).length <= MAX_MATRIX_ROWS, 'Too many rows'),
   z.null(),
 ]);
 

@@ -106,6 +106,18 @@ export const envSchema = z.object({
     .trim()
     .regex(/^[a-z0-9_-]+$/i, 'Use letters, digits, - and _')
     .default('formyx'),
+  /**
+   * Cloudinary's API. Only changed to point at a stand-in (e2e/scripts/fake-cloudinary.mjs)
+   * for end-to-end tests and development without an account.
+   */
+  CLOUDINARY_API_URL: z
+    .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
+    .default('https://api.cloudinary.com')
+    .transform((url) => url.replace(/\/+$/, '')),
+  /** Looks up Indian PIN codes for address questions (India Post's public API). */
+  PINCODE_API_URL: z
+    .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
+    .default('https://api.postalpincode.in/pincode'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -60,7 +60,7 @@ function sampleAnswer(field: Field, today: string): AnswerValue | undefined {
     case 'email':
       return 'someone@example.com';
     case 'phone':
-      return '+44 20 7946 0000';
+      return '+919876543210';
     case 'number':
       return 42;
     case 'date':
@@ -80,7 +80,65 @@ function sampleAnswer(field: Field, today: string): AnswerValue | undefined {
         size: 12_345,
         type: 'application/pdf',
       };
+    case 'picture_choice':
+      return field.multiple
+        ? field.options[0]
+          ? [field.options[0].id]
+          : undefined
+        : field.options[0]?.id;
+    case 'ranking':
+      return field.options.map((option) => option.id);
+    case 'matrix': {
+      const column = field.columns[0]?.id;
+      return column === undefined
+        ? undefined
+        : Object.fromEntries(field.rows.map((row) => [row.id, field.multiple ? [column] : column]));
+    }
+    case 'yes_no':
+      return 'yes';
+    case 'nps':
+      return 9;
+    case 'opinion_scale':
+      return field.end;
+    case 'slider':
+      return field.min;
+    case 'currency':
+      return 1500;
+    case 'address':
+      return { line1: '1 MG Road', pin: '560001', city: 'Bengaluru', state: 'Karnataka' };
+    case 'time':
+      return '09:30';
+    case 'date_range':
+      return { start: today, end: today };
+    case 'url':
+      return 'https://example.com/';
+    case 'color':
+      return '#2E5AAC';
+    case 'consent':
+      return true;
+    case 'hidden':
+      return 'example';
+    case 'signature':
+      return {
+        url: 'https://example.com/signature.png',
+        publicId: 'example',
+        name: 'signature.png',
+        size: 4_321,
+        type: 'image/png',
+      };
+    case 'voice_note':
+      return {
+        url: 'https://example.com/voice-note.webm',
+        publicId: 'example',
+        name: 'voice-note.webm',
+        size: 54_321,
+        type: 'audio/webm',
+      };
     case 'statement':
+    case 'image':
+    case 'video':
+    case 'divider':
+    case 'page_break':
       return undefined;
   }
 }
