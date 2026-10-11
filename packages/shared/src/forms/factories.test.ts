@@ -46,9 +46,15 @@ describe('createEmptyForm', () => {
   it('has no questions and default settings', () => {
     const form = createEmptyForm();
     expect(form).toMatchObject({
-      version: 3,
+      version: 4,
       fields: [],
-      settings: { submitButtonText: 'Submit', saveProgress: 'browser' },
+      settings: {
+        submitButtonText: 'Submit',
+        saveProgress: 'browser',
+        language: 'en',
+        dateFormat: 'auto',
+        numberFormat: 'auto',
+      },
       logic: { pages: {}, variables: [], rules: [] },
     });
     // One end screen, the default, thanking respondents.

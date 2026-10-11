@@ -104,7 +104,13 @@ export function createField<T extends FieldType>(type: T): FieldOfType<T> {
 }
 
 export function createDefaultSettings(): FormSettings {
-  return { submitButtonText: 'Submit', saveProgress: 'browser' };
+  return {
+    submitButtonText: 'Submit',
+    saveProgress: 'browser',
+    language: 'en',
+    dateFormat: 'auto',
+    numberFormat: 'auto',
+  };
 }
 
 export function createEmptyForm(): FormSchema {

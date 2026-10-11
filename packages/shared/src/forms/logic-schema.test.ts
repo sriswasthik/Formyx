@@ -281,8 +281,8 @@ describe('schema v3', () => {
       settings: { submitButtonText: 'Send', successMessage: 'Thanks *so* much' },
     };
     const v3 = migrateFormSchema(v2);
-    expect(v3.version).toBe(3);
-    expect(v3.settings).toEqual({ submitButtonText: 'Send', saveProgress: 'browser' });
+    expect(v3.version).toBe(4);
+    expect(v3.settings).toMatchObject({ submitButtonText: 'Send', saveProgress: 'browser' });
     expect(v3.logic).toMatchObject({ pages: {}, variables: [], rules: [] });
     expect(v3.logic.endScreens).toEqual([
       expect.objectContaining({ id: 'end_default', message: 'Thanks \\*so\\* much', when: [] }),

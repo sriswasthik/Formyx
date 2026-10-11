@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { type z } from 'zod';
 import { answerTestProblem } from './condition-checks.js';
 import type { Condition } from './conditions.js';
 import type { Field } from './fields.js';

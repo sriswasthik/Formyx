@@ -505,7 +505,7 @@ describe('schema v2', () => {
       settings: createEmptyForm().settings,
     };
     const upgraded = migrateFormSchema(v1);
-    expect(upgraded.version).toBe(3);
+    expect(upgraded.version).toBe(4);
     const [statement, phone, rating] = upgraded.fields;
     expect(statement?.label).toBe('Price \\* 2 = cost');
     expect(richTextToPlain(statement?.label ?? '')).toBe('Price * 2 = cost');

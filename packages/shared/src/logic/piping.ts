@@ -5,6 +5,8 @@ import type { Field } from '../forms/fields.js';
 import { isFileAnswer } from '../forms/files.js';
 import { QUIZ_VARIABLES, type Variable } from '../forms/logic-schema.js';
 import { escapeRichText } from '../forms/rich-text.js';
+import { formatDate, formatMoney, formatNumber } from '../i18n/format.js';
+import { ENGLISH_LOCALE, type FormLocale } from '../i18n/locale.js';
 
 /*
  * Answer piping: `{{field:<id>}}` and `{{var:<id>}}` in labels, descriptions, page titles and
@@ -43,48 +45,46 @@ export interface PipingContext {
   answers: Answers;
   values: Readonly<Record<string, number>>;
   variables: readonly Variable[];
+  /** The form's words and formats; English with the usual formats if not given. */
+  locale?: FormLocale | undefined;
 }
 
-function optionText(field: Field, id: string): string {
-  if (field.type === 'yes_no') return id === 'yes' ? 'Yes' : id === 'no' ? 'No' : '';
+function optionText(field: Field, id: string, locale: FormLocale): string {
+  if (field.type === 'yes_no') {
+    const { yes, no } = locale.messages.answer;
+    return id === 'yes' ? yes : id === 'no' ? no : '';
+  }
   if (!('options' in field)) return id;
   return field.options.find((option) => option.id === id)?.label ?? '';
 }
 
-function money(amount: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en', {
-      style: 'currency',
-      currency,
-      // "₹1,500" in a sentence, "₹1,499.50" when there are paise.
-      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount}`;
-  }
-}
-
-function plainNumber(value: number): string {
-  return new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(value);
-}
-
-/** An answer as words in a sentence: option labels, numbers, lists joined with commas. */
-export function pipedAnswer(field: Field, value: AnswerValue | undefined): string {
+/**
+ * An answer as words in a sentence: option labels, numbers and dates in the form's formats,
+ * lists joined with commas.
+ */
+export function pipedAnswer(
+  field: Field,
+  value: AnswerValue | undefined,
+  locale: FormLocale = ENGLISH_LOCALE,
+): string {
   if (value === undefined || value === null) return '';
+  const { format } = locale;
   if (typeof value === 'number') {
-    if (field.type === 'currency') return money(value, field.currency);
+    if (field.type === 'currency') return formatMoney(value, field.currency, format);
     if (field.type === 'slider' && field.unit.trim())
-      return `${plainNumber(value)} ${field.unit.trim()}`;
-    return plainNumber(value);
+      return `${formatNumber(value, format)} ${field.unit.trim()}`;
+    return formatNumber(value, format);
   }
-  if (typeof value === 'boolean') return value ? 'Yes' : '';
+  if (typeof value === 'boolean') return value ? locale.messages.answer.yes : '';
   if (typeof value === 'string') {
-    return 'options' in field || field.type === 'yes_no' ? optionText(field, value) : value.trim();
+    if (field.type === 'date') return formatDate(value.trim(), format);
+    return 'options' in field || field.type === 'yes_no'
+      ? optionText(field, value, locale)
+      : value.trim();
   }
   if (Array.isArray(value)) {
     return value
-      .map((id) => optionText(field, id))
+      .map((id) => optionText(field, id, locale))
       .filter(Boolean)
       .join(', ');
   }
@@ -94,15 +94,26 @@ export function pipedAnswer(field: Field, value: AnswerValue | undefined): strin
       .filter((part) => part && part.trim() !== '')
       .join(', ');
   }
-  if (isDateRangeAnswer(value)) return `${value.start} to ${value.end}`;
+  if (isDateRangeAnswer(value)) {
+    return locale.messages.answer.dateRange(
+      formatDate(value.start, format),
+      formatDate(value.end, format),
+    );
+  }
   return '';
 }
 
 /** A calculated value as words: prices in their currency, others with up to two decimals. */
-export function pipedValue(variable: Variable | undefined, value: number | undefined): string {
+export function pipedValue(
+  variable: Variable | undefined,
+  value: number | undefined,
+  locale: FormLocale = ENGLISH_LOCALE,
+): string {
   if (value === undefined) return '';
-  if (variable?.kind === 'price' && variable.currency) return money(value, variable.currency);
-  return plainNumber(value);
+  if (variable?.kind === 'price' && variable.currency) {
+    return formatMoney(value, variable.currency, locale.format);
+  }
+  return formatNumber(value, locale.format);
 }
 
 /**
@@ -121,11 +132,14 @@ export function resolvePiping(
     if (kind === 'field') {
       const field = context.fieldById.get(id);
       piped =
-        field && isAnswerableFieldType(field.type) ? pipedAnswer(field, context.answers[id]) : '';
+        field && isAnswerableFieldType(field.type)
+          ? pipedAnswer(field, context.answers[id], context.locale)
+          : '';
     } else {
       piped = pipedValue(
         context.variables.find((variable) => variable.id === id),
         context.values[id],
+        context.locale,
       );
     }
     return options.richText ? escapeRichText(piped) : piped;

@@ -6,6 +6,7 @@ import { createDefaultLogic } from './logic-factories.js';
 import { FIELD_TYPES } from './field-types.js';
 import type { Field } from './fields.js';
 import { formSchema, type FormSchema } from './form-schema.js';
+import { migrateFormSchema } from './migrate-form-schema.js';
 
 function formWith(...fields: Field[]): FormSchema {
   return { ...createEmptyForm(), fields };
@@ -55,7 +56,7 @@ describe('formSchema: valid forms', () => {
     const choice = createField('single_choice');
     const optionId = choice.options[0]?.id ?? '';
     const form: FormSchema = {
-      version: 3,
+      version: 4,
       fields: [
         rating,
         choice,
@@ -75,8 +76,9 @@ describe('formSchema: valid forms', () => {
       settings: {
         submitButtonText: 'Send',
         saveProgress: 'email',
-        closeAfterResponses: 100,
-        closeAt: '2026-12-31T23:59:00+01:00',
+        language: 'te',
+        dateFormat: 'dmy',
+        numberFormat: 'indian',
       },
       logic: createDefaultLogic(),
     };
@@ -94,7 +96,7 @@ describe('formSchema: valid forms', () => {
 describe('formSchema: invalid forms', () => {
   it('rejects other versions and missing parts', () => {
     expect(issues({ ...createEmptyForm(), version: 1 })?.[0]?.path).toBe('version');
-    expect(issues({ version: 3, fields: [] })?.map((issue) => issue.path)).toEqual([
+    expect(issues({ version: 4, fields: [] })?.map((issue) => issue.path)).toEqual([
       'settings',
       'logic',
     ]);
@@ -166,20 +168,47 @@ describe('formSchema: invalid forms', () => {
     ]);
   });
 
-  it('rejects empty settings and invalid close dates', () => {
+  it('rejects empty settings and unknown languages and formats', () => {
     const form = {
       ...createEmptyForm(),
       settings: {
         submitButtonText: '  ',
         saveProgress: 'sometimes',
-        closeAt: 'next friday',
+        language: 'fr',
+        dateFormat: 'auto',
+        numberFormat: 'roman',
       },
     };
     expect(issues(form)?.map((issue) => issue.path)).toEqual([
       'settings.submitButtonText',
       'settings.saveProgress',
-      'settings.closeAt',
+      'settings.language',
+      'settings.numberFormat',
     ]);
+  });
+});
+
+describe('schema v4', () => {
+  it('speaks English with the old formats, and leaves the closing settings to live settings', () => {
+    const v3 = {
+      ...createEmptyForm(),
+      version: 3,
+      settings: {
+        submitButtonText: 'Send',
+        saveProgress: 'off',
+        closeAfterResponses: 50,
+        closeAt: '2026-12-31T23:59:00+05:30',
+      },
+    };
+    const v4 = migrateFormSchema(v3);
+    expect(v4.version).toBe(4);
+    expect(v4.settings).toEqual({
+      submitButtonText: 'Send',
+      saveProgress: 'off',
+      language: 'en',
+      dateFormat: 'auto',
+      numberFormat: 'auto',
+    });
   });
 });
 

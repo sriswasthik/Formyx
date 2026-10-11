@@ -8,6 +8,7 @@ export * from './condition-summary.js';
 export * from './conditions.js';
 export * from './csv-columns.js';
 export * from './draft-api.js';
+export * from './edit-api.js';
 export * from './drop-off.js';
 export * from './factories.js';
 export * from './field-types.js';
