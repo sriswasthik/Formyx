@@ -256,7 +256,10 @@ describe('the CSV export with the new question types', () => {
     const res = await requestAs(app, team.users.VIEWER)
       .get(`/api/forms/${form.id}/submissions/export`)
       .expect(200);
-    const [header, row] = res.text.replace(/^\uFEFF/, '').trim().split('\r\n');
+    const [header, row] = res.text
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\r\n');
     expect(header).toBe(
       'Response ID,Submitted at (UTC),Rate: Food,Rate: Service,Address (Address line 1),' +
         'Address (Address line 2),Address (PIN code),Address (City),Address (State),' +
