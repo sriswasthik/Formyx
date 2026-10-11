@@ -100,6 +100,8 @@ function buildFeedbackSurvey(): FormSchema {
     label: 'Overall, how satisfied are you with our product?',
     required: true,
     ratingScale: 5,
+    // Numbers, as the template has always had (new rating questions start as stars).
+    ratingStyle: 'numbers',
   });
   const followUp = choice('single_choice', ['Yes', 'No'], {
     label: 'May we follow up with you about your feedback?',
@@ -115,6 +117,7 @@ function buildFeedbackSurvey(): FormSchema {
         description: '1 is not at all likely, 10 is extremely likely.',
         required: true,
         ratingScale: 10,
+        ratingStyle: 'numbers',
       }),
       field('long_text', { label: 'What do you like most?' }),
       field('long_text', {
