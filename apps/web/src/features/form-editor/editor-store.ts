@@ -6,6 +6,7 @@ import {
   removeBrokenConditions,
   type Field,
   type FieldType,
+  type FormLogic,
   type FormSchema,
   type FormSettings,
   type FormTheme,
@@ -74,6 +75,12 @@ export interface EditorState extends EditorSnapshot {
   setDescription: (description: string, options?: ChangeOptions) => void;
   /** Changes how the form looks. An update that changes nothing is ignored. */
   updateTheme: (update: ThemeUpdate, options?: ChangeOptions) => void;
+  /**
+   * Changes the form's logic (pages, values, quiz, end screens). Whatever it leaves broken,
+   * such as rules for a deleted variable, is tidied away. An update that changes nothing is
+   * ignored.
+   */
+  updateLogic: (update: (logic: FormLogic) => FormLogic, options?: ChangeOptions) => void;
   undo: () => void;
   redo: () => void;
   markSaved: (revision: number, version: number) => void;
@@ -124,7 +131,7 @@ function copyField(field: Field): Field {
 }
 
 /** Patch keys that can invalidate conditions on later questions. */
-const STRUCTURAL_KEYS: readonly EditableKey[] = ['options', 'ratingScale'];
+const STRUCTURAL_KEYS: readonly EditableKey[] = ['options', 'ratingScale', 'rows', 'columns'];
 
 export function createEditorStore(
   initial: EditorSource,
@@ -310,6 +317,18 @@ export function createEditorStore(
             if (description === '') Reflect.deleteProperty(state.schema, 'description');
             else state.schema.description = description;
           }, options);
+        },
+
+        updateLogic: (update, options) => {
+          const logic = get().schema.logic;
+          const next = update(logic);
+          if (isSame(logic, next)) return;
+          change(
+            (state) => {
+              state.schema.logic = next;
+            },
+            { ...options, prune: true },
+          );
         },
 
         updateTheme: (update, options) => {

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { InsertVariable, type PipeSources } from '../logic-panel/insert-variable';
 import { applyFormat, type RichTextFormat } from './rich-text-edits';
 
 const FORMATS: readonly {
@@ -28,6 +29,8 @@ interface RichTextEditorProps {
   error?: string | undefined;
   placeholder?: string | undefined;
   rows?: number;
+  /** Earlier answers and values that can be piped in, from the toolbar. */
+  pipe?: PipeSources | undefined;
 }
 
 /**
@@ -43,6 +46,7 @@ export function RichTextEditor({
   error,
   placeholder,
   rows = 4,
+  pipe,
 }: RichTextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingSelection = useRef<[number, number] | null>(null);
@@ -64,6 +68,14 @@ export function RichTextEditor({
     const next = applyFormat(kind, value, textarea.selectionStart, textarea.selectionEnd);
     pendingSelection.current = [next.selectionStart, next.selectionEnd];
     onChange(next.text);
+  };
+
+  const insert = (token: string) => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? value.length;
+    const end = textarea?.selectionEnd ?? value.length;
+    pendingSelection.current = [start + token.length, start + token.length];
+    onChange(value.slice(0, start) + token + value.slice(end));
   };
 
   return (
@@ -97,6 +109,7 @@ export function RichTextEditor({
               </TooltipContent>
             </Tooltip>
           ))}
+          {pipe && <InsertVariable sources={pipe} target={label.toLowerCase()} onInsert={insert} />}
         </div>
       </div>
       <Textarea

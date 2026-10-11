@@ -1,15 +1,17 @@
 import { isShownQuestionType, type Field, type FieldOfType, type FieldType } from '@formyx/shared';
 import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { issuesUnder, useDraftIssues } from '../draft-issues';
 import type { FieldPatch } from '../editor-store';
 import { useEditorStore } from '../editor-store-context';
 import { FIELD_TYPE_ICONS, fieldTypeLabel } from '../field-type-meta';
 import { LogicSettings } from '../logic/logic-settings';
 import { usePublishIssues } from '../publish/publish-issues';
+import { conditionSources } from '../logic/condition-edits';
+import { PipedTextField } from '../logic-panel/piped-text-field';
 import { RichTextEditor } from './rich-text-editor';
 import { SettingsSection } from './settings-section';
+import { ShuffleSettings } from './shuffle-settings';
 import { SwitchSetting } from './switch-setting';
 import { TypeSettings } from './type-settings';
 
@@ -84,6 +86,7 @@ export function FieldSettings({ id }: { id: string }) {
     state.schema.fields.findIndex((field) => field.id === id),
   );
   const fields = useEditorStore((state) => state.schema.fields);
+  const variables = useEditorStore((state) => state.schema.logic.variables);
   const field = fields[index];
   const total = fields.length;
   const updateField = useEditorStore((state) => state.updateField);
@@ -99,6 +102,8 @@ export function FieldSettings({ id }: { id: string }) {
   const update = (patch: FieldPatch, mergeKey?: string) => {
     updateField(id, patch, mergeKey ? { mergeKey: `${mergeKey}:${id}` } : undefined);
   };
+  // Answers to earlier questions, and values, can be piped into this one's text.
+  const pipe = { fields: conditionSources(fields, index), variables, quiz: false };
 
   return (
     <div>
@@ -125,42 +130,39 @@ export function FieldSettings({ id }: { id: string }) {
                 value={field.label}
                 placeholder={labelText.placeholder}
                 error={issues.label}
+                pipe={pipe}
                 onChange={(label) => {
                   update({ label }, 'label');
                 }}
               />
             ) : (
-              <FormField
+              <PipedTextField
                 id="setting-label"
                 label={labelText.label}
+                rows={2}
+                value={field.label}
+                placeholder={labelText.placeholder}
                 hint={labelText.hint}
                 error={issues.label}
-              >
-                <Textarea
-                  rows={2}
-                  value={field.label}
-                  placeholder={labelText.placeholder}
-                  onChange={(event) => {
-                    update({ label: event.target.value }, 'label');
-                  }}
-                />
-              </FormField>
-            ))}
-          {descriptionText && (
-            <FormField
-              id="setting-description"
-              label={descriptionText.label}
-              hint={descriptionText.hint}
-              error={issues.description}
-            >
-              <Textarea
-                rows={2}
-                value={field.description ?? ''}
-                onChange={(event) => {
-                  update({ description: event.target.value || undefined }, 'description');
+                pipe={field.type === 'hidden' ? undefined : pipe}
+                onChange={(label) => {
+                  update({ label }, 'label');
                 }}
               />
-            </FormField>
+            ))}
+          {descriptionText && (
+            <PipedTextField
+              id="setting-description"
+              label={descriptionText.label}
+              rows={2}
+              value={field.description ?? ''}
+              hint={descriptionText.hint}
+              error={issues.description}
+              pipe={pipe}
+              onChange={(description) => {
+                update({ description: description || undefined }, 'description');
+              }}
+            />
           )}
           {hasPlaceholder(field) && (
             <FormField
@@ -196,6 +198,11 @@ export function FieldSettings({ id }: { id: string }) {
       )}
 
       <TypeSettings field={field} issues={issues} update={update} />
+      {(field.type === 'single_choice' ||
+        field.type === 'multi_choice' ||
+        field.type === 'dropdown' ||
+        field.type === 'picture_choice' ||
+        field.type === 'ranking') && <ShuffleSettings field={field} update={update} />}
       <LogicSettings field={field} index={index} fields={fields} issues={issues} update={update} />
     </div>
   );
