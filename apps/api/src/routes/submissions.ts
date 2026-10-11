@@ -1,14 +1,11 @@
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import {
-  answerableFields,
+  csvAnswerColumns,
   deleteSubmissionsInputSchema,
-  formatAnswer,
-  isFileAnswer,
   listSubmissionsQuerySchema,
   slugify,
   type DeleteSubmissionsResponse,
-  type Field,
   type FormSchema,
   type SubmissionPage,
   type SubmissionRecord,
@@ -16,7 +13,7 @@ import {
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { AppError } from '../lib/app-error.js';
-import { CSV_BOM, toCsvRow, type CsvValue } from '../lib/csv.js';
+import { CSV_BOM, toCsvRow } from '../lib/csv.js';
 import type { Database } from '../lib/prisma.js';
 import { routeParam } from '../lib/route-param.js';
 import type { AuthGuards } from '../middleware/auth.js';
@@ -24,26 +21,19 @@ import { createSubmissionService, submissionBatches } from '../services/submissi
 
 const EXPORT_BATCH_SIZE = 500;
 
-function csvValue(field: Field, value: unknown): CsvValue {
-  // Numbers and ratings stay numeric, so spreadsheets can sum and chart them.
-  if (typeof value === 'number') return value;
-  // Files export as a link to download them.
-  if (isFileAnswer(value)) return value.url;
-  return formatAnswer(field, value);
-}
-
 /** The export, a chunk per batch of responses: a header row, then newest first. */
 async function* csvChunks(
   prisma: Database,
   formId: string,
   schema: FormSchema | null,
 ): AsyncGenerator<string> {
-  const fields = schema ? answerableFields(schema) : [];
+  // A column per answer, or several for matrices, addresses and date ranges.
+  const columns = schema ? csvAnswerColumns(schema) : [];
   yield CSV_BOM +
     toCsvRow([
       'Response ID',
       'Submitted at (UTC)',
-      ...fields.map((field) => field.label.trim() || 'Untitled question'),
+      ...columns.map((column) => column.header),
       'Time to complete (seconds)',
     ]);
 
@@ -51,7 +41,7 @@ async function* csvChunks(
     toCsvRow([
       submission.id,
       submission.createdAt,
-      ...fields.map((field) => csvValue(field, submission.answers[field.id])),
+      ...columns.map((column) => column.cell(submission.answers)),
       submission.completionTimeMs === null ? null : Math.round(submission.completionTimeMs / 1000),
     ]);
 

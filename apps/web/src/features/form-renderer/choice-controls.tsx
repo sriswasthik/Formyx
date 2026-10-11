@@ -1,4 +1,4 @@
-import type { FieldOfType } from '@formyx/shared';
+import type { AnswerValue, FieldOfType } from '@formyx/shared';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { choiceGroup, choiceOption, inputRadius, ratingOption, textControl } from './styles';
@@ -26,31 +26,42 @@ function ChoiceIndicator({ multiple, checked }: { multiple: boolean; checked: bo
   );
 }
 
+interface ChoiceListProps {
+  options: readonly { id: string; label: string }[];
+  /** Checkboxes rather than radios. */
+  multiple: boolean;
+  controlId: string;
+  describedBy: string | undefined;
+  invalid: boolean;
+  value: AnswerValue | undefined;
+  onChange: (value: AnswerValue) => void;
+}
+
 /**
- * Radios (single choice) or checkboxes (multiple choice) in the theme's choice style: rows,
- * cards, pills or buttons. Native inputs keep arrow keys and screen readers working; pills
- * and buttons mark picked options with a tick as well as colour.
+ * Radios or checkboxes in the theme's choice style: rows, cards, pills or buttons. Native
+ * inputs keep arrow keys and screen readers working; pills and buttons mark picked options
+ * with a tick as well as colour.
  */
-export function ChoiceControl({
-  field,
+export function ChoiceList({
+  options,
+  multiple,
   controlId,
   describedBy,
   invalid,
   value,
   onChange,
-}: ControlProps<FieldOfType<'single_choice' | 'multi_choice'>>) {
+}: ChoiceListProps) {
   const { choiceStyle } = useFormTheme().components;
-  const multiple = field.type === 'multi_choice';
   const indicator = choiceStyle === 'list' || choiceStyle === 'cards';
   const selected = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
 
-  if (field.options.length === 0) {
+  if (options.length === 0) {
     return <p className="form-text-sm text-(--form-muted)">No options yet</p>;
   }
 
   return (
     <div className={choiceGroup[choiceStyle]} data-choice-style={choiceStyle}>
-      {field.options.map((option, index) => {
+      {options.map((option, index) => {
         const checked = selected.includes(option.id);
         return (
           <label key={option.id} className={choiceOption[choiceStyle]}>
@@ -88,6 +99,14 @@ export function ChoiceControl({
       })}
     </div>
   );
+}
+
+/** Single choice (radios) or multiple choice (checkboxes). */
+export function ChoiceControl({
+  field,
+  ...props
+}: ControlProps<FieldOfType<'single_choice' | 'multi_choice'>>) {
+  return <ChoiceList {...props} options={field.options} multiple={field.type === 'multi_choice'} />;
 }
 
 /** A native select: dependable on phones and with screen readers. */
@@ -137,34 +156,83 @@ export function DropdownControl({
 }
 
 /** Numbered buttons from 1 to the scale; native radios keep arrow-key navigation. */
-export function RatingControl({
-  field,
+interface ScaleButtonsProps {
+  values: readonly number[];
+  controlId: string;
+  describedBy: string | undefined;
+  value: AnswerValue | undefined;
+  onChange: (value: AnswerValue) => void;
+  /** Words under the ends (and middle) of the scale. */
+  labels?: { low: string; middle?: string; high: string } | undefined;
+  /** Buttons share the width (NPS, opinion scales); otherwise they keep their size. */
+  stretch?: boolean;
+}
+
+/**
+ * Numbered buttons, one per value; native radios keep arrow-key navigation. Labels under the
+ * ends say what the numbers mean, and are part of the first and last buttons' names.
+ */
+export function ScaleButtons({
+  values,
   controlId,
   describedBy,
   value,
   onChange,
-}: ControlProps<FieldOfType<'rating'>>) {
-  const scale = Array.from({ length: field.ratingScale }, (_, index) => index + 1);
+  labels,
+  stretch = false,
+}: ScaleButtonsProps) {
+  const first = values[0];
+  const last = values.at(-1);
+  const middleValue = values[Math.floor(values.length / 2)];
+  const named = (rating: number) =>
+    labels && rating === first && labels.low
+      ? `${rating}, ${labels.low}`
+      : labels && rating === last && labels.high
+        ? `${rating}, ${labels.high}`
+        : String(rating);
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {scale.map((rating) => (
-        <label key={rating} className={ratingOption}>
-          <input
-            id={rating === 1 ? controlId : undefined}
-            type="radio"
-            name={controlId}
-            value={rating}
-            checked={value === rating}
-            aria-describedby={rating === 1 ? describedBy : undefined}
-            className="sr-only"
-            onChange={() => {
-              onChange(rating);
-            }}
-          />
-          {rating}
-        </label>
-      ))}
+    <div className="flex flex-col gap-2">
+      <div className={cn('flex gap-1.5 @sm:gap-2', stretch ? 'w-full' : 'flex-wrap')}>
+        {values.map((rating) => (
+          <label
+            key={rating}
+            className={cn(ratingOption, stretch && 'size-auto h-11 min-w-0 flex-1 px-0')}
+          >
+            <input
+              id={rating === first ? controlId : undefined}
+              type="radio"
+              name={controlId}
+              value={rating}
+              checked={value === rating}
+              aria-label={named(rating)}
+              aria-describedby={rating === first ? describedBy : undefined}
+              className="sr-only"
+              onChange={() => {
+                onChange(rating);
+              }}
+            />
+            <span aria-hidden>{rating}</span>
+          </label>
+        ))}
+      </div>
+      {labels && (labels.low || labels.middle || labels.high) && (
+        <div
+          aria-hidden
+          className="grid grid-cols-3 gap-2 form-text-sm text-(--form-muted)"
+          data-scale-labels
+        >
+          <span>{labels.low}</span>
+          <span className="text-center">{middleValue !== undefined && labels.middle}</span>
+          <span className="text-right">{labels.high}</span>
+        </div>
+      )}
     </div>
   );
+}
+
+/** A rating drawn as numbers, from 1 to the scale. */
+export function RatingControl({ field, ...props }: ControlProps<FieldOfType<'rating'>>) {
+  const values = Array.from({ length: field.ratingScale }, (_, index) => index + 1);
+  return <ScaleButtons {...props} values={values} />;
 }

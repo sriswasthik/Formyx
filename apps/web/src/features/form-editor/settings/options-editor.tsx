@@ -1,4 +1,4 @@
-import { createOption, type ChoiceField, type FieldOption } from '@formyx/shared';
+import { createOption, type PictureOption } from '@formyx/shared';
 import {
   closestCenter,
   DndContext,
@@ -28,8 +28,11 @@ import { cn } from '@/lib/utils';
 const verticalOnly: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
 interface OptionRowProps {
-  option: FieldOption;
+  option: PictureOption;
   index: number;
+  /** "Option", "Row" or "Column". */
+  noun: string;
+  extra?: React.ReactNode;
   canRemove: boolean;
   error: string | undefined;
   inputRef: (node: HTMLInputElement | null) => void;
@@ -41,6 +44,8 @@ interface OptionRowProps {
 function OptionRow({
   option,
   index,
+  noun,
+  extra,
   canRemove,
   error,
   inputRef,
@@ -74,17 +79,17 @@ function OptionRow({
           type="button"
           {...attributes}
           {...(listeners as React.DOMAttributes<HTMLButtonElement>)}
-          aria-label={`Move option ${index + 1}`}
+          aria-label={`Move ${noun.toLowerCase()} ${index + 1}`}
           className="flex h-9 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:text-foreground active:cursor-grabbing"
         >
           <GripVertical aria-hidden />
         </button>
         <Input
           ref={inputRef}
-          aria-label={`Option ${index + 1}`}
+          aria-label={`${noun} ${index + 1}`}
           aria-invalid={error ? true : undefined}
           value={option.label}
-          placeholder={`Option ${index + 1}`}
+          placeholder={`${noun} ${index + 1}`}
           onChange={(event) => {
             onLabelChange(event.target.value);
           }}
@@ -101,7 +106,7 @@ function OptionRow({
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={`Remove option ${index + 1}`}
+          aria-label={`Remove ${noun.toLowerCase()} ${index + 1}`}
           disabled={!canRemove}
           className="shrink-0 text-muted-foreground hover:not-disabled:text-foreground"
           onClick={() => {
@@ -111,26 +116,43 @@ function OptionRow({
           <X aria-hidden />
         </Button>
       </div>
+      {extra && <div className="pl-6">{extra}</div>}
       {error && <p className="pl-6 text-13 text-danger-text">{error}</p>}
     </li>
   );
 }
 
 interface OptionsEditorProps {
-  field: ChoiceField;
+  options: readonly PictureOption[];
   /** Problems keyed by path within the field, e.g. `options.2.label`. */
   issues: Record<string, string>;
-  onChange: (options: FieldOption[], mergeKey?: string) => void;
+  onChange: (options: PictureOption[], mergeKey?: string) => void;
+  /** Which list: options (choices, rankings, pictures) or a matrix's rows or columns. */
+  path?: 'options' | 'rows' | 'columns';
+  /** The fewest it may have. */
+  minimum?: number;
+  /** More to edit for each, under its label (a picture choice's picture). */
+  renderExtra?: (option: PictureOption, index: number) => React.ReactNode;
 }
 
+const NOUNS = { options: 'Option', rows: 'Row', columns: 'Column' } as const;
+
 /**
- * Edit, add, remove and reorder options. Enter adds an option below; Backspace in an empty
- * option removes it; the handles drag with a pointer or with the keyboard.
+ * Edit, add, remove and reorder options (or a matrix's rows or columns). Enter adds one
+ * below; Backspace in an empty one removes it; the handles drag with a pointer or with the
+ * keyboard.
  */
-export function OptionsEditor({ field, issues, onChange }: OptionsEditorProps) {
+export function OptionsEditor({
+  options,
+  issues,
+  onChange,
+  path = 'options',
+  minimum = 1,
+  renderExtra,
+}: OptionsEditorProps) {
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const [focusRequest, setFocusRequest] = useState<{ id: string; select: boolean } | null>(null);
-  const { options } = field;
+  const noun = NOUNS[path];
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -147,7 +169,7 @@ export function OptionsEditor({ field, issues, onChange }: OptionsEditorProps) {
   }, [focusRequest, options]);
 
   const insertAfter = (index: number) => {
-    const option = createOption(`Option ${options.length + 1}`);
+    const option = createOption(`${noun} ${options.length + 1}`);
     onChange([...options.slice(0, index + 1), option, ...options.slice(index + 1)]);
     setFocusRequest({ id: option.id, select: true });
   };
@@ -166,29 +188,34 @@ export function OptionsEditor({ field, issues, onChange }: OptionsEditorProps) {
         modifiers={[verticalOnly]}
         accessibility={{
           screenReaderInstructions: {
-            draggable:
-              'To reorder an option, press Space or Enter, use the arrow keys, then Space or Enter to drop it.',
+            draggable: `To reorder, press Space or Enter, use the arrow keys, then Space or Enter to drop.`,
           },
         }}
         onDragEnd={({ active, over }) => {
           if (!over || active.id === over.id) return;
           const from = options.findIndex((option) => option.id === active.id);
           const to = options.findIndex((option) => option.id === over.id);
-          if (from >= 0 && to >= 0) onChange(arrayMove(options, from, to));
+          if (from >= 0 && to >= 0) onChange(arrayMove([...options], from, to));
         }}
       >
         <SortableContext
           items={options.map((option) => option.id)}
           strategy={verticalListSortingStrategy}
         >
-          <ul aria-label="Options" className="-ml-1 flex flex-col gap-1.5">
+          <ul aria-label={`${noun}s`} className="-ml-1 flex flex-col gap-1.5">
             {options.map((option, index) => (
               <OptionRow
                 key={option.id}
                 option={option}
                 index={index}
-                canRemove={options.length > 1}
-                error={issues[`options.${index}.label`] ?? issues[`options.${index}.id`]}
+                noun={noun}
+                extra={renderExtra?.(option, index)}
+                canRemove={options.length > minimum}
+                error={
+                  issues[`${path}.${index}.label`] ??
+                  issues[`${path}.${index}.imageUrl`] ??
+                  issues[`${path}.${index}.id`]
+                }
                 inputRef={(node) => {
                   if (node) inputs.current.set(option.id, node);
                   else inputs.current.delete(option.id);
@@ -212,7 +239,7 @@ export function OptionsEditor({ field, issues, onChange }: OptionsEditorProps) {
           </ul>
         </SortableContext>
       </DndContext>
-      {issues.options && <p className="text-13 text-danger-text">{issues.options}</p>}
+      {issues[path] && <p className="text-13 text-danger-text">{issues[path]}</p>}
       <Button
         variant="ghost"
         size="sm"
@@ -222,7 +249,7 @@ export function OptionsEditor({ field, issues, onChange }: OptionsEditorProps) {
         }}
       >
         <Plus aria-hidden />
-        Add option
+        Add {noun.toLowerCase()}
       </Button>
     </div>
   );

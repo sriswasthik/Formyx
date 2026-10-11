@@ -1,6 +1,6 @@
 import {
-  allowedExtensions,
   BYTES_PER_MB,
+  uploadRules,
   THEME_IMAGE_FORMATS,
   THEME_IMAGE_MAX_MB,
   uploadSignatureQuerySchema,
@@ -17,8 +17,9 @@ import { createPublicFormService } from '../services/public-form-service.js';
 import { createUploadChecks, uploadsUnavailable } from '../services/upload-checks.js';
 
 /**
- * Signs uploads that go straight from the browser to storage. Respondents' files need no
- * account but the form must be taking responses; logos and cover images take EDITOR access.
+ * Signs uploads that go straight from the browser to storage. Respondents' files, signatures
+ * and voice notes need no account but the form must be taking responses; a form's own images
+ * (logo, cover, background, pictures in the form) take EDITOR access.
  */
 export function createUploadsRouter(
   { env, prisma, storage }: AppDependencies,
@@ -50,13 +51,14 @@ export function createUploadsRouter(
           throw demoRestricted('File uploads are switched off on demo forms.');
         }
         const field = form.schema.fields.find((candidate) => candidate.id === query.field);
-        if (field?.type !== 'file') {
+        const rules = field && uploadRules(field);
+        if (!field || !rules) {
           throw new AppError(404, 'NOT_FOUND', 'This question does not take files');
         }
         body = storage.signUpload({
           folder: answerFolder(root, form.id, field.id),
-          allowedFormats: allowedExtensions(field.fileConfig.allowedTypes),
-          maxBytes: field.fileConfig.maxSizeMb * BYTES_PER_MB,
+          allowedFormats: rules.extensions,
+          maxBytes: rules.maxSizeMb * BYTES_PER_MB,
         });
       } else {
         const { userId } = getAuth(req);

@@ -29,6 +29,7 @@ import { findDraftIssues, firstFieldWithIssue } from './draft-issues';
 import { EditorEntitlementsContext } from './editor-entitlements';
 import { EditorWorkspaceContext } from './editor-workspace';
 import { EditorLayout } from './editor-layout';
+import { preloadFieldControls } from '@/features/form-renderer/controls/registry';
 import { createEditorStore } from './editor-store';
 import { EditorStoreContext } from './editor-store-context';
 import { PublishControls } from './publish/publish-controls';
@@ -88,8 +89,10 @@ function EditorProblem({
 /** One editor per form: its store is created from the form once and lives until it closes. */
 function FormEditor({ form }: { form: FormDetail }) {
   const queryClient = useQueryClient();
-  const [store] = useState(() =>
-    createEditorStore(
+  const [store] = useState(() => {
+    // The form's question types start loading with the editor, so the canvas draws them at once.
+    void preloadFieldControls(form.draftSchema);
+    return createEditorStore(
       { title: form.title, schema: form.draftSchema, version: form.version, theme: form.theme },
       {
         onConditionsRemoved: (count, undo) => {
@@ -99,8 +102,8 @@ function FormEditor({ form }: { form: FormDetail }) {
           });
         },
       },
-    ),
-  );
+    );
+  });
   const { state: saveState, autosaver } = useAutosave(form.id, store);
   const [conflictDismissed, setConflictDismissed] = useState(false);
   const [reloading, setReloading] = useState(false);

@@ -37,8 +37,8 @@ function originOf(url: string, name: string): URL {
 /**
  * The content security policy. Scripts only from this site (plus the hashed inline ones); styles
  * allow inline `style` attributes, which animations set; images may come from any https host,
- * because form logos and covers are links people paste. `frameAncestors` decides who may
- * embed the page.
+ * because form logos and covers are links people paste; audio from uploads; video players from
+ * YouTube and Vimeo. `frameAncestors` decides who may embed the page.
  */
 export function contentSecurityPolicy({
   scriptHashes,
@@ -60,8 +60,12 @@ export function contentSecurityPolicy({
     `script-src 'self' ${scriptHashes.join(' ')}`.trim(),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
+    // Voice notes: a respondent's own recording, and uploads played back in responses.
+    "media-src 'self' blob: https://res.cloudinary.com",
     "font-src 'self'",
     `connect-src ${connect.join(' ')}`,
+    // Video blocks: the privacy-friendly YouTube and Vimeo players only.
+    'frame-src https://www.youtube-nocookie.com https://player.vimeo.com',
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -75,6 +79,9 @@ const COMMON_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
 };
+
+/** Public forms may use the microphone, for voice-note questions; nothing else may. */
+const FORM_PERMISSIONS = 'camera=(), microphone=(self), geolocation=(), payment=()';
 
 /**
  * Routes for Vercel: `/api/*` proxied to the API, so the session cookie belongs to this site;
@@ -97,7 +104,11 @@ export function vercelRoutes({ apiUrl, realtimeUrl, html }: DeployOptions): Verc
     { src: '^/embed\\.js$', headers: { 'Cache-Control': 'public, max-age=300' }, continue: true },
     {
       src: '^/f/.*$',
-      headers: { ...COMMON_HEADERS, 'Content-Security-Policy': policy('*') },
+      headers: {
+        ...COMMON_HEADERS,
+        'Permissions-Policy': FORM_PERMISSIONS,
+        'Content-Security-Policy': policy('*'),
+      },
       continue: true,
     },
     {

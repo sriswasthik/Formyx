@@ -16,7 +16,7 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 
 ## Features
 
-- **Editor.** Drag and drop questions (mouse, touch and keyboard), 12 question types, templates, undo and redo, autosave with conflict detection, keyboard shortcuts, and a tabbed layout on small screens.
+- **Editor.** Drag and drop questions (mouse, touch and keyboard), 28 question types and 5 content blocks, pages, hidden fields, templates, undo and redo, autosave with conflict detection, keyboard shortcuts, and a tabbed layout on small screens.
 - **Conditional logic.** Show a question only when earlier answers match, with comparisons that fit each question type, combined with all or any.
 - **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), 40 open-licence fonts with pairings, input, choice, button and container styles, question numbers, progress bars, and classic, card, split or one-question-at-a-time layouts. Brand kits carry a workspace's logo, colours and fonts from form to form, and a look can be suggested from a logo. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
 - **Plans.** Free, Pro and Business entitlements, checked through shared helpers. Everything is unlocked during the beta; when enforced, anyone can try Pro styles in the editor, but publishing them needs Pro.
@@ -121,6 +121,8 @@ To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DE
 - `e2e/tests/journey.spec.ts` is the whole story in one test: sign up, create a form from a template, add a question with a condition, publish, answer the form as a respondent on a phone in a second browser, see the response arrive live, and export it as CSV.
 - `e2e/tests/accessibility.spec.ts` runs axe (WCAG 2.2 A and AA) on the landing page, dashboard, editor and public form, in light and dark mode, and fails on any serious or critical issue.
 - `e2e/tests/embed.spec.ts` embeds a form in a page served from another origin and checks resizing and the `formyx:submitted` event.
+- `e2e/tests/new-fields.spec.ts` fills in a three-page form with every newer question type, including a typed signature, a voice note recorded from Chromium's fake microphone and the PIN look-up, and checks the stored answers and the response drawer. `e2e/scripts/fake-cloudinary.mjs` stands in for Cloudinary and India Post (Playwright starts it), so the tests make no outside calls.
+- To run the tests beside dev servers on the usual ports, move them: `E2E_WEB_PORT`, `E2E_API_PORT` and `E2E_FAKE_PORT` (defaults 5173, 4000 and 4590).
 - Before the first `pnpm test:e2e`, install the browser once with `pnpm --filter @formyx/e2e exec playwright install chromium`. End-to-end tests sign up throwaway users in the development database, and reuse dev servers that are already running.
 
 CI (`.github/workflows/ci.yml`) runs formatting, lint, typecheck, unit and API tests, the build and the size check, then the end-to-end tests, on every pull request.
@@ -180,7 +182,7 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 - **Several API instances**: Redis for rate limits and the Socket.IO adapter.
 - **A signed header from the proxy**, so the API trusts forwarded client IPs only from Vercel.
 - **Partial responses and drop-off analytics**, showing where people leave a form.
-- **More question types** (matrix, ranking, signature) and payments.
+- **Payments**, and logic that jumps between pages.
 - **Custom domains** for public forms, and translations of a form.
 - **Live co-editing** in the editor, building on the existing Socket.IO rooms.
 
@@ -193,7 +195,7 @@ Share › Embed gives a snippet for any page:
 <script src="https://formyx.app/embed.js" async></script>
 ```
 
-`embed.js` (about 1 KB gzipped, no dependencies) replaces each `[data-formyx]` element with an iframe of `/f/:slug?embed=1`. In embed mode the form drops the page background and footer and becomes a card. The iframe reports its height and title with `postMessage`; the script only accepts messages from its own origin and from that iframe, and resizes it. When someone submits, the element dispatches a bubbling `formyx:submitted` event with `{ detail: { slug } }`. Elements added later can be mounted with `window.Formyx.scan()`. `examples/embed-demo.html` is a page to try it with.
+`embed.js` (about 1 KB gzipped, no dependencies) replaces each `[data-formyx]` element with an iframe of `/f/:slug?embed=1`. In embed mode the form drops the page background and footer and becomes a card. The iframe reports its height and title with `postMessage`; the script only accepts messages from its own origin and from that iframe, and resizes it. When someone submits, the element dispatches a bubbling `formyx:submitted` event with `{ detail: { slug } }`. Elements added later can be mounted with `window.Formyx.scan()`. The host page's query string is passed on to the form, to fill hidden fields, and the iframe may use the microphone, for voice notes. `examples/embed-demo.html` is a page to try it with.
 
 ## Demo account
 
@@ -206,13 +208,13 @@ Share › Embed gives a snippet for any page:
 
 | Route                  | JS + CSS (KB, gzip) |
 | ---------------------- | ------------------- |
-| Public form `/f/:slug` | 195                 |
-| Landing                | 207                 |
-| Forms dashboard        | 263                 |
-| Responses              | 284                 |
-| Editor                 | 363                 |
+| Public form `/f/:slug` | 200                 |
+| Landing                | 208                 |
+| Forms dashboard        | 267                 |
+| Responses              | 292                 |
+| Editor                 | 379                 |
 
-`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 195 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars; it has almost no headroom left). The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
+`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 200 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars, and to 200 KB in Sprint 12, which measures 199.8 KB: every type's schema and validator ship with every form, so the next addition must make room first). The controls for newer question types, file uploads, image and video blocks and the phone country table load only with forms that use them. The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
 
 Lighthouse on the public form, served from a production build: **99** performance, **100** accessibility, **100** best practices and **100** SEO on desktop (first contentful paint 0.7 s, no layout shift). On Lighthouse's simulated slow 4G phone, performance is **75 to 83** and the other three stay at 100.
 
@@ -273,6 +275,29 @@ A form's questions and settings are a JSON document (`FormSchema`) defined with 
 | `POST /api/forms/:formId/reopen`          | Editors | Takes responses again, unless its limit or closing time has passed  |
 
 Every update increments `version`. A `PATCH` whose `version` is no longer current gets `409 CONFLICT` with `details.currentVersion`, so concurrent editors never overwrite each other silently.
+
+### Question types
+
+The palette groups them, with a search over names and descriptions:
+
+| Group                    | Types                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Text and contact         | Short text, long text, email, phone (country picker, India by default), website, address       |
+| Choice                   | Single and multiple choice, dropdown, picture choice, yes/no, ranking                          |
+| Rating and scales        | Rating (numbers, stars, hearts or faces), NPS, opinion scale, slider, matrix                   |
+| Numbers, dates and times | Number, currency (₹ by default), date, date range, time                                        |
+| Uploads and media        | File, signature (drawn or typed, saved as a PNG), voice note (recorded in the browser), colour |
+| Content and layout       | Statement (rich text), image, video (YouTube or Vimeo), divider, page break                    |
+| Special                  | Consent (a checkbox under rich-text terms), hidden field (filled from the link)                |
+
+- **Schema v2.** The new types came with form schema version 2. `migrateFormSchema` upgrades version 1 documents when they are read (phone questions gain a default country, ratings keep their number style), so stored forms never need a data migration.
+- **Answers.** Each type has its answer shape and check in `packages/shared/src/forms/submission.ts`, used by the browser before sending and by the API on receipt. Phone numbers are stored in E.164 form (`+919876543210`), with Indian numbers checked for ten digits; addresses as `{ line1, line2, pin, city, state }`; date ranges as `{ start, end }`; matrices as `{ rowId: columnId }` (or lists of columns); amounts as numbers in the question's currency.
+- **Rich text** (statements and consent terms) is a small Markdown subset: `**bold**`, `*italic*`, `[links](https://…)` (http, https and mailto only), `- ` lists and paragraphs. It is parsed into a tree and drawn as React elements, never as HTML, so a form cannot inject markup.
+- **Pages.** Page breaks split classic forms into pages (empty pages are skipped). Next checks the page's answers before moving on; Back keeps them; sending checks everything and returns to the page with the first problem. Conversational forms already show one question at a time and skip page breaks, dividers and hidden fields.
+- **Hidden fields** take their value from the form link's query string (`/f/slug?source=newsletter`). Embedded forms receive the host page's query string from `embed.js`. Values are trimmed and capped at 500 characters.
+- **Address look-up.** Typing a six-digit PIN code fills in the city and state (both stay editable) from `GET /api/public/pincodes/:pin`, which asks India Post's public API (`PINCODE_API_URL`) and caches answers in memory (30 days for found codes, a day for unknown ones). If the look-up fails, respondents type them.
+- **Lazy controls.** The controls for the newer types live in chunks loaded only by forms that use them; the public page and the editor preload a form's chunks, so they draw at once.
+- **Responses.** Summaries show the Net Promoter Score with promoters, passives and detractors, opinion scale averages, rankings by average place, matrix rows as shares and hidden field values by frequency. The table and drawer show pictures, rankings, matrix rows, addresses, signatures as images and voice notes with a player; CSV exports have a column per matrix row and per address part.
 
 ## Editor
 
@@ -374,13 +399,13 @@ Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional
 
 ## File uploads
 
-File questions upload straight from the browser to Cloudinary with a progress bar, cancel and retry; the API never handles the bytes.
+File questions, signatures (PNG) and voice notes (WebM, Ogg or MP4 audio, as the browser records it) upload straight from the browser to Cloudinary with a progress bar, cancel and retry; the API never handles the bytes. Pictures for picture choices and image blocks are uploaded by editors the same way as logos.
 
-1. `GET /api/uploads/signature?purpose=answer&form=<slug>&field=<id>` (no account; rate limited) or `?purpose=logo|cover|background&formId=` (editors) signs one upload. The signature pins the folder (`<CLOUDINARY_FOLDER>/forms/<formId>/<fieldId>` or `.../themes/<formId>`) and the allowed formats.
+1. `GET /api/uploads/signature?purpose=answer&form=<slug>&field=<id>` (no account; rate limited) or `?purpose=logo|cover|background|content&formId=` (editors) signs one upload. The signature pins the folder (`<CLOUDINARY_FOLDER>/forms/<formId>/<fieldId>` or `.../themes/<formId>`) and the allowed formats.
 2. The browser checks the question's size and type limits (`fileProblem` in `packages/shared`) and posts the file to Cloudinary.
 3. The answer keeps `{ url, publicId, name, size, type }`. On submit the API asks Cloudinary's Admin API about each file and refuses files from another question or form, URLs it did not issue, real sizes over the limit and formats the question does not take; the stored size replaces the browser's. Logos, cover and background images get the same check when the theme is saved.
 
-Responses link to the files (they open in a new tab) and CSV exports have their URLs. Uploaded files are public but unguessable Cloudinary URLs. Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to switch uploads on; without them the signature endpoint answers `503 UPLOADS_UNAVAILABLE` and file questions say uploads are unavailable.
+Responses link to the files (they open in a new tab) and CSV exports have their URLs. Uploaded files are public but unguessable Cloudinary URLs. Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to switch uploads on; without them the signature endpoint answers `503 UPLOADS_UNAVAILABLE` and file questions say uploads are unavailable. `CLOUDINARY_API_URL` points the API at another address with Cloudinary's API, as the end-to-end tests do.
 
 ## Teams and roles
 

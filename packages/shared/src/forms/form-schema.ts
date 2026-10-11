@@ -6,9 +6,11 @@ import {
   type Condition,
 } from './conditions.js';
 import { FIELD_TYPE_LABELS, isAnswerableFieldType } from './field-types.js';
+import { TIME_PATTERN } from './answer-values.js';
 import { fieldSchema, type Field } from './fields.js';
 
-export const FORM_SCHEMA_VERSION = 1;
+/** 2: Sprint 12's question types, rich-text statements and phone country codes. */
+export const FORM_SCHEMA_VERSION = 2;
 export const MAX_FIELDS = 250;
 export const FORM_DESCRIPTION_MAX_LENGTH = 2000;
 
@@ -56,6 +58,27 @@ function conditionValueProblem(source: Field, { operator, value }: Condition): s
         : `Pick a rating from 1 to ${source.ratingScale}`;
     case 'date':
       return typeof value === 'string' && isIsoDate(value) ? null : 'Use a date such as 2026-09-30';
+    case 'nps':
+      return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10
+        ? null
+        : 'Pick a score from 0 to 10';
+    case 'opinion_scale':
+      return typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= source.start &&
+        value <= source.end
+        ? null
+        : `Pick a value from ${source.start} to ${source.end}`;
+    case 'slider':
+    case 'currency':
+      return typeof value === 'number' ? null : 'Enter a number';
+    case 'time':
+      return typeof value === 'string' && TIME_PATTERN.test(value)
+        ? null
+        : 'Use a time such as 14:30';
+    case 'yes_no':
+      return value === 'yes' || value === 'no' ? null : 'Choose yes or no';
+    case 'picture_choice':
     case 'single_choice':
     case 'multi_choice':
     case 'dropdown':
@@ -104,7 +127,7 @@ function findConditionProblem(
     return { key: 'sourceFieldId', message: 'Can only depend on an earlier question' };
   }
   if (!isAnswerableFieldType(source.type)) {
-    return { key: 'sourceFieldId', message: 'Statements have no answer to check' };
+    return { key: 'sourceFieldId', message: 'Content blocks have no answer to check' };
   }
   if (!OPERATORS_BY_FIELD_TYPE[source.type].includes(condition.operator)) {
     const type = FIELD_TYPE_LABELS[source.type].toLowerCase();
@@ -131,17 +154,44 @@ function checkIntegrity(form: { fields: Field[] }, ctx: z.RefinementCtx): void {
     }
     seenIds.add(field.id);
 
-    if ('options' in field) {
+    const uniqueIds = (key: 'options' | 'rows' | 'columns', items: readonly { id: string }[]) => {
       const seen = new Set<string>();
-      field.options.forEach((option, optionIndex) => {
-        if (seen.has(option.id)) {
+      items.forEach((item, itemIndex) => {
+        if (seen.has(item.id)) {
           ctx.addIssue({
             code: 'custom',
-            path: ['fields', index, 'options', optionIndex, 'id'],
-            message: 'Another option already uses this id',
+            path: ['fields', index, key, itemIndex, 'id'],
+            message: `Another ${key.slice(0, -1)} already uses this id`,
           });
         }
-        seen.add(option.id);
+        seen.add(item.id);
+      });
+    };
+    if ('options' in field) uniqueIds('options', field.options);
+    if (field.type === 'matrix') {
+      uniqueIds('rows', field.rows);
+      uniqueIds('columns', field.columns);
+    }
+    if (field.type === 'slider') {
+      if (field.max <= field.min) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fields', index, 'max'],
+          message: 'Use a maximum above the minimum',
+        });
+      } else if (field.step > field.max - field.min) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fields', index, 'step'],
+          message: 'Use a step no bigger than the range',
+        });
+      }
+    }
+    if (field.type === 'opinion_scale' && field.end <= field.start) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['fields', index, 'end'],
+        message: 'End the scale above where it starts',
       });
     }
   });

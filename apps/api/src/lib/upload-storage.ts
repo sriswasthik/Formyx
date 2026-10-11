@@ -100,6 +100,8 @@ interface CloudinaryConfig {
   /** Clock and network, so tests can pin them. */
   now?: () => number;
   fetch?: typeof fetch;
+  /** Cloudinary's API, or a stand-in for end-to-end tests. */
+  apiUrl?: string;
 }
 
 export function createCloudinaryStorage({
@@ -108,6 +110,7 @@ export function createCloudinaryStorage({
   apiSecret,
   now = Date.now,
   fetch: fetchImpl = fetch,
+  apiUrl = 'https://api.cloudinary.com',
 }: CloudinaryConfig): UploadStorage {
   const authorization = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`;
 
@@ -120,7 +123,7 @@ export function createCloudinaryStorage({
         apiSecret,
       );
       return {
-        uploadUrl: `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/auto/upload`,
+        uploadUrl: `${apiUrl}/v1_1/${encodeURIComponent(cloudName)}/auto/upload`,
         apiKey,
         timestamp,
         signature,
@@ -138,7 +141,7 @@ export function createCloudinaryStorage({
       const parsed = parseCloudinaryUrl(url, cloudName);
       if (!parsed) return null;
       const endpoint =
-        `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/resources/` +
+        `${apiUrl}/v1_1/${encodeURIComponent(cloudName)}/resources/` +
         `${parsed.resourceType}/upload/${parsed.publicId.split('/').map(encodeURIComponent).join('/')}`;
       const res = await fetchImpl(endpoint, {
         headers: { Authorization: authorization },
@@ -159,7 +162,10 @@ export function createCloudinaryStorage({
 
 /** Cloudinary storage when the account is configured; `null` switches uploads off. */
 export function createUploadStorage(
-  env: Pick<Env, 'CLOUDINARY_CLOUD_NAME' | 'CLOUDINARY_API_KEY' | 'CLOUDINARY_API_SECRET'>,
+  env: Pick<
+    Env,
+    'CLOUDINARY_CLOUD_NAME' | 'CLOUDINARY_API_KEY' | 'CLOUDINARY_API_SECRET' | 'CLOUDINARY_API_URL'
+  >,
 ): UploadStorage | null {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = env;
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) return null;
@@ -167,6 +173,7 @@ export function createUploadStorage(
     cloudName: CLOUDINARY_CLOUD_NAME,
     apiKey: CLOUDINARY_API_KEY,
     apiSecret: CLOUDINARY_API_SECRET,
+    apiUrl: env.CLOUDINARY_API_URL,
   });
 }
 

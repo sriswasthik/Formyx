@@ -1,8 +1,6 @@
 import {
   FILE_CATEGORIES,
   FILE_MAX_SIZE_MB,
-  RATING_SCALE_MAX,
-  RATING_SCALE_MIN,
   type Field,
   type FieldOfType,
   type FileCategory,
@@ -10,71 +8,29 @@ import {
 import { FormField } from '@/components/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { FILE_CATEGORY_LABELS } from '@/features/form-renderer/file-types';
 import type { FieldPatch } from '../editor-store';
 import { NumberInput } from './number-input';
+import { ConsentSettings, ImageSettings, VideoSettings } from './block-settings';
+import { MatrixSettings, PictureChoiceSettings, RankingSettings } from './choice-settings';
+import {
+  CurrencySettings,
+  HiddenSettings,
+  PhoneSettings,
+  VoiceNoteSettings,
+} from './input-settings';
 import { OptionsEditor } from './options-editor';
+import { compact } from './compact-limits';
+import { RangeInputs } from './range-inputs';
+import {
+  NpsSettings,
+  OpinionScaleSettings,
+  RatingSettings,
+  SliderSettings,
+} from './scale-settings';
 import { SettingsSection } from './settings-section';
 
 type Update = (patch: FieldPatch, mergeKey?: string) => void;
-
-/** Drops unset limits, and the whole object once nothing is left. */
-function compact<T extends Record<string, number | undefined>>(value: T): T | undefined {
-  const entries = Object.entries(value).filter(([, limit]) => limit !== undefined);
-  return entries.length > 0 ? (Object.fromEntries(entries) as T) : undefined;
-}
-
-function RangeInputs({
-  id,
-  minLabel,
-  maxLabel,
-  min,
-  max,
-  errors,
-  integer,
-  onChange,
-}: {
-  id: string;
-  minLabel: string;
-  maxLabel: string;
-  min: number | undefined;
-  max: number | undefined;
-  errors: { min?: string | undefined; max?: string | undefined };
-  integer: boolean;
-  onChange: (range: { min: number | undefined; max: number | undefined }, key: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormField id={`${id}-min`} label={minLabel} error={errors.min}>
-        <NumberInput
-          integer={integer}
-          value={min}
-          placeholder="None"
-          onValueChange={(value) => {
-            onChange({ min: value, max }, 'min');
-          }}
-        />
-      </FormField>
-      <FormField id={`${id}-max`} label={maxLabel} error={errors.max}>
-        <NumberInput
-          integer={integer}
-          value={max}
-          placeholder="None"
-          onValueChange={(value) => {
-            onChange({ min, max: value }, 'max');
-          }}
-        />
-      </FormField>
-    </div>
-  );
-}
 
 function TextLengthSettings({
   field,
@@ -129,37 +85,6 @@ function NumberRangeSettings({
           update({ validation: compact(range) }, `range-${key}`);
         }}
       />
-    </SettingsSection>
-  );
-}
-
-function RatingSettings({ field, update }: { field: FieldOfType<'rating'>; update: Update }) {
-  const scales = Array.from(
-    { length: RATING_SCALE_MAX - RATING_SCALE_MIN + 1 },
-    (_, index) => RATING_SCALE_MIN + index,
-  );
-  return (
-    <SettingsSection title="Scale">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="setting-scale">Rating from 1 to</Label>
-        <Select
-          value={String(field.ratingScale)}
-          onValueChange={(value) => {
-            update({ ratingScale: Number(value) });
-          }}
-        >
-          <SelectTrigger id="setting-scale" className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {scales.map((scale) => (
-              <SelectItem key={scale} value={String(scale)}>
-                {scale}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
     </SettingsSection>
   );
 }
@@ -246,7 +171,7 @@ export function TypeSettings({
       return (
         <SettingsSection title="Options">
           <OptionsEditor
-            field={field}
+            options={field.options}
             issues={issues}
             onChange={(options, mergeKey) => {
               update({ options }, mergeKey);
@@ -258,6 +183,34 @@ export function TypeSettings({
       return <RatingSettings field={field} update={update} />;
     case 'file':
       return <FileSettings field={field} issues={issues} update={update} />;
+    case 'picture_choice':
+      return <PictureChoiceSettings field={field} issues={issues} update={update} />;
+    case 'nps':
+      return <NpsSettings field={field} issues={issues} update={update} />;
+    case 'opinion_scale':
+      return <OpinionScaleSettings field={field} issues={issues} update={update} />;
+    case 'slider':
+      return <SliderSettings field={field} issues={issues} update={update} />;
+    case 'ranking':
+      return <RankingSettings field={field} issues={issues} update={update} />;
+    case 'matrix':
+      return <MatrixSettings field={field} issues={issues} update={update} />;
+    case 'phone':
+      return <PhoneSettings field={field} issues={issues} update={update} />;
+    case 'currency':
+      return <CurrencySettings field={field} issues={issues} update={update} />;
+    case 'image':
+      return <ImageSettings field={field} issues={issues} update={update} />;
+    case 'video':
+      return <VideoSettings field={field} issues={issues} update={update} />;
+    case 'consent':
+      return <ConsentSettings field={field} issues={issues} update={update} />;
+    case 'hidden':
+      return <HiddenSettings field={field} issues={issues} update={update} />;
+    case 'voice_note':
+      return <VoiceNoteSettings field={field} issues={issues} update={update} />;
+    // Yes/no, address, time, date range, URL, signature, colour and the plain blocks have
+    // nothing more to set.
     default:
       return null;
   }

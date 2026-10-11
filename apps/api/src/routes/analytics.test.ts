@@ -138,7 +138,16 @@ describe('GET /api/forms/:formId/analytics', () => {
         counts: [0, 0, 1, 0, 1],
         sum: 8,
       },
-      { kind: 'number', fieldId: guests.id, label: 'Guests', answered: 2, sum: 2, min: 0, max: 2 },
+      {
+        kind: 'number',
+        type: 'number',
+        fieldId: guests.id,
+        label: 'Guests',
+        answered: 2,
+        sum: 2,
+        min: 0,
+        max: 2,
+      },
       {
         kind: 'text',
         fieldId: note.id,

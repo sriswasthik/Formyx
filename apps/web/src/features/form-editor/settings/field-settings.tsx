@@ -1,8 +1,6 @@
-import type { Field, FieldOfType, FieldType } from '@formyx/shared';
+import { isShownQuestionType, type Field, type FieldOfType, type FieldType } from '@formyx/shared';
 import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { issuesUnder, useDraftIssues } from '../draft-issues';
 import type { FieldPatch } from '../editor-store';
@@ -10,7 +8,9 @@ import { useEditorStore } from '../editor-store-context';
 import { FIELD_TYPE_ICONS, fieldTypeLabel } from '../field-type-meta';
 import { LogicSettings } from '../logic/logic-settings';
 import { usePublishIssues } from '../publish/publish-issues';
+import { RichTextEditor } from './rich-text-editor';
 import { SettingsSection } from './settings-section';
+import { SwitchSetting } from './switch-setting';
 import { TypeSettings } from './type-settings';
 
 const PLACEHOLDER_TYPES = [
@@ -20,10 +20,62 @@ const PLACEHOLDER_TYPES = [
   'number',
   'phone',
   'dropdown',
+  'url',
 ] as const;
 
 function hasPlaceholder(field: Field): field is FieldOfType<(typeof PLACEHOLDER_TYPES)[number]> {
   return (PLACEHOLDER_TYPES as readonly FieldType[]).includes(field.type);
+}
+
+interface TextCopy {
+  label: string;
+  placeholder?: string;
+  hint?: string;
+}
+
+/** What the label means for each type; `null` where it is not shown to anyone. */
+function labelCopy(type: FieldType): TextCopy | null {
+  switch (type) {
+    case 'statement':
+      return { label: 'Text', placeholder: 'Write something for respondents' };
+    case 'consent':
+      return { label: 'Checkbox text', placeholder: 'I agree to the terms above' };
+    case 'hidden':
+      return {
+        label: 'Name',
+        hint: 'Shown in your responses and exports. Respondents never see it.',
+      };
+    case 'page_break':
+      return { label: 'Page title', hint: 'Optional. Shown at the top of the new page.' };
+    case 'video':
+      return { label: 'Title', hint: 'Optional. Names the video for screen readers.' };
+    case 'image':
+    case 'divider':
+      return null;
+    default:
+      return { label: 'Question', placeholder: 'What would you like to ask?' };
+  }
+}
+
+/** What the description means for each type; `null` where it has none. */
+function descriptionCopy(type: FieldType): TextCopy | null {
+  switch (type) {
+    case 'divider':
+    case 'hidden':
+      return null;
+    case 'image':
+      return { label: 'Caption', hint: 'Optional. Shown below the image.' };
+    case 'video':
+      return { label: 'Caption', hint: 'Optional. Shown below the video.' };
+    case 'statement':
+      return { label: 'Description', hint: 'Optional. Shown below the text.' };
+    case 'consent':
+      return { label: 'Description', hint: 'Optional. Shown below the checkbox.' };
+    case 'page_break':
+      return { label: 'Description', hint: 'Optional. Shown under the page title.' };
+    default:
+      return { label: 'Description', hint: 'Optional. Shown below the question.' };
+  }
 }
 
 /** Settings for the selected question. */
@@ -42,7 +94,8 @@ export function FieldSettings({ id }: { id: string }) {
   if (!field) return null;
 
   const Icon = FIELD_TYPE_ICONS[field.type];
-  const isStatement = field.type === 'statement';
+  const labelText = labelCopy(field.type);
+  const descriptionText = descriptionCopy(field.type);
   const update = (patch: FieldPatch, mergeKey?: string) => {
     updateField(id, patch, mergeKey ? { mergeKey: `${mergeKey}:${id}` } : undefined);
   };
@@ -56,78 +109,91 @@ export function FieldSettings({ id }: { id: string }) {
         <div className="min-w-0">
           <h2 className="text-14 font-medium">{fieldTypeLabel(field.type)}</h2>
           <p className="text-12 text-muted-foreground tabular-nums">
-            Question {index + 1} of {total}
+            {index + 1} of {total} in this form
           </p>
         </div>
       </header>
 
-      <SettingsSection title="Content">
-        <FormField
-          id="setting-label"
-          label={isStatement ? 'Text' : 'Question'}
-          error={issues.label}
-        >
-          <Textarea
-            rows={2}
-            value={field.label}
-            placeholder={
-              isStatement ? 'Write something for respondents' : 'What would you like to ask?'
-            }
-            onChange={(event) => {
-              update({ label: event.target.value }, 'label');
-            }}
-          />
-        </FormField>
-        <FormField
-          id="setting-description"
-          label="Description"
-          hint={
-            isStatement ? 'Optional. Shown below the text.' : 'Optional. Shown below the question.'
-          }
-          error={issues.description}
-        >
-          <Textarea
-            rows={2}
-            value={field.description ?? ''}
-            onChange={(event) => {
-              update({ description: event.target.value || undefined }, 'description');
-            }}
-          />
-        </FormField>
-        {hasPlaceholder(field) && (
-          <FormField
-            id="setting-placeholder"
-            label="Placeholder"
-            hint="Shown in the empty answer box."
-            error={issues.placeholder}
-          >
-            <Input
-              value={field.placeholder ?? ''}
-              onChange={(event) => {
-                update({ placeholder: event.target.value || undefined }, 'placeholder');
-              }}
-            />
-          </FormField>
-        )}
-        {!isStatement && (
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor="setting-required">Required</Label>
-              <p id="setting-required-hint" className="text-13 text-muted-foreground">
-                Respondents must answer before submitting.
-              </p>
-            </div>
-            <Switch
+      {labelText || descriptionText ? (
+        <SettingsSection title="Content">
+          {labelText &&
+            (field.type === 'statement' ? (
+              <RichTextEditor
+                id="setting-label"
+                label={labelText.label}
+                rows={4}
+                value={field.label}
+                placeholder={labelText.placeholder}
+                error={issues.label}
+                onChange={(label) => {
+                  update({ label }, 'label');
+                }}
+              />
+            ) : (
+              <FormField
+                id="setting-label"
+                label={labelText.label}
+                hint={labelText.hint}
+                error={issues.label}
+              >
+                <Textarea
+                  rows={2}
+                  value={field.label}
+                  placeholder={labelText.placeholder}
+                  onChange={(event) => {
+                    update({ label: event.target.value }, 'label');
+                  }}
+                />
+              </FormField>
+            ))}
+          {descriptionText && (
+            <FormField
+              id="setting-description"
+              label={descriptionText.label}
+              hint={descriptionText.hint}
+              error={issues.description}
+            >
+              <Textarea
+                rows={2}
+                value={field.description ?? ''}
+                onChange={(event) => {
+                  update({ description: event.target.value || undefined }, 'description');
+                }}
+              />
+            </FormField>
+          )}
+          {hasPlaceholder(field) && (
+            <FormField
+              id="setting-placeholder"
+              label="Placeholder"
+              hint="Shown in the empty answer box."
+              error={issues.placeholder}
+            >
+              <Input
+                value={field.placeholder ?? ''}
+                onChange={(event) => {
+                  update({ placeholder: event.target.value || undefined }, 'placeholder');
+                }}
+              />
+            </FormField>
+          )}
+          {isShownQuestionType(field.type) && (
+            <SwitchSetting
               id="setting-required"
-              aria-describedby="setting-required-hint"
+              label="Required"
+              hint="Respondents must answer before submitting."
               checked={field.required}
               onCheckedChange={(required) => {
                 update({ required });
               }}
             />
-          </div>
-        )}
-      </SettingsSection>
+          )}
+        </SettingsSection>
+      ) : (
+        <SettingsSection title="Content">
+          <p className="text-13 text-muted-foreground">A divider has nothing to set.</p>
+        </SettingsSection>
+      )}
 
       <TypeSettings field={field} issues={issues} update={update} />
       <LogicSettings field={field} index={index} fields={fields} issues={issues} update={update} />

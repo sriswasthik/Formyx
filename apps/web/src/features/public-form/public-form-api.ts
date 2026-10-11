@@ -8,7 +8,6 @@ import {
 import { z } from 'zod';
 import type { FileUploader } from '@/features/form-renderer/file-uploads';
 import { apiRequest, jsonRequest, readApiResponse } from '@/lib/api';
-import { getUploadSignature, uploadToStorage } from '@/lib/uploads';
 
 const publicFormPath = (slug: string) => `/public/forms/${encodeURIComponent(slug)}`;
 
@@ -43,6 +42,9 @@ export function submitResponse(slug: string, input: SubmissionInput): Promise<Su
 /** Uploads respondents' files for the published form `slug`, straight to storage. */
 export function answerUploader(slug: string): FileUploader {
   return async (field, file, options) => {
+    // Loaded with the first upload: most forms take no files, and the controls that do load
+    // the same module anyway.
+    const { getUploadSignature, uploadToStorage } = await import('@/lib/uploads');
     const signature = await getUploadSignature({ purpose: 'answer', form: slug, field: field.id });
     const stored = await uploadToStorage(signature, file, options);
     return {

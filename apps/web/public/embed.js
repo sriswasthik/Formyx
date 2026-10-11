@@ -1,7 +1,8 @@
 /*! Formyx embed. Usage:
  * <div data-formyx="SLUG"></div>
  * <script src="https://YOUR-FORMYX-SITE/embed.js" async></script>
- * Fires `formyx:submitted` (detail: { slug }) on the div, bubbling, when a response is sent. */
+ * Fires `formyx:submitted` (detail: { slug }) on the div, bubbling, when a response is sent.
+ * The page's query string is passed on, to fill the form's hidden fields. */
 (function () {
   'use strict';
   var script = document.currentScript;
@@ -15,13 +16,15 @@
     if (!slug || el.hasAttribute('data-formyx-mounted')) return;
     el.setAttribute('data-formyx-mounted', '');
     var frame = document.createElement('iframe');
-    frame.src =
-      origin +
-      '/f/' +
-      encodeURIComponent(slug) +
-      '?embed=1&parent=' +
-      encodeURIComponent(location.origin);
+    // The host page's query string goes along, so links like ?source=newsletter fill the
+    // form's hidden fields; the form keeps only parameters its hidden fields name.
+    var params = new URLSearchParams(location.search);
+    params.set('embed', '1');
+    params.set('parent', location.origin);
+    frame.src = origin + '/f/' + encodeURIComponent(slug) + '?' + params.toString();
     frame.title = 'Form';
+    // Voice-note questions record from the microphone, once the respondent allows it.
+    frame.allow = 'microphone';
     frame.style.cssText =
       'display:block;width:100%;height:480px;border:0;background:transparent;color-scheme:normal';
     el.appendChild(frame);

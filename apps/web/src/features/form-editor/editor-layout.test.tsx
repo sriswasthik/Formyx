@@ -1,4 +1,4 @@
-import { createField, type Field } from '@formyx/shared';
+import { createField, FIELD_TYPES, type Field } from '@formyx/shared';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EditorLayout } from './editor-layout';
@@ -17,13 +17,43 @@ describe('EditorLayout', () => {
     renderEditor([]);
 
     const palette = screen.getByRole('navigation', { name: 'Question types' });
-    expect(within(palette).getByRole('heading', { name: 'Text' })).toBeInTheDocument();
-    expect(within(palette).getByRole('heading', { name: 'Choice' })).toBeInTheDocument();
-    expect(within(palette).getByRole('heading', { name: 'Other' })).toBeInTheDocument();
-    expect(within(palette).getAllByRole('button')).toHaveLength(12);
+    for (const group of [
+      'Text and contact',
+      'Choice',
+      'Rating and scales',
+      'Numbers, dates and times',
+      'Uploads and media',
+      'Content and layout',
+      'Special',
+    ]) {
+      expect(within(palette).getByRole('heading', { name: group })).toBeInTheDocument();
+    }
+    expect(within(palette).getAllByRole('button')).toHaveLength(FIELD_TYPES.length);
+    expect(
+      within(palette).getByRole('button', { name: 'Add net promoter score' }),
+    ).toHaveAccessibleDescription('How likely to recommend, 0 to 10');
 
     expect(screen.getByText('This form has no questions yet')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Form settings' })).toBeInTheDocument();
+  });
+
+  it('finds question types by name or description', async () => {
+    const { user } = renderEditor([]);
+    const palette = screen.getByRole('navigation', { name: 'Question types' });
+    const search = within(palette).getByRole('searchbox', { name: 'Search question types' });
+
+    await user.type(search, 'pin code');
+    expect(
+      within(palette)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual([expect.stringContaining('Address')]);
+    expect(within(palette).getByRole('heading', { name: 'Text and contact' })).toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, 'zzz');
+    expect(within(palette).queryAllByRole('button')).toHaveLength(0);
+    expect(within(palette).getByRole('status')).toHaveTextContent('No question types match');
   });
 
   it('adds a question from the palette to the canvas, selected and ready to edit', async () => {

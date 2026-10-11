@@ -1,21 +1,20 @@
 import {
-  isAnswerableFieldType,
+  hiddenFieldValues,
   isAnswered,
+  isShownQuestionType,
   type FormSchema,
   type FormTheme,
   type SubmittedAnswers,
 } from '@formyx/shared';
 import { CircleCheck } from 'lucide-react';
-import { AnimatePresence, LazyMotion, m, useReducedMotion } from 'motion/react';
+import { LazyMotion, m, useReducedMotion } from 'motion/react';
 import { useCallback, useId, useMemo, useState, type ReactNode } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
+import { ClassicForm } from './classic-form';
 import type { ConversationProgress } from './conversational/conversational-form';
 import { useConversational } from './conversational/load-conversational';
-import { fieldIds } from './field-ids';
-import { FieldRenderer } from './field-renderer';
 import { FormLogo } from './branding';
 import { FileUploadsContext, type FileUploader } from './file-uploads';
-import { FormButton } from './form-button';
 import { FormProgress } from './form-progress';
 import { questionNumbers } from './numbering';
 import { ThemeRenderer, type ThemeVariant } from './theme/theme-renderer';
@@ -43,6 +42,8 @@ interface FormViewProps {
   uploadFile?: FileUploader | undefined;
   /** In conversational forms, shows this step (from 0), for the Studio preview's stepper. */
   previewStep?: number | undefined;
+  /** The form link's query string, which fills hidden fields (`?source=instagram`). */
+  linkParams?: URLSearchParams | undefined;
   className?: string;
 }
 
@@ -75,12 +76,17 @@ export function FormView({
   uploadFile,
   variant = 'page',
   previewStep,
+  linkParams,
   className,
 }: FormViewProps) {
   const idPrefix = useId();
   const reduceMotion = useReducedMotion() ?? false;
-  const response = useFormResponse({ schema, onSubmit, uploadFile });
-  const { answers, errors, formError, status, visibleIds, fileUploads, handleChange } = response;
+  // Read once: the link does not change while the form is open.
+  const [initialAnswers] = useState(() =>
+    linkParams ? hiddenFieldValues(schema, linkParams) : undefined,
+  );
+  const response = useFormResponse({ schema, onSubmit, uploadFile, initialAnswers });
+  const { answers, status, visibleIds, fileUploads } = response;
   const conversational = theme.layout.mode === 'conversational';
   // Only conversational forms download the one-question-at-a-time flow.
   const conversationalModule = useConversational(conversational);
@@ -98,9 +104,6 @@ export function FormView({
     () => questionNumbers(visibleFields, numbering),
     [visibleFields, numbering],
   );
-  const errorCount = Object.keys(errors).length;
-  // Questions that appear or go away open and close smoothly, or at once with less motion.
-  const reveal = reduceMotion ? { duration: 0 } : { duration: DURATION.base, ease: EASE_STANDARD };
 
   const progress = (() => {
     if (status === 'done') return null;
@@ -117,7 +120,7 @@ export function FormView({
       );
     }
     // Classic forms: the visible questions answered so far.
-    const questions = visibleFields.filter((field) => isAnswerableFieldType(field.type));
+    const questions = visibleFields.filter((field) => isShownQuestionType(field.type));
     const answered = questions.filter((field) => isAnswered(answers[field.id])).length;
     return <FormProgress theme={theme} value={answered} total={questions.length} />;
   })();
@@ -134,59 +137,18 @@ export function FormView({
     </header>
   );
 
-  const submitClassic = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const result = await response.submit();
-    if (result.ok) return;
-    const firstInvalid = schema.fields.find((field) => field.id in result.problems);
-    if (firstInvalid) document.getElementById(fieldIds(idPrefix, firstInvalid).control)?.focus();
-  };
-
   const classic = (
-    <form noValidate onSubmit={(event) => void submitClassic(event)} className="flex flex-col">
-      {header}
-      <AnimatePresence initial={false}>
-        {visibleFields.map((field) => (
-          <m.div
-            key={field.id}
-            // Clipped only while opening or closing, so focus rings show otherwise.
-            initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
-            animate={{
-              height: 'auto',
-              opacity: 1,
-              transitionEnd: { overflow: 'visible' },
-            }}
-            exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-            transition={reveal}
-          >
-            <div className="pb-8">
-              <FieldRenderer
-                field={field}
-                mode="respondent"
-                idPrefix={idPrefix}
-                number={numbers.get(field.id)}
-                value={answers[field.id]}
-                error={errors[field.id]}
-                onChange={handleChange}
-              />
-            </div>
-          </m.div>
-        ))}
-      </AnimatePresence>
-      {hiddenFields}
-      <div className="flex flex-col items-start gap-3">
-        <FormButton type="submit" busy={status === 'submitting'} disabled={status === 'submitting'}>
-          {schema.settings.submitButtonText}
-        </FormButton>
-        <p role="alert" className="form-text-sm text-(--form-danger) empty:hidden">
-          {formError ??
-            (errorCount > 0 &&
-              (errorCount === 1
-                ? '1 question needs your attention.'
-                : `${errorCount} questions need your attention.`))}
-        </p>
-      </div>
-    </form>
+    <ClassicForm
+      schema={schema}
+      response={response}
+      visibleFields={visibleFields}
+      idPrefix={idPrefix}
+      header={header}
+      pageHeadingLevel={Title === 'h1' ? 'h2' : 'h3'}
+      numbers={numbers}
+      pageTransition={theme.motion.pageTransition}
+      hiddenFields={hiddenFields}
+    />
   );
 
   return (

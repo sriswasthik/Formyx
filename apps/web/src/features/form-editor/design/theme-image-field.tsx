@@ -22,6 +22,7 @@ const COPY: Record<ThemeImageKind, { noun: string; hint: string }> = {
     noun: 'background image',
     hint: 'Fills the page behind the form. PNG, JPG, WebP or GIF, up to 5 MB.',
   },
+  content: { noun: 'picture', hint: 'PNG, JPG, WebP or GIF, up to 5 MB.' },
 };
 
 interface ThemeImageFieldProps {

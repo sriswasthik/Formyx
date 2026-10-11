@@ -141,11 +141,189 @@ export const fileFieldSchema = z.object({
   }),
 });
 
-/** A block of text shown to respondents. It collects no answer, so it is never required. */
+/**
+ * A block of text shown to respondents, its `label` written in the rich-text subset (see
+ * `rich-text.ts`). It collects no answer, so it is never required.
+ */
 export const statementFieldSchema = z.object({
   ...baseField,
   type: z.literal('statement'),
   required: z.literal(false, 'Statements cannot be required'),
+});
+
+/** Blocks that collect nothing are never required. */
+const notRequired = z.literal(false, 'Only questions can be required');
+const shortLabel = z.string().max(80, 'Use 80 characters or fewer');
+const imageUrl = z.url({ protocol: /^https$/, error: 'Use an https:// link' }).max(2048);
+
+export const RATING_STYLES = ['numbers', 'stars', 'hearts', 'faces'] as const;
+export const ratingStyleSchema = z.enum(RATING_STYLES);
+export type RatingStyle = z.infer<typeof ratingStyleSchema>;
+
+export const ratingFieldWithStyleSchema = ratingFieldSchema.extend({
+  /** How the scale is drawn. Faces only suit scales of 3 or 5; other scales show numbers. */
+  ratingStyle: ratingStyleSchema,
+});
+
+/** ISO 3166-1 alpha-2, such as IN. */
+const countryCode = z.string().regex(/^[A-Z]{2}$/, 'Use a two-letter country code');
+
+export const phoneFieldWithCountrySchema = phoneFieldSchema.extend({
+  /** The country the picker starts on. */
+  defaultCountry: countryCode,
+});
+
+export const pictureOptionSchema = fieldOptionSchema.extend({
+  /** The picture; required to publish. Its label doubles as its text alternative. */
+  imageUrl: imageUrl.optional(),
+});
+export type PictureOption = z.infer<typeof pictureOptionSchema>;
+
+export const pictureChoiceFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('picture_choice'),
+  options: z.array(pictureOptionSchema).max(MAX_OPTIONS, `Use ${MAX_OPTIONS} options or fewer`),
+  /** Several pictures may be picked. */
+  multiple: z.boolean(),
+});
+
+export const yesNoFieldSchema = z.object({ ...baseField, type: z.literal('yes_no') });
+
+export const npsFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('nps'),
+  /** Under 0 and 10. */
+  lowLabel: shortLabel,
+  highLabel: shortLabel,
+});
+
+export const OPINION_SCALE_MAX = 10;
+
+export const opinionScaleFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('opinion_scale'),
+  start: z.union([z.literal(0), z.literal(1)]),
+  end: z.number().int().min(2).max(OPINION_SCALE_MAX),
+  lowLabel: shortLabel,
+  middleLabel: shortLabel,
+  highLabel: shortLabel,
+});
+
+export const sliderFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('slider'),
+  min: z.number().min(-1_000_000).max(1_000_000),
+  max: z.number().min(-1_000_000).max(1_000_000),
+  step: z.number().positive('Use a step above 0').max(1_000_000),
+  /** Shown after the value, such as "kg" or "%". */
+  unit: z.string().max(12, 'Use 12 characters or fewer'),
+});
+
+export const MIN_RANKING_OPTIONS = 2;
+
+export const rankingFieldSchema = z.object({ ...baseField, type: z.literal('ranking'), options });
+
+export const MAX_MATRIX_ROWS = 30;
+export const MAX_MATRIX_COLUMNS = 12;
+
+export const matrixFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('matrix'),
+  /** The statements down the side, each answered on its own. */
+  rows: z.array(fieldOptionSchema).max(MAX_MATRIX_ROWS, `Use ${MAX_MATRIX_ROWS} rows or fewer`),
+  /** The answers across the top. */
+  columns: z
+    .array(fieldOptionSchema)
+    .max(MAX_MATRIX_COLUMNS, `Use ${MAX_MATRIX_COLUMNS} columns or fewer`),
+  /** Several answers per row. */
+  multiple: z.boolean(),
+});
+
+/** An Indian postal address; the PIN code fills in city and state. */
+export const addressFieldSchema = z.object({ ...baseField, type: z.literal('address') });
+
+export const timeFieldSchema = z.object({ ...baseField, type: z.literal('time') });
+
+export const dateRangeFieldSchema = z.object({ ...baseField, type: z.literal('date_range') });
+
+export const urlFieldSchema = z.object({ ...baseField, type: z.literal('url'), placeholder });
+
+export const currencyFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('currency'),
+  /** ISO 4217, such as INR. */
+  currency: z.string().regex(/^[A-Z]{3}$/, 'Use a three-letter currency code'),
+  validation: numberValidation.optional(),
+});
+
+export const signatureFieldSchema = z.object({ ...baseField, type: z.literal('signature') });
+
+export const colorFieldSchema = z.object({ ...baseField, type: z.literal('color') });
+
+export const IMAGE_BLOCK_WIDTHS = ['small', 'medium', 'full'] as const;
+
+/** A picture in the form; `description` is its caption. */
+export const imageFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('image'),
+  required: notRequired,
+  imageUrl: imageUrl.optional(),
+  /** What the picture shows, for people who cannot see it; required to publish. */
+  alt: z.string().max(300, 'Use 300 characters or fewer'),
+  width: z.enum(IMAGE_BLOCK_WIDTHS),
+});
+
+/** A YouTube or Vimeo video; `description` is its caption. */
+export const videoFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('video'),
+  required: notRequired,
+  videoUrl: z.string().max(2048, 'Use a shorter link'),
+});
+
+export const dividerFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('divider'),
+  required: notRequired,
+});
+
+/** Starts a new page; its `label`, if any, titles the page. */
+export const pageBreakFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('page_break'),
+  required: notRequired,
+});
+
+/** A checkbox to agree to `terms`; `label` is the checkbox's text. */
+export const consentFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('consent'),
+  /** In the rich-text subset, shown above the checkbox. */
+  terms: z.string().max(5000, 'Use 5000 characters or fewer'),
+});
+
+/** Letters, digits, - and _: what a link's `?name=` may use. */
+export const URL_PARAM_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Filled from the form link's query string (`?source=instagram`); respondents never see it. */
+export const hiddenFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('hidden'),
+  required: z.literal(false, 'Hidden fields cannot be required'),
+  /** Drafts may leave it empty; publishing needs a valid name. */
+  paramName: z.string().max(64, 'Use 64 characters or fewer'),
+});
+
+export const VOICE_NOTE_MAX_SECONDS = 300;
+
+export const voiceNoteFieldSchema = z.object({
+  ...baseField,
+  type: z.literal('voice_note'),
+  maxDurationSeconds: z
+    .number()
+    .int()
+    .min(5, 'Allow at least 5 seconds')
+    .max(VOICE_NOTE_MAX_SECONDS, `Allow at most ${VOICE_NOTE_MAX_SECONDS / 60} minutes`),
 });
 
 export const fieldSchema = z.discriminatedUnion('type', [
@@ -153,16 +331,41 @@ export const fieldSchema = z.discriminatedUnion('type', [
   longTextFieldSchema,
   emailFieldSchema,
   numberFieldSchema,
-  phoneFieldSchema,
+  phoneFieldWithCountrySchema,
   singleChoiceFieldSchema,
   multiChoiceFieldSchema,
   dropdownFieldSchema,
-  ratingFieldSchema,
+  ratingFieldWithStyleSchema,
   dateFieldSchema,
   fileFieldSchema,
   statementFieldSchema,
+  pictureChoiceFieldSchema,
+  yesNoFieldSchema,
+  npsFieldSchema,
+  opinionScaleFieldSchema,
+  sliderFieldSchema,
+  rankingFieldSchema,
+  matrixFieldSchema,
+  addressFieldSchema,
+  timeFieldSchema,
+  dateRangeFieldSchema,
+  urlFieldSchema,
+  currencyFieldSchema,
+  signatureFieldSchema,
+  colorFieldSchema,
+  imageFieldSchema,
+  videoFieldSchema,
+  dividerFieldSchema,
+  pageBreakFieldSchema,
+  consentFieldSchema,
+  hiddenFieldSchema,
+  voiceNoteFieldSchema,
 ]);
 
 export type Field = z.infer<typeof fieldSchema>;
 export type FieldOfType<T extends FieldType> = Extract<Field, { type: T }>;
 export type ChoiceField = FieldOfType<'single_choice' | 'multi_choice' | 'dropdown'>;
+/** Questions whose answers are option ids. */
+export type OptionField = FieldOfType<
+  'single_choice' | 'multi_choice' | 'dropdown' | 'picture_choice' | 'ranking'
+>;

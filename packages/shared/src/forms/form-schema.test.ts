@@ -54,7 +54,7 @@ describe('formSchema: valid forms', () => {
     const choice = createField('single_choice');
     const optionId = choice.options[0]?.id ?? '';
     const form: FormSchema = {
-      version: 1,
+      version: 2,
       fields: [
         rating,
         choice,
@@ -91,13 +91,13 @@ describe('formSchema: valid forms', () => {
 
 describe('formSchema: invalid forms', () => {
   it('rejects other versions and missing parts', () => {
-    expect(issues({ ...createEmptyForm(), version: 2 })?.[0]?.path).toBe('version');
-    expect(issues({ version: 1, fields: [] })?.[0]?.path).toBe('settings');
+    expect(issues({ ...createEmptyForm(), version: 1 })?.[0]?.path).toBe('version');
+    expect(issues({ version: 2, fields: [] })?.[0]?.path).toBe('settings');
     expect(issues(null)).not.toBeNull();
   });
 
   it('rejects unknown question types', () => {
-    const unknown = { ...createField('short_text'), type: 'signature' };
+    const unknown = { ...createField('short_text'), type: 'hologram' };
     expect(issues(formWith(unknown as unknown as Field))?.[0]?.path).toBe('fields.0.type');
   });
 
@@ -225,7 +225,7 @@ describe('formSchema: conditions', () => {
     ).toEqual([
       {
         path: 'fields.1.conditions.0.sourceFieldId',
-        message: 'Statements have no answer to check',
+        message: 'Content blocks have no answer to check',
       },
     ]);
   });

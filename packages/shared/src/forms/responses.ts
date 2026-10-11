@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { matrixAnswerSchema } from './answer-values.js';
 import { fileAnswerSchema } from './files.js';
 import { NODE_ID_PATTERN } from './ids.js';
 
@@ -40,14 +41,25 @@ export const listSubmissionsQuerySchema = z.object({
 export type ListSubmissionsQuery = z.input<typeof listSubmissionsQuerySchema>;
 
 /**
- * A stored answer: text, a number, option ids for multiple choice, or an uploaded file.
- * (File answers stored before uploads existed are just the file's name.)
+ * A stored answer: text, a number, `true` for consent, option ids, an uploaded file, an
+ * address, a date range or a matrix's rows. (File answers stored before uploads existed are
+ * just the file's name.) Objects are tried most specific first; a matrix takes any rows.
  */
 export const storedAnswerSchema = z.union([
   z.string(),
   z.number(),
+  z.boolean(),
   z.array(z.string()),
   fileAnswerSchema,
+  z.object({
+    line1: z.string(),
+    line2: z.string().optional(),
+    pin: z.string(),
+    city: z.string(),
+    state: z.string(),
+  }),
+  z.object({ start: z.string(), end: z.string() }),
+  matrixAnswerSchema,
 ]);
 
 export const submissionMetadataSchema = z.object({

@@ -4,12 +4,24 @@ import { FIELD_TYPES } from './field-types.js';
 import { fieldSchema } from './fields.js';
 
 describe('createField', () => {
-  it.each(FIELD_TYPES)('creates a valid, optional %s question', (type) => {
-    const field = createField(type);
+  it.each(FIELD_TYPES.filter((type) => type !== 'consent' && type !== 'hidden'))(
+    'creates a valid, optional %s question',
+    (type) => {
+      const field = createField(type);
 
-    expect(fieldSchema.parse(field)).toEqual(field);
-    expect(field).toMatchObject({ type, label: '', required: false });
-    expect(field.id).toMatch(/^fld_[a-z0-9]{10}$/);
+      expect(fieldSchema.parse(field)).toEqual(field);
+      expect(field).toMatchObject({ type, label: '', required: false });
+      expect(field.id).toMatch(/^fld_[a-z0-9]{10}$/);
+    },
+  );
+
+  it('starts consent required and hidden fields named, ready to publish', () => {
+    const consent = createField('consent');
+    expect(fieldSchema.parse(consent)).toEqual(consent);
+    expect(consent).toMatchObject({ required: true, label: 'I agree to the terms' });
+    const hidden = createField('hidden');
+    expect(fieldSchema.parse(hidden)).toEqual(hidden);
+    expect(hidden).toMatchObject({ required: false, label: 'Source', paramName: 'source' });
   });
 
   it('gives every question and option a fresh id', () => {
@@ -33,7 +45,7 @@ describe('createField', () => {
 describe('createEmptyForm', () => {
   it('has no questions and default settings', () => {
     expect(createEmptyForm()).toEqual({
-      version: 1,
+      version: 2,
       fields: [],
       settings: {
         submitButtonText: 'Submit',

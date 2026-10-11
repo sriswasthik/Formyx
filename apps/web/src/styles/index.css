@@ -236,6 +236,57 @@
   line-height: 1.25;
 }
 
+/*
+ * Sliders in forms: a track in the form's border colour, filled with the primary colour up
+ * to the thumb (--form-range-fill, set by the slider), and a thumb big enough to grab on a
+ * phone. Before a slider is moved its fill is left out, as nothing has been chosen.
+ */
+@utility form-range {
+  appearance: none;
+  height: 2.75rem;
+  background: transparent;
+  cursor: pointer;
+
+  &::-webkit-slider-runnable-track {
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      var(--form-accent) var(--form-range-fill, 0%),
+      var(--form-border) var(--form-range-fill, 0%)
+    );
+  }
+  &:not([data-answered])::-webkit-slider-runnable-track {
+    background: var(--form-border);
+  }
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 1.375rem;
+    height: 1.375rem;
+    margin-top: -0.5rem;
+    border-radius: 9999px;
+    border: 2px solid var(--form-accent);
+    background: var(--form-bg);
+  }
+  &::-moz-range-track {
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: var(--form-border);
+  }
+  &[data-answered]::-moz-range-progress {
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: var(--form-accent);
+  }
+  &::-moz-range-thumb {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 9999px;
+    border: 2px solid var(--form-accent);
+    background: var(--form-bg);
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

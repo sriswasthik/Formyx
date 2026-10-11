@@ -1,6 +1,5 @@
 import {
   answerableFields,
-  isChoiceFieldType,
   storedAnswerSchema,
   submissionMetadataSchema,
   type FormSchema,
@@ -113,7 +112,10 @@ function searchFilter(schema: FormSchema, search: string): Prisma.Sql {
   const fields = answerableFields(schema);
   const terms: Prisma.Sql[] = [];
 
-  const textIds = fields.filter((field) => !isChoiceFieldType(field.type)).map(({ id }) => id);
+  // Answers made of ids (choices, rankings, matrices) match through labels below, not as text.
+  const textIds = fields
+    .filter((field) => !('options' in field) && field.type !== 'matrix')
+    .map(({ id }) => id);
   if (textIds.length > 0) {
     terms.push(Prisma.sql`EXISTS (
       SELECT 1 FROM jsonb_each_text(answers) AS answer
@@ -127,8 +129,12 @@ function searchFilter(schema: FormSchema, search: string): Prisma.Sql {
       .filter((option) => option.label.toLocaleLowerCase().includes(needle))
       .map((option) => option.id);
     if (ids.length === 0) continue;
+    const listed =
+      field.type === 'multi_choice' ||
+      field.type === 'ranking' ||
+      (field.type === 'picture_choice' && field.multiple);
     terms.push(
-      field.type === 'multi_choice'
+      listed
         ? Prisma.sql`answers -> ${field.id} ?| ARRAY[${Prisma.join(ids)}]::text[]`
         : Prisma.sql`answers ->> ${field.id} IN (${Prisma.join(ids)})`,
     );

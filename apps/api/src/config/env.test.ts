@@ -25,6 +25,8 @@ describe('parseEnv', () => {
       APP_URL: 'http://localhost:5173',
       EMAIL_FROM: 'Formyx <notifications@formyx.app>',
       CLOUDINARY_FOLDER: 'formyx',
+      CLOUDINARY_API_URL: 'https://api.cloudinary.com',
+      PINCODE_API_URL: 'https://api.postalpincode.in/pincode',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
   });

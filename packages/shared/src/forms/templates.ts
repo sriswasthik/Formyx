@@ -1,12 +1,8 @@
-import { z } from 'zod';
 import { createDefaultSettings, createEmptyForm, createField, createOption } from './factories.js';
 import type { ChoiceFieldType, FieldType } from './field-types.js';
 import type { FieldOfType } from './fields.js';
 import { FORM_SCHEMA_VERSION, type FormSchema } from './form-schema.js';
-
-export const FORM_TEMPLATE_IDS = ['blank', 'event_registration', 'feedback_survey'] as const;
-export const formTemplateIdSchema = z.enum(FORM_TEMPLATE_IDS);
-export type FormTemplateId = z.infer<typeof formTemplateIdSchema>;
+import type { FormTemplateId } from './template-ids.js';
 
 export interface FormTemplate {
   id: FormTemplateId;
@@ -104,6 +100,8 @@ function buildFeedbackSurvey(): FormSchema {
     label: 'Overall, how satisfied are you with our product?',
     required: true,
     ratingScale: 5,
+    // Numbers, as the template has always had (new rating questions start as stars).
+    ratingStyle: 'numbers',
   });
   const followUp = choice('single_choice', ['Yes', 'No'], {
     label: 'May we follow up with you about your feedback?',
@@ -119,6 +117,7 @@ function buildFeedbackSurvey(): FormSchema {
         description: '1 is not at all likely, 10 is extremely likely.',
         required: true,
         ratingScale: 10,
+        ratingStyle: 'numbers',
       }),
       field('long_text', { label: 'What do you like most?' }),
       field('long_text', {

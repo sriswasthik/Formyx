@@ -15,6 +15,8 @@ export default defineConfig(
     '**/test-results',
     '**/blob-report',
     'apps/api/src/generated',
+    // Declarations for the shared package's build only (see the file).
+    'packages/shared/build-globals.d.ts',
   ]),
 
   js.configs.recommended,

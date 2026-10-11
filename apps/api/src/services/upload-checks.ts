@@ -1,6 +1,6 @@
 import {
-  allowedExtensions,
   BYTES_PER_MB,
+  uploadRules,
   fileExtension,
   isFileAnswer,
   THEME_IMAGE_FORMATS,
@@ -21,8 +21,9 @@ export function uploadsUnavailable(): AppError {
 
 export interface UploadChecks {
   /**
-   * Checks every uploaded file among `answers` against storage: it must have been uploaded
-   * for that form and question, and its real size and format must fit the question. Returns
+   * Checks every upload among `answers` (files, signatures, voice notes) against storage: it
+   * must have been uploaded for that form and question, and its real size and format must
+   * fit the question. Returns
    * the answers with each file's URL and size as storage reports them. Throws 400 with an
    * issue per bad file, or 503 if uploads are off.
    */
@@ -75,21 +76,22 @@ export function createUploadChecks({ storage, root }: CheckOptions): UploadCheck
 
   return {
     async verifyAnswers(form, answers) {
-      const fileFields = form.schema.fields.flatMap((field) =>
-        field.type === 'file' && isFileAnswer(answers[field.id]) ? [field] : [],
-      );
+      const fileFields = form.schema.fields.flatMap((field) => {
+        const rules = uploadRules(field);
+        return rules && isFileAnswer(answers[field.id]) ? [{ field, rules }] : [];
+      });
       if (fileFields.length === 0) return answers;
       if (!storage) throw uploadsUnavailable();
 
       const issues: ValidationIssue[] = [];
       const verified: Answers = { ...answers };
       await Promise.all(
-        fileFields.map(async (field) => {
+        fileFields.map(async ({ field, rules }) => {
           const answer = answers[field.id];
           if (!isFileAnswer(answer)) return;
           const result = await check(storage, answerFolder(root, form.id, field.id), answer, {
-            maxBytes: field.fileConfig.maxSizeMb * BYTES_PER_MB,
-            formats: allowedExtensions(field.fileConfig.allowedTypes),
+            maxBytes: rules.maxSizeMb * BYTES_PER_MB,
+            formats: rules.extensions,
           });
           if ('problem' in result) issues.push(issue(field.id, result.problem));
           else verified[field.id] = result.file;

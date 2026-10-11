@@ -9,6 +9,6 @@
     "sourceMap": true,
     "customConditions": []
   },
-  "include": ["src"],
+  "include": ["src", "build-globals.d.ts"],
   "exclude": ["src/**/*.test.ts"]
 }

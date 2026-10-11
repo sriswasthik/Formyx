@@ -1,4 +1,10 @@
-import type { AnswerValue, Field, FormSchema, FormTheme } from '@formyx/shared';
+import {
+  isShownQuestionType,
+  type AnswerValue,
+  type Field,
+  type FormSchema,
+  type FormTheme,
+} from '@formyx/shared';
 import { ChevronLeft } from 'lucide-react';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import {
@@ -28,6 +34,7 @@ import {
   resolveStep,
   shouldAutoAdvance,
   stepKey,
+  stepVisibleIds,
   type AnswerIntent,
 } from './steps';
 import { useKeyboardInset } from './use-keyboard-inset';
@@ -57,7 +64,7 @@ interface ConversationalFormProps {
 
 /** Where focus goes on a new step: the answer's control, or the step itself. */
 function focusStep(node: HTMLElement, field: Field | undefined, idPrefix: string) {
-  if (field && field.type !== 'statement') {
+  if (field && isShownQuestionType(field.type)) {
     const control = document.getElementById(fieldIds(idPrefix, field).control);
     const group = control?.closest('fieldset');
     const picked = group?.querySelector<HTMLInputElement>('input:checked');
@@ -87,8 +94,11 @@ export function ConversationalForm({
   previewStep,
 }: ConversationalFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
-  const { answers, errors, formError, status, visibleIds, handleChange, checkField, submit } =
-    response;
+  const { answers, errors, formError, status, handleChange, checkField, submit } = response;
+  const visibleIds = useMemo(
+    () => stepVisibleIds(schema.fields, response.visibleIds),
+    [schema.fields, response.visibleIds],
+  );
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [direction, setDirection] = useState<1 | -1>(1);
   const intent = useRef<AnswerIntent | null>(null);
@@ -191,6 +201,7 @@ export function ConversationalForm({
       if (
         shouldAutoAdvance({
           type: answered.type,
+          multiple: answered.type === 'picture_choice' && answered.multiple,
           intent: intent.current,
           enabled: theme.layout.autoAdvance,
           isLast: steps.at(-1)?.id === fieldId,
@@ -207,6 +218,8 @@ export function ConversationalForm({
   );
 
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    // A control that handled the key itself (a slider, a list) keeps it.
+    if (event.defaultPrevented) return;
     const { key } = event;
     if (key === 'Enter' || key === ' ') intent.current = 'key';
     else if (key.startsWith('Arrow')) intent.current = 'arrow';

@@ -14,7 +14,7 @@ async function startHostPage(slug: string) {
   <h1>Host site</h1>
   <div data-formyx="${slug}"></div>
   <p id="log">waiting</p>
-  <script src="http://localhost:5173/embed.js" async></script>
+  <script src="http://localhost:${process.env.E2E_WEB_PORT ?? '5173'}/embed.js" async></script>
   <script>
     document.addEventListener('formyx:submitted', function (event) {
       document.getElementById('log').textContent = 'submitted ' + event.detail.slug;
