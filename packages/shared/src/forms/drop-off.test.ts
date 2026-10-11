@@ -42,20 +42,22 @@ describe('buildDropOff', () => {
     });
   });
 
-  it('counts pages on forms with page breaks', () => {
+  it('counts pages on forms with page breaks, by the furthest page each visit reached', () => {
     const dropOff = buildDropOff(form([name, details, email]), [
       visit({ furthestPage: 'start' }),
       visit({ furthestPage: 'details' }),
       visit({ furthestPage: 'gone' }),
-      visit({ completed: true }),
+      visit({ furthestPage: 'details', completed: true }),
+      // A jump ended this one on the first page: it never saw the details page.
+      visit({ furthestPage: 'start', completed: true }),
     ]);
     expect(dropOff).toMatchObject({
       unit: 'page',
       steps: [
-        { key: 'start', label: 'Page 1', reached: 4 },
+        { key: 'start', label: 'Page 1', reached: 5 },
         { key: 'details', label: 'Details', reached: 2 },
       ],
-      completed: 1,
+      completed: 2,
     });
   });
 

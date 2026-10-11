@@ -39,10 +39,11 @@ function plainLabel(text: string, fallback: string): string {
 }
 
 /**
- * The funnel for `schema` (the published form) from its visits. A visit reached a step when
- * its furthest page or question is that one or later; finished visits reached every step,
- * even if a jump took them past some. Progress on pages or questions that are no longer in
- * the form counts as the start.
+ * The funnel for `schema` (the published form) from its visits. A visit reached a page when
+ * its furthest page is that one or later, finished or not, so pages that jumps skip show
+ * fewer visits than the responses sent. On a one-page form, a visit reached the question
+ * after the last one it answered, and finished visits saw every question. Progress on pages
+ * or questions that are no longer in the form counts as the start.
  */
 export function buildDropOff(
   schema: Pick<FormSchema, 'fields' | 'logic'>,
@@ -58,8 +59,7 @@ export function buildDropOff(
 
   if (pages.length > 1) {
     const indexByKey = new Map(pages.map((page, index) => [page.key, index]));
-    const reachedIndex = (visit: VisitProgress) =>
-      visit.completed ? Infinity : (indexByKey.get(visit.furthestPage ?? '') ?? 0);
+    const reachedIndex = (visit: VisitProgress) => indexByKey.get(visit.furthestPage ?? '') ?? 0;
     return {
       unit: 'page',
       started: total(visits),

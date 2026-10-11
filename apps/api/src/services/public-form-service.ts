@@ -3,6 +3,7 @@ import {
   buildSubmissionValidator,
   computeOutcome,
   formPages,
+  isShownQuestionType,
   responseLimitReached,
   sanitizeAnswers,
   toAnswerIssues,
@@ -26,6 +27,65 @@ import type { UploadChecks } from './upload-checks.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
 
 const USER_AGENT_MAX_LENGTH = 512;
+
+type Transaction = Parameters<Parameters<Database['$transaction']>[0]>[0];
+
+/** Where pages and fields sit in the form, to tell which of two is further on. */
+function formOrder(schema: FormSchema) {
+  return {
+    pages: new Map(formPages(schema.fields).map((page) => [page.key, page.index])),
+    fields: new Map(schema.fields.map((field, index) => [field.id, index])),
+  };
+}
+
+/**
+ * `next` when it comes after `current` in `order`, otherwise `undefined` (nothing to
+ * change). Ids no longer in the form never count as further.
+ */
+function further(
+  order: ReadonlyMap<string, number>,
+  next: string | undefined,
+  current: string | null,
+): string | undefined {
+  if (next === undefined) return undefined;
+  const nextIndex = order.get(next);
+  if (nextIndex === undefined) return undefined;
+  const currentIndex = current === null ? -1 : (order.get(current) ?? -1);
+  return nextIndex > currentIndex ? next : undefined;
+}
+
+/**
+ * Marks a visit finished, moving its progress on to the last page of the route the server
+ * worked out and the last question answered, in case the browser's last reports were lost.
+ * Drop-off counts each visit by the furthest page it reached.
+ */
+async function completeView(
+  tx: Transaction,
+  schema: FormSchema,
+  formId: string,
+  token: string,
+  finished: { completedAt: Date; route: readonly string[]; answers: Answers },
+): Promise<void> {
+  const view = await tx.formView.findUnique({
+    where: { token },
+    select: { id: true, formId: true, furthestPage: true, furthestField: true, completedAt: true },
+  });
+  if (view?.formId !== formId || view.completedAt) return;
+  const order = formOrder(schema);
+  const lastAnswered = schema.fields.findLast(
+    (field) => isShownQuestionType(field.type) && finished.answers[field.id] !== undefined,
+  );
+  const furthestPage = further(order.pages, finished.route.at(-1), view.furthestPage);
+  const furthestField = further(order.fields, lastAnswered?.id, view.furthestField);
+  await tx.formView.update({
+    where: { id: view.id },
+    data: {
+      completedAt: finished.completedAt,
+      ...(furthestPage !== undefined && { furthestPage }),
+      ...(furthestField !== undefined && { furthestField }),
+    },
+  });
+}
 
 const publicSelect = {
   id: true,
@@ -225,23 +285,9 @@ export function createPublicFormService(
       });
       if (view?.formId !== form.id || view.completedAt) return;
 
-      const pageIndex = new Map(
-        formPages(form.schema.fields).map((page) => [page.key, page.index]),
-      );
-      const fieldIndex = new Map(form.schema.fields.map((field, index) => [field.id, index]));
-      const further = (
-        index: Map<string, number>,
-        next: string | undefined,
-        current: string | null,
-      ): string | undefined => {
-        if (next === undefined) return undefined;
-        const nextIndex = index.get(next);
-        if (nextIndex === undefined) return undefined;
-        const currentIndex = current === null ? -1 : (index.get(current) ?? -1);
-        return nextIndex > currentIndex ? next : undefined;
-      };
-      const furthestPage = further(pageIndex, input.pageKey, view.furthestPage);
-      const furthestField = further(fieldIndex, input.fieldId, view.furthestField);
+      const order = formOrder(form.schema);
+      const furthestPage = further(order.pages, input.pageKey, view.furthestPage);
+      const furthestField = further(order.fields, input.fieldId, view.furthestField);
       if (furthestPage === undefined && furthestField === undefined) return;
       await prisma.formView.update({
         where: { id: view.id },
@@ -303,9 +349,10 @@ export function createPublicFormService(
           select: { id: true, createdAt: true, completionTimeMs: true },
         });
         if (input.viewToken) {
-          await tx.formView.updateMany({
-            where: { token: input.viewToken, formId: form.id, completedAt: null },
-            data: { completedAt: created.createdAt },
+          await completeView(tx, form.schema, form.id, input.viewToken, {
+            completedAt: created.createdAt,
+            route: outcome.pages,
+            answers: result.data,
           });
         }
         if (input.resumeToken) {

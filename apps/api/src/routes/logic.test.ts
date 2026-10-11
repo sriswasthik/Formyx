@@ -247,10 +247,14 @@ describe('drop-off', () => {
       answers: { name: 'Ada', capital: 'mumbai' },
       viewToken: token,
     }).expect(201);
-    expect((await visitOf(token)).completedAt).not.toBeNull();
+    // Moved on to where its route ended (a jump from the quiz page), in case the browser's
+    // last reports were lost.
+    const finished = await visitOf(token);
+    expect(finished.completedAt).not.toBeNull();
+    expect(finished).toMatchObject({ furthestPage: 'quiz', furthestField: 'capital' });
 
     await progress(form.slug, { token, pageKey: 'bonus_page' });
-    expect((await visitOf(token)).furthestPage).toBeNull();
+    expect((await visitOf(token)).furthestPage).toBe('quiz');
   });
 
   it('shows the funnel in analytics', async () => {
