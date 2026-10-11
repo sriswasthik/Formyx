@@ -79,6 +79,8 @@ describe('GET /api/forms/:formId/submissions', () => {
       metadata: { userAgent: 'Vitest', referrer: null },
       // Stored straight into the database here, so no outcome was worked out.
       outcome: null,
+      respondentEmail: null,
+      editedAt: null,
     });
   });
 

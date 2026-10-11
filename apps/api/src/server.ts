@@ -7,6 +7,10 @@ import { createEventBus, type EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
 import type { UploadStorage } from './lib/upload-storage.js';
+import { createSecretBox } from './lib/webhook-signature.js';
+import { createWebhookTransport, type WebhookTransport } from './lib/webhook-transport.js';
+import { registerAutoresponder } from './notifications/autoresponder-notifier.js';
+import { registerChatNotifier } from './notifications/chat-notifier.js';
 import { registerSubmissionNotifier } from './notifications/submission-notifier.js';
 import { attachRealtime, type RealtimeServer } from './realtime/realtime-server.js';
 import { createDefaultWebhookDispatcher, type WebhookDispatcher } from './webhooks/dispatcher.js';
@@ -20,6 +24,8 @@ export interface ServerDependencies {
   storage: UploadStorage | null;
   /** Defaults to the real dispatcher; tests pass one with short retry delays. */
   webhooks?: WebhookDispatcher;
+  /** Defaults to real HTTPS requests; tests pass one that records them. */
+  chat?: WebhookTransport;
 }
 
 export interface FormyxServer {
@@ -40,10 +46,14 @@ export interface FormyxServer {
 export function createServer(deps: ServerDependencies): FormyxServer {
   const events = createEventBus(deps.logger);
   const webhooks = deps.webhooks ?? createDefaultWebhookDispatcher(deps);
-  const app = createApp({ ...deps, events, webhooks });
+  // Chat webhooks only ever go to Slack's and Discord's own hosts.
+  const chat = deps.chat ?? createWebhookTransport({ allowPrivate: false });
+  const app = createApp({ ...deps, events, webhooks, chat });
   const httpServer = createHttpServer(app);
   const io = attachRealtime(httpServer, { ...deps, events });
   registerSubmissionNotifier({ ...deps, events });
+  registerChatNotifier({ ...deps, events, chat, secrets: createSecretBox(deps.env.JWT_SECRET) });
+  registerAutoresponder({ ...deps, events });
   registerWebhookNotifier({ ...deps, events, webhooks });
 
   return {

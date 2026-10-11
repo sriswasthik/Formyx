@@ -18,6 +18,15 @@ export function createAuthRouter(
   const limit = createAuthRateLimiters(env);
   const demo = createDemoAccounts(prisma);
 
+  /** Signs `userId` in, at their current password, so a later change signs this out. */
+  async function signIn(res: Parameters<typeof setSessionCookie>[0], userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordVersion: true },
+    });
+    setSessionCookie(res, userId, env, user?.passwordVersion ?? 0);
+  }
+
   // These responses carry personal data or set the session cookie: never cache them.
   router.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -26,13 +35,13 @@ export function createAuthRouter(
 
   router.post('/register', limit.register, async (req, res) => {
     const me = await auth.register(registerInputSchema.parse(req.body));
-    setSessionCookie(res, me.user.id, env);
+    await signIn(res, me.user.id);
     res.status(201).json(me);
   });
 
   router.post('/login', limit.login, async (req, res) => {
     const me = await auth.logIn(loginInputSchema.parse(req.body));
-    setSessionCookie(res, me.user.id, env);
+    await signIn(res, me.user.id);
     res.json(me);
   });
 
@@ -44,7 +53,7 @@ export function createAuthRouter(
     const userId = await demo.userId();
     const me = await auth.getMe(userId);
     if (!me) throw new Error('The demo account disappeared while signing in');
-    setSessionCookie(res, userId, env);
+    await signIn(res, userId);
     res.json(me);
   });
 

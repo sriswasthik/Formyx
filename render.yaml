@@ -77,3 +77,47 @@ services:
       - fromGroup: formyx-database
       - key: NODE_ENV
         value: production
+
+  # Every hour: daily digests of new responses (each form at its own hour, in its workspace's
+  # time zone) and deleting responses older than a form keeps them. Safe to run again.
+  - type: cron
+    name: formyx-jobs
+    runtime: node
+    region: frankfurt
+    plan: starter
+    schedule: '5 * * * *'
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @formyx/shared build &&
+      pnpm --filter @formyx/api build
+    startCommand: pnpm --filter @formyx/api jobs
+    envVars:
+      - fromGroup: formyx-database
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: formyx-api
+          envVarKey: JWT_SECRET
+      - key: CORS_ORIGIN
+        fromService:
+          type: web
+          name: formyx-api
+          envVarKey: CORS_ORIGIN
+      - key: APP_URL
+        fromService:
+          type: web
+          name: formyx-api
+          envVarKey: APP_URL
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

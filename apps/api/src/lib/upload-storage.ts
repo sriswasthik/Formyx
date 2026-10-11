@@ -31,7 +31,12 @@ export interface UploadStorage {
   describe(url: string): Promise<StoredFile | null>;
   /** The public id inside `url`, if it is a delivery URL of this account; `null` otherwise. */
   publicIdOf(url: string): string | null;
+  /** Deletes the files at `urls` that are ours; others are ignored. Throws if storage refuses. */
+  deleteFiles(urls: readonly string[]): Promise<void>;
 }
+
+/** Cloudinary's admin API deletes at most this many files a call. */
+const DELETE_BATCH = 100;
 
 /**
  * Cloudinary's request signature: the parameters (except file, cloud_name, resource_type and
@@ -156,6 +161,31 @@ export function createCloudinaryStorage({
         format: resource.format ?? null,
         secureUrl: resource.secure_url,
       };
+    },
+
+    async deleteFiles(urls) {
+      const byType = new Map<string, string[]>();
+      for (const url of urls) {
+        const parsed = parseCloudinaryUrl(url, cloudName);
+        if (!parsed) continue;
+        byType.set(parsed.resourceType, [
+          ...(byType.get(parsed.resourceType) ?? []),
+          parsed.publicId,
+        ]);
+      }
+      for (const [resourceType, ids] of byType) {
+        for (let start = 0; start < ids.length; start += DELETE_BATCH) {
+          const query = new URLSearchParams();
+          for (const id of ids.slice(start, start + DELETE_BATCH)) query.append('public_ids[]', id);
+          const response = await fetchImpl(
+            `${apiUrl}/v1_1/${encodeURIComponent(cloudName)}/resources/${resourceType}/upload?${query.toString()}`,
+            { method: 'DELETE', headers: { Authorization: authorization } },
+          );
+          if (!response.ok) {
+            throw new Error(`Cloudinary refused to delete files (${response.status})`);
+          }
+        }
+      }
     },
   };
 }

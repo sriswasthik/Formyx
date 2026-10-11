@@ -22,22 +22,26 @@ enum Role {
 }
 
 model User {
-  id            String             @id @default(cuid())
-  name          String
+  id              String             @id @default(cuid())
+  name            String
   /// Stored trimmed and lowercased, so the unique index is effectively case-insensitive.
-  email         String             @unique
-  passwordHash  String             @map("password_hash")
+  email           String             @unique
+  passwordHash    String             @map("password_hash")
   /// The shared demo account (see src/demo). It signs in without a password, its data is
   /// reset every night, and anything that reaches outside Formyx is switched off for it.
-  isDemo        Boolean            @default(false) @map("is_demo")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
-  memberships   Membership[]
-  forms         Form[]
-  subscriptions FormSubscription[]
-  invitesSent   Invite[]
-  webhooks      Webhook[]
-  brandKits     BrandKit[]
+  isDemo          Boolean            @default(false) @map("is_demo")
+  /// Goes up when the password changes; sessions carry it, so older ones stop working.
+  passwordVersion Int                @default(0) @map("password_version")
+  /// The person's own preferences (see `accountPreferencesSchema` in packages/shared).
+  preferences     Json               @default("{}")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  memberships     Membership[]
+  forms           Form[]
+  subscriptions   FormSubscription[]
+  invitesSent     Invite[]
+  webhooks        Webhook[]
+  brandKits       BrandKit[]
 
   @@map("users")
 }
@@ -72,6 +76,8 @@ model Workspace {
   trialEndsAt       DateTime?    @map("trial_ends_at")
   /// The brand kit new forms start with. Cleared when that kit is deleted.
   defaultBrandKitId String?      @unique @map("default_brand_kit_id")
+  /// Time zone, date format and new forms' notifications (`workspacePreferencesSchema`).
+  preferences       Json         @default("{}")
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
   memberships       Membership[]
@@ -150,37 +156,52 @@ enum FormStatus {
 }
 
 model Form {
-  id              String             @id @default(cuid())
-  workspaceId     String             @map("workspace_id")
-  title           String
+  id                      String                   @id @default(cuid())
+  workspaceId             String                   @map("workspace_id")
+  title                   String
   /// Identifies the form's public link. Never changes, so shared links keep working.
-  slug            String             @unique
-  status          FormStatus         @default(DRAFT)
+  slug                    String                   @unique
+  status                  FormStatus               @default(DRAFT)
   /// The schema being edited. Every write is validated with the shared `formSchema`.
-  draftSchema     Json               @map("draft_schema")
+  draftSchema             Json                     @map("draft_schema")
   /// What respondents see: a snapshot of the draft, taken each time the form is published.
-  publishedSchema Json?              @map("published_schema")
+  publishedSchema         Json?                    @map("published_schema")
   /// The title as last published, so renames go live with the next publish.
-  publishedTitle  String?            @map("published_title")
+  publishedTitle          String?                  @map("published_title")
   /// The look being edited. Validated with the shared `formThemeSchema`.
-  theme           Json
+  theme                   Json
   /// What respondents see: a snapshot of `theme`, taken each time the form is published.
-  publishedTheme  Json?              @map("published_theme")
+  publishedTheme          Json?                    @map("published_theme")
   /// Incremented on every draft update. Writers send the version they started from (optimistic concurrency).
-  version         Int                @default(1)
+  version                 Int                      @default(1)
   /// When the form was last published.
-  publishedAt     DateTime?          @map("published_at")
+  publishedAt             DateTime?                @map("published_at")
+  /// Access, notifications, autoresponder, sharing and data settings, which take effect as
+  /// they are saved (`liveSettingsSchema` in packages/shared). Never sent to respondents.
+  liveSettings            Json                     @default("{}") @map("live_settings")
+  /// bcrypt of the form's password; null when it has none.
+  passwordHash            String?                  @map("password_hash")
+  /// Goes up when the password changes, so tokens from unlocking it before stop working.
+  passwordVersion         Int                      @default(0) @map("password_version")
+  /// Chat webhook URLs, encrypted like webhook secrets: the URL is the credential.
+  slackWebhookEncrypted   String?                  @map("slack_webhook_encrypted")
+  discordWebhookEncrypted String?                  @map("discord_webhook_encrypted")
+  /// When the last daily digest of responses went out.
+  lastDigestAt            DateTime?                @map("last_digest_at")
   /// Null once the creator's account is deleted; the form stays with its workspace.
-  createdById     String?            @map("created_by_id")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
-  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy       User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  submissions     Submission[]
-  views           FormView[]
-  drafts          FormDraft[]
-  subscriptions   FormSubscription[]
-  webhooks        Webhook[]
+  createdById             String?                  @map("created_by_id")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  workspace               Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy               User?                    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  submissions             Submission[]
+  views                   FormView[]
+  drafts                  FormDraft[]
+  oldSlugs                FormSlug[]
+  verifications           RespondentVerification[]
+  autoreplies             AutoresponderSend[]
+  subscriptions           FormSubscription[]
+  webhooks                Webhook[]
 
   // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
   @@index([workspaceId, updatedAt(sort: Desc)])
@@ -190,20 +211,29 @@ model Form {
 }
 
 model Submission {
-  id               String   @id @default(cuid())
-  formId           String   @map("form_id")
+  id               String    @id @default(cuid())
+  formId           String    @map("form_id")
   /// Answers keyed by field id, validated and normalised with the published schema.
   answers          Json
   /// Milliseconds from opening the form to submitting it, as measured by the browser.
-  completionTimeMs Int?     @map("completion_time_ms")
+  completionTimeMs Int?      @map("completion_time_ms")
   /// Client details: user agent and referrer. IP addresses are never stored.
   metadata         Json
   /// Route, values, quiz mark and end screen, worked out by the server (never the client).
   /// Null for responses from before Sprint 13.
   outcome          Json?
-  createdAt        DateTime @default(now()) @map("created_at")
-  form             Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  /// The address given before the questions, when the form asks for one.
+  respondentEmail  String?   @map("respondent_email")
+  /// SHA-256 of the verified, normalised address, for one response per person. Unique per
+  /// form; null when the form does not verify addresses.
+  respondentKey    String?   @map("respondent_key")
+  /// SHA-256 of the token in the private link that changes this response.
+  editTokenHash    String?   @unique @map("edit_token_hash")
+  editedAt         DateTime? @map("edited_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  form             Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
 
+  @@unique([formId, respondentKey])
   // Responses are counted per form and listed newest first.
   @@index([formId, createdAt(sort: Desc)])
   @@map("submissions")
@@ -300,4 +330,45 @@ model WebhookDelivery {
 
   @@index([webhookId, createdAt])
   @@map("webhook_deliveries")
+}
+
+/// Addresses a form used before its slug changed. They keep working: the public page asks
+/// for the old one and is sent to the form's current address.
+model FormSlug {
+  slug      String   @id
+  formId    String   @map("form_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@map("form_slugs")
+}
+
+/// A code emailed to confirm a respondent's address, for forms taking one response per
+/// person. Only hashes are kept: of the address and of the code.
+model RespondentVerification {
+  id        String   @id @default(cuid())
+  formId    String   @map("form_id")
+  emailHash String   @map("email_hash")
+  codeHash  String   @map("code_hash")
+  attempts  Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, emailHash])
+  @@index([expiresAt])
+  @@map("respondent_verifications")
+}
+
+/// One autoresponder email sent, so a form never sends one address more than a few a day.
+model AutoresponderSend {
+  id        String   @id @default(cuid())
+  formId    String   @map("form_id")
+  emailHash String   @map("email_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, emailHash, createdAt])
+  @@map("autoresponder_sends")
 }

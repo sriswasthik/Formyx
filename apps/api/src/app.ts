@@ -8,6 +8,7 @@ import type { EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
 import type { UploadStorage } from './lib/upload-storage.js';
+import type { WebhookTransport } from './lib/webhook-transport.js';
 import type { WebhookDispatcher } from './webhooks/dispatcher.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
@@ -26,6 +27,8 @@ export interface AppDependencies {
   mailer: Mailer;
   /** Delivers webhook events; routes use it for test events. */
   webhooks: WebhookDispatcher;
+  /** Posts to Slack and Discord incoming webhooks (new responses, test messages). */
+  chat: WebhookTransport;
 }
 
 export function createApp(deps: AppDependencies): Express {

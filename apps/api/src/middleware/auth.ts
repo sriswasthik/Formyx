@@ -5,7 +5,7 @@ import { demoRestricted, isDemoUser } from '../demo/restrictions.js';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
 import { routeParam } from '../lib/route-param.js';
-import { readSessionToken, verifySessionToken } from '../lib/session.js';
+import { clearSessionCookie, readSessionToken, verifySession } from '../lib/session.js';
 
 export interface AuthContext {
   userId: string;
@@ -93,17 +93,29 @@ export function createAuthGuards({
   env,
   prisma,
 }: {
-  env: Pick<Env, 'JWT_SECRET'>;
+  /** `NODE_ENV` decides the cookie's flags when a stale one is cleared; production if absent. */
+  env: Pick<Env, 'JWT_SECRET'> & Partial<Pick<Env, 'NODE_ENV'>>;
   prisma: Database;
 }): AuthGuards {
-  const requireAuth: RequestHandler = (req, _res, next) => {
+  const cookieEnv = { JWT_SECRET: env.JWT_SECRET, NODE_ENV: env.NODE_ENV ?? 'production' };
+  const requireAuth: RequestHandler = async (req, res, next) => {
     const token = readSessionToken(req);
-    const userId = token ? verifySessionToken(token, env.JWT_SECRET) : null;
-    if (!userId) {
+    const session = token ? verifySession(token, env.JWT_SECRET) : null;
+    // The account must still exist, at the password the session was signed with: changing
+    // the password signs out every other session, and deleted accounts are signed out.
+    const user =
+      session &&
+      (await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { passwordVersion: true },
+      }));
+    if (!session || user?.passwordVersion !== session.passwordVersion) {
+      // A signed but stale session: drop the cookie, so the browser stops sending it.
+      if (session) clearSessionCookie(res, cookieEnv);
       next(unauthorized());
       return;
     }
-    req.auth = { userId };
+    req.auth = { userId: session.userId };
     next();
   };
 

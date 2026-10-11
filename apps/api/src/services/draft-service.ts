@@ -23,9 +23,13 @@ export interface DraftService {
    * Saves a respondent's answers and emails them a link to finish later. Only the hash of
    * the link's token and the answers are kept, never the address.
    */
-  save(slug: string, input: z.output<typeof saveDraftInputSchema>): Promise<void>;
+  save(
+    slug: string,
+    input: z.output<typeof saveDraftInputSchema>,
+    accessToken: string | undefined,
+  ): Promise<void>;
   /** The saved answers behind a link's token; 404 once used or expired. */
-  resume(slug: string, token: string): Promise<DraftResponse>;
+  resume(slug: string, token: string, accessToken: string | undefined): Promise<DraftResponse>;
 }
 
 interface DraftDependencies {
@@ -33,7 +37,10 @@ interface DraftDependencies {
   mailer: Mailer;
   appUrl: string;
   /** The open form behind `slug`: 404 or 410 otherwise. */
-  openForm: (slug: string) => Promise<{ id: string; schema: FormSchema; title: string }>;
+  openForm: (
+    slug: string,
+    accessToken: string | undefined,
+  ) => Promise<{ id: string; slug: string; schema: FormSchema; title: string }>;
   now?: () => Date;
 }
 
@@ -57,8 +64,8 @@ export function createDraftService({
   now = () => new Date(),
 }: DraftDependencies): DraftService {
   return {
-    async save(slug, input) {
-      const form = await openForm(slug);
+    async save(slug, input, accessToken) {
+      const form = await openForm(slug, accessToken);
       if (form.schema.settings.saveProgress !== 'email') throw draftsOff();
 
       // Only answers to the form's questions are kept; they are checked when submitted.
@@ -89,8 +96,8 @@ export function createDraftService({
       });
     },
 
-    async resume(slug, token) {
-      const form = await openForm(slug);
+    async resume(slug, token, accessToken) {
+      const form = await openForm(slug, accessToken);
       const draft = await prisma.formDraft.findUnique({
         where: { tokenHash: hashToken(token) },
         select: { formId: true, answers: true, state: true, expiresAt: true },

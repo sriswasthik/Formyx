@@ -14,6 +14,8 @@ import { answerFolder, themeFolder } from '../lib/upload-storage.js';
 import { assertRole, findFormAccess, getAuth, type AuthGuards } from '../middleware/auth.js';
 import { createUploadRateLimiter } from '../middleware/rate-limit.js';
 import { createPublicFormService } from '../services/public-form-service.js';
+import { createPasswordHasher } from '../lib/password.js';
+import { accessTokenOf } from './public-forms.js';
 import { createUploadChecks, uploadsUnavailable } from '../services/upload-checks.js';
 
 /**
@@ -22,12 +24,18 @@ import { createUploadChecks, uploadsUnavailable } from '../services/upload-check
  * (logo, cover, background, pictures in the form) take EDITOR access.
  */
 export function createUploadsRouter(
-  { env, prisma, storage }: AppDependencies,
+  { env, prisma, storage, mailer }: AppDependencies,
   { requireAuth }: AuthGuards,
 ): Router {
   const router = Router();
   const root = env.CLOUDINARY_FOLDER;
-  const forms = createPublicFormService(prisma, createUploadChecks({ storage, root }));
+  const forms = createPublicFormService({
+    prisma,
+    uploads: createUploadChecks({ storage, root }),
+    secret: env.JWT_SECRET,
+    passwords: createPasswordHasher(env.BCRYPT_COST),
+    mailer,
+  });
   const limit = createUploadRateLimiter();
 
   router.get(
@@ -46,7 +54,7 @@ export function createUploadsRouter(
 
       let body: UploadSignature;
       if (query.purpose === 'answer') {
-        const form = await forms.openForm(query.form);
+        const form = await forms.openForm(query.form, accessTokenOf(req));
         if (await isDemoForm(prisma, form.id)) {
           throw demoRestricted('File uploads are switched off on demo forms.');
         }

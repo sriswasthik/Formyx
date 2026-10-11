@@ -1,9 +1,21 @@
 import type { SubmissionRecord } from '@formyx/shared';
 import type { Logger } from 'pino';
 
+/** A response saved or changed through the public form. */
+export interface SubmissionEvent {
+  formId: string;
+  submission: SubmissionRecord;
+  /** The address the respondent gave before the questions, if the form asked. */
+  respondentEmail?: string | null;
+  /** The private link's token for changing the response, when the form allows it. */
+  editToken?: string | null;
+}
+
 /** Things that happened, for whoever wants to react: live updates, notification emails. */
 export interface DomainEvents {
-  'submission.created': { formId: string; submission: SubmissionRecord };
+  'submission.created': SubmissionEvent;
+  /** A respondent changed their response through its private link. */
+  'submission.updated': SubmissionEvent;
   'submissions.deleted': { formId: string; ids: string[] };
 }
 
