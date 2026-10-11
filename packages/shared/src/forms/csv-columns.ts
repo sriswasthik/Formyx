@@ -9,6 +9,7 @@ import {
 import type { Field } from './fields.js';
 import { isFileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
+import type { StoredOutcome } from './responses.js';
 
 /** A spreadsheet cell: text, a number or empty. */
 export type CsvCell = string | number | null;
@@ -91,4 +92,60 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
 /** Every answer column of `schema`'s export, in form order. */
 export function csvAnswerColumns(schema: FormSchema): CsvColumn[] {
   return answerableFields(schema).flatMap(csvColumnsFor);
+}
+
+export interface CsvOutcomeColumn {
+  header: string;
+  /** This column's cell for one response's outcome (`null` before Sprint 13). */
+  cell: (outcome: StoredOutcome | null) => CsvCell;
+}
+
+/** The name of an end screen as people know it. */
+export function endScreenLabel(schema: Pick<FormSchema, 'logic'>, id: string): string {
+  const index = schema.logic.endScreens.findIndex((screen) => screen.id === id);
+  const screen = schema.logic.endScreens[index];
+  if (!screen) return 'Removed end screen';
+  return (
+    screen.name.trim() ||
+    screen.title.trim() ||
+    (index === 0 ? 'Default end screen' : `End screen ${index + 1}`)
+  );
+}
+
+/**
+ * The columns a response's outcome takes in an export: the quiz score, each variable, and
+ * the end screen when there is more than one. All as the server worked them out.
+ */
+export function csvOutcomeColumns(schema: Pick<FormSchema, 'logic'>): CsvOutcomeColumn[] {
+  const { logic } = schema;
+  const columns: CsvOutcomeColumn[] = [];
+  if (logic.quiz?.enabled) {
+    columns.push(
+      { header: 'Quiz score', cell: (outcome) => outcome?.quiz?.score ?? null },
+      { header: 'Quiz points possible', cell: (outcome) => outcome?.quiz?.max ?? null },
+      { header: 'Quiz score (%)', cell: (outcome) => outcome?.quiz?.percent ?? null },
+    );
+    if (logic.quiz.passPercent !== undefined) {
+      columns.push({
+        header: 'Passed',
+        cell: (outcome) => {
+          const passed = outcome?.quiz?.passed;
+          return passed === undefined || passed === null ? null : passed ? 'Yes' : 'No';
+        },
+      });
+    }
+  }
+  logic.variables.forEach((variable, index) => {
+    columns.push({
+      header: variable.name.trim() || `Variable ${index + 1}`,
+      cell: (outcome) => outcome?.values[variable.id] ?? null,
+    });
+  });
+  if (logic.endScreens.length > 1) {
+    columns.push({
+      header: 'End screen',
+      cell: (outcome) => (outcome ? endScreenLabel(schema, outcome.endScreenId) : null),
+    });
+  }
+  return columns;
 }

@@ -283,6 +283,7 @@ describe('addSubmissionToAnalytics', () => {
         ],
       },
       questions: createQuestionSummaries(schema),
+      dropOff: { unit: 'question', started: 0, steps: [], completed: 0 },
     };
   }
 

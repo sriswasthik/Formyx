@@ -1,4 +1,5 @@
 import {
+  createDefaultLogic,
   createDefaultSettings,
   createDefaultTheme,
   createField,
@@ -332,9 +333,10 @@ function buildJobApplication(): FormSchema {
     settings: {
       ...createDefaultSettings(),
       submitButtonText: 'Send application',
-      successMessage:
-        'Thanks for applying. We read every application and will reply within two weeks.',
     },
+    logic: createDefaultLogic(
+      'Thanks for applying. We read every application and will reply within two weeks.',
+    ),
   };
 }
 

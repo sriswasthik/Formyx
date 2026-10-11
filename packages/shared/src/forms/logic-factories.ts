@@ -20,15 +20,13 @@ export function createEndScreen(props: Partial<EndScreen> = {}): EndScreen {
   };
 }
 
-/** The logic of a new form: no jumps or values, one end screen. */
-export function createDefaultLogic(): FormLogic {
+/** The logic of a new form: no jumps or values, one end screen saying `message`. */
+export function createDefaultLogic(message: string = DEFAULT_END_MESSAGE): FormLogic {
   return {
     pages: {},
     variables: [],
     rules: [],
-    endScreens: [
-      createEndScreen({ id: DEFAULT_END_SCREEN_ID, name: 'Default', message: DEFAULT_END_MESSAGE }),
-    ],
+    endScreens: [createEndScreen({ id: DEFAULT_END_SCREEN_ID, name: 'Default', message })],
   };
 }
 

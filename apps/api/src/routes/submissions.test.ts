@@ -77,6 +77,8 @@ describe('GET /api/forms/:formId/submissions', () => {
       completionTimeMs: 42_000,
       answers: { [name.id]: 'Ada' },
       metadata: { userAgent: 'Vitest', referrer: null },
+      // Stored straight into the database here, so no outcome was worked out.
+      outcome: null,
     });
   });
 

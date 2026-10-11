@@ -7,6 +7,7 @@ import {
   TIME_PATTERN,
 } from './answer-values.js';
 import { resolvePath } from '../logic/navigation.js';
+import { submissionOutcomeSchema } from './outcome-schema.js';
 import { isAnswered, type AnswerValue, type Answers } from './answers.js';
 import { MAX_MATRIX_ROWS, MAX_OPTIONS, type Field, type FieldOfType } from './fields.js';
 import {
@@ -430,11 +431,17 @@ const answerValueInput = z.union([
   z.null(),
 ]);
 
-/** Body of `POST /api/public/forms/:slug/submissions`. Answers are checked separately. */
+/** Answers keyed by field id, in any shape an answer can take; checked separately. */
+export const submissionAnswersSchema = z
+  .record(z.string().regex(NODE_ID_PATTERN), answerValueInput)
+  .refine((answers) => Object.keys(answers).length <= MAX_FIELDS, 'Too many answers');
+
+/**
+ * Body of `POST /api/public/forms/:slug/submissions`. Answers are checked separately; the
+ * route, values, quiz score and end screen are always worked out again on the server.
+ */
 export const submissionInputSchema = z.object({
-  answers: z
-    .record(z.string().regex(NODE_ID_PATTERN), answerValueInput)
-    .refine((answers) => Object.keys(answers).length <= MAX_FIELDS, 'Too many answers'),
+  answers: submissionAnswersSchema,
   completionTimeMs: z
     .number()
     .int()
@@ -447,10 +454,17 @@ export const submissionInputSchema = z.object({
     .transform((value) => value.slice(0, 2048))
     .optional(),
   [HONEYPOT_FIELD]: z.string().max(1000).optional(),
+  /** The visit's token (see `viewResponseSchema`), marking it finished for drop-off. */
+  viewToken: z.string().max(64).optional(),
+  /** The saved draft this response finishes, which is then deleted. */
+  resumeToken: z.string().max(64).optional(),
 });
 export type SubmissionInput = z.input<typeof submissionInputSchema>;
 
-export const submissionResponseSchema = z.object({ id: z.string() });
+export const submissionResponseSchema = z.object({
+  id: z.string(),
+  outcome: submissionOutcomeSchema,
+});
 export type SubmissionResponse = z.infer<typeof submissionResponseSchema>;
 
 /** Where answer problems appear in a rejected submission's issues: `answers.<fieldId>`. */

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dropOffSchema } from './drop-off.js';
 import { answerableFields, formatAddress } from './answer-format.js';
 import { isAddressAnswer, isDateRangeAnswer, isMatrixAnswer } from './answer-values.js';
 import { CHOICE_FIELD_TYPES } from './field-types.js';
@@ -239,6 +240,7 @@ export const formAnalyticsSchema = z.object({
   responsesPerDay: responsesPerDaySchema,
   /** One per question of the published form, in form order. */
   questions: z.array(questionSummarySchema),
+  dropOff: dropOffSchema,
 });
 export type FormAnalytics = z.infer<typeof formAnalyticsSchema>;
 

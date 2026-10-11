@@ -49,6 +49,7 @@ describe('submissionPayload', () => {
         id: 'sub_1',
         createdAt: '2026-10-01T10:00:00.000Z',
         answers: { [second.id]: 'Second', [first.id]: 'First', unknown: 'ignored' },
+        outcome: null,
       },
     );
 
@@ -60,7 +61,7 @@ describe('submissionPayload', () => {
     expect(
       submissionPayload(
         { id: 'form_1', title: 'Survey', schema: everyType },
-        { id: 'sub_1', createdAt: '2026-10-01T10:00:00.000Z', answers: {} },
+        { id: 'sub_1', createdAt: '2026-10-01T10:00:00.000Z', answers: {}, outcome: null },
       ).id,
     ).not.toBe(payload.id);
   });

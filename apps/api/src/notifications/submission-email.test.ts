@@ -14,6 +14,7 @@ function submission(answers: SubmissionRecord['answers']): SubmissionRecord {
     completionTimeMs: null,
     answers,
     metadata: { userAgent: null, referrer: null },
+    outcome: null,
   };
 }
 

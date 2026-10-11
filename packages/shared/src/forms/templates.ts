@@ -1,6 +1,5 @@
 import { createDefaultSettings, createEmptyForm, createField, createOption } from './factories.js';
 import { createDefaultLogic } from './logic-factories.js';
-import type { FormLogic } from './logic-schema.js';
 import type { ChoiceFieldType, FieldType } from './field-types.js';
 import type { FieldOfType } from './fields.js';
 import { FORM_SCHEMA_VERSION, type FormSchema } from './form-schema.js';
@@ -14,15 +13,6 @@ export interface FormTemplate {
   defaultTitle: string;
   /** A fresh schema with new ids on every call. */
   build: () => FormSchema;
-}
-
-/** New logic whose default end screen says `message`. */
-function withEndMessage(message: string): FormLogic {
-  const logic = createDefaultLogic();
-  return {
-    ...logic,
-    endScreens: logic.endScreens.map((screen) => ({ ...screen, message })),
-  };
 }
 
 type FieldProps<T extends FieldType> = Partial<Omit<FieldOfType<T>, 'id' | 'type'>>;
@@ -102,7 +92,7 @@ function buildEventRegistration(): FormSchema {
       ...createDefaultSettings(),
       submitButtonText: 'Register',
     },
-    logic: withEndMessage("You're registered! Check your inbox for a confirmation email."),
+    logic: createDefaultLogic("You're registered! Check your inbox for a confirmation email."),
   };
 }
 
@@ -153,7 +143,7 @@ function buildFeedbackSurvey(): FormSchema {
       ...createDefaultSettings(),
       submitButtonText: 'Send feedback',
     },
-    logic: withEndMessage('Thank you! Your feedback helps us build a better product.'),
+    logic: createDefaultLogic('Thank you! Your feedback helps us build a better product.'),
   };
 }
 

@@ -6,6 +6,7 @@ import {
   findPublishIssues,
   getFormTemplate,
   requiredFeatures,
+  requiredLogicFeatures,
   slugify,
   type FormDetail,
   type FormSchema,
@@ -281,9 +282,12 @@ export function createFormService(
           details: issues,
         });
       }
-      // Anyone may try Pro looks in the editor; going live with them takes the plan.
+      // Anyone may try Pro looks and logic in the editor; going live with them takes the plan.
       const theme = parseStored(storedFormThemeSchema, form.theme, 'theme');
-      await entitlements.assertFeatures(form.workspaceId, requiredFeatures(theme));
+      await entitlements.assertFeatures(form.workspaceId, [
+        ...requiredFeatures(theme),
+        ...requiredLogicFeatures(draft),
+      ]);
 
       // Conditional on the version, so a draft saved in the meantime is never published unseen.
       const { count } = await prisma.form.updateMany({

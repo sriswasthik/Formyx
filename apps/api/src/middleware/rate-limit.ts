@@ -35,6 +35,9 @@ export function createAuthRateLimiters(env: Pick<Env, 'AUTH_RATE_LIMIT_MAX'>) {
 
 /** Views are cheap and recorded once per browser session, so their limit is generous. */
 const VIEW_LIMIT = 100;
+const PROGRESS_LIMIT = 600;
+const DRAFT_SAVE_LIMIT = 10;
+const DRAFT_RESUME_LIMIT = 30;
 
 /** Each client IP counts separately for each form, so one busy form cannot block another. */
 function perFormKey(req: Request): string {
@@ -62,6 +65,15 @@ export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_M
       'Too many responses from your network. Try again in a few minutes.',
     ),
     view: publicLimiter(VIEW_LIMIT, 'Too many requests. Try again in a few minutes.'),
+    /** A report per page and answer: room for long forms and several visits. */
+    progress: publicLimiter(PROGRESS_LIMIT, 'Too many requests. Try again in a few minutes.'),
+    /** Each save sends an email, so few are allowed. */
+    saveDraft: publicLimiter(DRAFT_SAVE_LIMIT, 'Too many saves. Try again in a few minutes.'),
+    /** Guessing a 256-bit token is hopeless; this just keeps the endpoint quiet. */
+    resumeDraft: publicLimiter(
+      DRAFT_RESUME_LIMIT,
+      'Too many requests. Try again in a few minutes.',
+    ),
   };
 }
 

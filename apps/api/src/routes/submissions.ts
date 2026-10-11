@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import {
   csvAnswerColumns,
+  csvOutcomeColumns,
   deleteSubmissionsInputSchema,
   listSubmissionsQuerySchema,
   slugify,
@@ -29,11 +30,14 @@ async function* csvChunks(
 ): AsyncGenerator<string> {
   // A column per answer, or several for matrices, addresses and date ranges.
   const columns = schema ? csvAnswerColumns(schema) : [];
+  // Scores, values and the end screen, as the server worked them out.
+  const outcomeColumns = schema ? csvOutcomeColumns(schema) : [];
   yield CSV_BOM +
     toCsvRow([
       'Response ID',
       'Submitted at (UTC)',
       ...columns.map((column) => column.header),
+      ...outcomeColumns.map((column) => column.header),
       'Time to complete (seconds)',
     ]);
 
@@ -42,6 +46,7 @@ async function* csvChunks(
       submission.id,
       submission.createdAt,
       ...columns.map((column) => column.cell(submission.answers)),
+      ...outcomeColumns.map((column) => column.cell(submission.outcome)),
       submission.completionTimeMs === null ? null : Math.round(submission.completionTimeMs / 1000),
     ]);
 

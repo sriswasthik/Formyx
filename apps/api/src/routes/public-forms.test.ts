@@ -1,5 +1,7 @@
 import {
   apiErrorSchema,
+  VIEW_TOKEN_PATTERN,
+  viewResponseSchema,
   createEmptyForm,
   createField,
   createOption,
@@ -147,14 +149,18 @@ describe('POST /api/public/forms/:slug/view', () => {
   it('counts a view of an open form', async () => {
     const form = await publishForm();
 
-    await request(app)
+    const first = await request(app)
       .post(`${formUrl(form.slug)}/view`)
-      .expect(204);
-    await request(app)
+      .expect(201);
+    const second = await request(app)
       .post(`${formUrl(form.slug)}/view`)
-      .expect(204);
+      .expect(201);
 
     expect(await prisma.formView.count({ where: { formId: form.id } })).toBe(2);
+    // Each visit gets its own random token, for its progress reports.
+    const tokens = [first.body, second.body].map((body) => viewResponseSchema.parse(body).token);
+    expect(tokens[0]).toMatch(VIEW_TOKEN_PATTERN);
+    expect(tokens[0]).not.toBe(tokens[1]);
   });
 
   it('does not count views of drafts or closed forms', async () => {
