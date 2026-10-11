@@ -103,6 +103,7 @@ function created(formId: string, id = 'sub_1') {
     completionTimeMs: null,
     answers: {},
     metadata: { userAgent: null, referrer: null },
+    outcome: null,
   };
   return { formId, submission };
 }

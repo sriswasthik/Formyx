@@ -1,5 +1,6 @@
 import {
   createDefaultTheme,
+  createDefaultLogic,
   createEmptyForm,
   createField,
   type Field,
@@ -23,7 +24,8 @@ const source: Field = { ...createField('hidden'), label: 'Source', paramName: 's
 const schema: FormSchema = {
   ...createEmptyForm(),
   fields: [source, name, pageTwo, visit],
-  settings: { submitButtonText: 'Send', successMessage: 'Thanks.' },
+  settings: { ...createEmptyForm().settings, submitButtonText: 'Send' },
+  logic: createDefaultLogic('Thanks.'),
 };
 
 function renderForm(linkParams?: URLSearchParams) {

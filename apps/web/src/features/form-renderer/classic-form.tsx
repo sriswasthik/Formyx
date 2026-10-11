@@ -1,7 +1,21 @@
-import { splitIntoPages, type Field, type FormSchema } from '@formyx/shared';
+import {
+  formPages,
+  pageHasContent,
+  START_PAGE_KEY,
+  type Field,
+  type FormSchema,
+  type PageLayout,
+} from '@formyx/shared';
 import { ChevronLeft } from 'lucide-react';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
-import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
@@ -23,9 +37,9 @@ function isDrawn(field: Field): boolean {
 
 interface ClassicFormProps {
   schema: FormSchema;
+  /** The fields as this respondent sees them: in their order, answers piped in. */
+  fields: readonly Field[];
   response: FormResponse;
-  /** The fields respondents can see now, in order. */
-  visibleFields: readonly Field[];
   idPrefix: string;
   /** The title and description, at the top of every page. */
   header: ReactNode;
@@ -33,52 +47,78 @@ interface ClassicFormProps {
   pageHeadingLevel: 'h2' | 'h3';
   numbers: ReadonlyMap<string, string>;
   pageTransition: keyof typeof PAGE_ENTRANCES;
+  /** A page's title and description with answers piped in. */
+  pipeText: (text: string) => string;
+  /** The page to start on, as when resuming. */
+  initialPageKey?: string | undefined;
+  onPageChange?: ((pageKey: string) => void) | undefined;
+  /** Under the buttons, such as "Save and continue later". */
+  actions?: ReactNode;
   hiddenFields?: ReactNode;
 }
 
 /**
- * The classic layout: questions one below another, split into pages at page breaks. Next
- * checks the page's answers before moving on; sending checks them all and returns to the
+ * The classic layout: questions one below another, page by page along the respondent's
+ * route (page breaks divide the form; jumps skip pages). Next checks the page's answers
+ * before moving on; Back retraces the route; sending checks everything and returns to the
  * page with the first problem.
  */
 export function ClassicForm({
   schema,
+  fields,
   response,
-  visibleFields,
   idPrefix,
   header,
   pageHeadingLevel: PageHeading,
   numbers,
   pageTransition,
+  pipeText,
+  initialPageKey,
+  onPageChange,
+  actions,
   hiddenFields,
 }: ClassicFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
-  const { answers, errors, formError, status, handleChange, checkFields, submit } = response;
+  const { answers, errors, formError, status, path, activeIds, handleChange, checkFields, submit } =
+    response;
   const formRef = useRef<HTMLFormElement>(null);
-  /** Where to put focus once a page has drawn: a field's control, or the page's heading. */
+  /** Where to put focus once a page has drawn: a field's control, or the page's start. */
   const focusPending = useRef<{ fieldId: string | null } | null>(null);
 
-  const pages = splitIntoPages(visibleFields);
-  // The page is followed by its page break (so logic that adds questions before it never
-  // moves the respondent), and by position when that break goes away.
+  // The pages on the route that show something, each with its fields in display order.
+  const byKey = new Map(formPages(fields).map((page) => [page.key, page]));
+  let route = path.pages
+    .map((key) => byKey.get(key))
+    .filter((page): page is PageLayout => page !== undefined)
+    .filter((page) => pageHasContent(page, activeIds));
+  const firstPage = byKey.get(START_PAGE_KEY);
+  if (route.length === 0 && firstPage) route = [firstPage];
+
+  // The page is followed by its key (so answering earlier questions never moves the
+  // respondent), and by position when it leaves the route.
   const [current, setCurrent] = useState<{ key: string | null; index: number }>({
-    key: null,
+    key: initialPageKey ?? null,
     index: 0,
   });
-  const byKey = pages.findIndex((page) => (page.start?.id ?? null) === current.key);
-  const index = byKey === -1 ? Math.min(current.index, pages.length - 1) : byKey;
-  const page = pages[index] ?? pages[0];
-  const isLast = index >= pages.length - 1;
-  const multiPage = pages.length > 1;
+  const keyed = route.findIndex((page) => page.key === current.key);
+  const index = keyed === -1 ? Math.min(current.index, route.length - 1) : keyed;
+  const page = route[index] ?? route[0];
+  const isLast = index >= route.length - 1;
+  const multiPage = route.length > 1;
   const busy = status === 'submitting';
   const errorCount = Object.keys(errors).length;
+
+  const pageKey = page?.key;
+  useEffect(() => {
+    if (pageKey) onPageChange?.(pageKey);
+  }, [pageKey, onPageChange]);
 
   useLayoutEffect(() => {
     const pending = focusPending.current;
     if (!pending) return;
     focusPending.current = null;
     const field = pending.fieldId
-      ? visibleFields.find((candidate) => candidate.id === pending.fieldId)
+      ? fields.find((candidate) => candidate.id === pending.fieldId)
       : undefined;
     const target = field
       ? document.getElementById(fieldIds(idPrefix, field).control)
@@ -88,9 +128,9 @@ export function ClassicForm({
   });
 
   const goTo = (pageIndex: number, fieldId: string | null = null) => {
-    const target = pages[pageIndex];
+    const target = route[pageIndex];
     if (!target) return;
-    setCurrent({ key: target.start?.id ?? null, index: pageIndex });
+    setCurrent({ key: target.key, index: pageIndex });
     focusPending.current = { fieldId };
   };
 
@@ -110,16 +150,22 @@ export function ClassicForm({
     }
     const result = await submit();
     if (result.ok) return;
-    const firstInvalid = visibleFields.find((field) => field.id in result.problems);
+    const problemPage = route.findIndex((candidate) =>
+      candidate.fields.some((field) => field.id in result.problems),
+    );
+    const firstInvalid = route[problemPage]?.fields.find((field) => field.id in result.problems);
     if (!firstInvalid) return;
-    const problemPage = pages.findIndex((candidate) => candidate.fields.includes(firstInvalid));
-    if (problemPage === index || problemPage === -1) focusField(firstInvalid);
+    if (problemPage === index) focusField(firstInvalid);
     else goTo(problemPage, firstInvalid.id);
   };
 
   const reveal = reduceMotion ? { duration: 0 } : { duration: DURATION.base, ease: EASE_STANDARD };
-  const title = page?.start?.label.trim();
-  const description = page?.start?.description?.trim();
+  const rawTitle =
+    page?.key === START_PAGE_KEY
+      ? (schema.logic.pages[START_PAGE_KEY]?.title ?? '')
+      : (page?.pageBreak?.label ?? '');
+  const title = pipeText(rawTitle).trim();
+  const description = pipeText(page?.pageBreak?.description ?? '').trim();
 
   return (
     <form
@@ -131,11 +177,11 @@ export function ClassicForm({
       {header}
       {multiPage && (
         <p aria-live="polite" className="sr-only">
-          {`Page ${index + 1} of ${pages.length}`}
+          {`Page ${index + 1} of ${route.length}`}
         </p>
       )}
       <m.div
-        key={page?.start?.id ?? 'first'}
+        key={page?.key ?? 'first'}
         initial={index === 0 || reduceMotion ? false : PAGE_ENTRANCES[pageTransition]}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
@@ -159,32 +205,34 @@ export function ClassicForm({
           )}
         </div>
         <AnimatePresence initial={false}>
-          {page?.fields.filter(isDrawn).map((field) => (
-            <m.div
-              key={field.id}
-              // Clipped only while opening or closing, so focus rings show otherwise.
-              initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
-              animate={{
-                height: 'auto',
-                opacity: 1,
-                transitionEnd: { overflow: 'visible' },
-              }}
-              exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-              transition={reveal}
-            >
-              <div className="pb-8">
-                <FieldRenderer
-                  field={field}
-                  mode="respondent"
-                  idPrefix={idPrefix}
-                  number={numbers.get(field.id)}
-                  value={answers[field.id]}
-                  error={errors[field.id]}
-                  onChange={handleChange}
-                />
-              </div>
-            </m.div>
-          ))}
+          {page?.fields
+            .filter((field) => isDrawn(field) && activeIds.has(field.id))
+            .map((field) => (
+              <m.div
+                key={field.id}
+                // Clipped only while opening or closing, so focus rings show otherwise.
+                initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                animate={{
+                  height: 'auto',
+                  opacity: 1,
+                  transitionEnd: { overflow: 'visible' },
+                }}
+                exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                transition={reveal}
+              >
+                <div className="pb-8">
+                  <FieldRenderer
+                    field={field}
+                    mode="respondent"
+                    idPrefix={idPrefix}
+                    number={numbers.get(field.id)}
+                    value={answers[field.id]}
+                    error={errors[field.id]}
+                    onChange={handleChange}
+                  />
+                </div>
+              </m.div>
+            ))}
         </AnimatePresence>
       </m.div>
       {hiddenFields}
@@ -208,7 +256,7 @@ export function ClassicForm({
           </FormButton>
           {multiPage && (
             <span aria-hidden className="form-text-sm text-(--form-muted) tabular-nums">
-              Page {index + 1} of {pages.length}
+              Page {index + 1} of {route.length}
             </span>
           )}
         </div>
@@ -219,6 +267,7 @@ export function ClassicForm({
                 ? '1 question needs your attention.'
                 : `${errorCount} questions need your attention.`))}
         </p>
+        {actions}
       </div>
     </form>
   );

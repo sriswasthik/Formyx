@@ -7,3 +7,4 @@ export * from './piping.js';
 export * from './public-schema.js';
 export * from './quiz.js';
 export * from './shuffle.js';
+export * from './presentation.js';

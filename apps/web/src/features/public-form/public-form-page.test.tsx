@@ -1,5 +1,6 @@
 import {
   createDefaultTheme,
+  createDefaultLogic,
   createEmptyForm,
   createField,
   createOption,
@@ -42,7 +43,7 @@ const FORM: PublicForm = {
     ...createEmptyForm(),
     description: 'Let us know by Friday.',
     fields: [name, attending, guests],
-    settings: { ...createEmptyForm().settings, successMessage: 'See you there!' },
+    logic: createDefaultLogic('See you there!'),
   },
   theme: createDefaultTheme(),
 };
@@ -53,6 +54,8 @@ interface Request {
   body: unknown;
 }
 
+const VIEW_TOKEN = 'v'.repeat(32);
+
 /** Serves `FORM` (or `load`'s answer) and records every request. */
 function serve(
   options: { load?: () => Response; submit?: () => Response; sign?: () => Response } = {},
@@ -62,12 +65,19 @@ function serve(
     const method = init.method ?? 'GET';
     const body = typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
     requests.push({ method, path, body });
-    if (path.endsWith('/view')) return new Response(null, { status: 204 });
+    if (path.endsWith('/view')) return jsonResponse({ token: VIEW_TOKEN }, 201);
+    if (path.endsWith('/progress')) return new Response(null, { status: 204 });
     if (path.startsWith('/api/uploads/signature')) {
       return options.sign?.() ?? jsonResponse(fakeSignature('formyx/forms/form_1/fld_cv'));
     }
     if (path.endsWith('/submissions')) {
-      return options.submit?.() ?? jsonResponse({ id: 'sub_1' }, 201);
+      return (
+        options.submit?.() ??
+        jsonResponse(
+          { id: 'sub_1', outcome: { endScreenId: 'end_default', values: {}, quiz: null } },
+          201,
+        )
+      );
     }
     return options.load?.() ?? jsonResponse(FORM);
   });
@@ -157,6 +167,14 @@ describe('PublicFormPage', () => {
     expect(submission?.body).toEqual({
       answers: { [name.id]: 'Ada', [attending.id]: yes.id, [guests.id]: 2 },
       completionTimeMs: expect.any(Number) as number,
+      // Marks this visit finished, for drop-off.
+      viewToken: VIEW_TOKEN,
+    });
+    // How far the visit got went along the way, under the same anonymous token.
+    const progress = requests.filter((request) => request.path.endsWith('/progress'));
+    expect(progress.map((request) => request.body)).toContainEqual({
+      token: VIEW_TOKEN,
+      fieldId: guests.id,
     });
   });
 
@@ -294,7 +312,7 @@ describe('PublicFormPage with a file question', () => {
     expect(uploads[0]?.fields.folder).toBe('formyx/forms/form_1/fld_cv');
 
     await user.click(screen.getByRole('button', { name: 'Submit' }));
-    await screen.findByText(JOBS.schema.settings.successMessage);
+    await screen.findByText(JOBS.schema.logic.endScreens[0]?.message ?? '');
     expect(submissionsOf(requests)[0]?.body).toMatchObject({
       answers: {
         [cv.id]: {

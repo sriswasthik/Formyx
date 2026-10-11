@@ -1,7 +1,12 @@
 import {
+  draftResponseSchema,
   publicFormResponseSchema,
   submissionResponseSchema,
+  viewResponseSchema,
+  type DraftResponse,
+  type ProgressInput,
   type PublicFormResponse,
+  type SaveDraftInput,
   type SubmissionInput,
   type SubmissionResponse,
 } from '@formyx/shared';
@@ -27,8 +32,34 @@ export function getPublicForm(slug: string): Promise<PublicFormResponse> {
     : apiRequest(publicFormPath(slug), publicFormResponseSchema);
 }
 
-export async function recordFormView(slug: string): Promise<void> {
-  await apiRequest(`${publicFormPath(slug)}/view`, z.undefined(), { method: 'POST' });
+/** Counts a visit; the token ties this visit's progress reports to it. */
+export async function recordFormView(slug: string): Promise<string> {
+  const { token } = await apiRequest(`${publicFormPath(slug)}/view`, viewResponseSchema, {
+    method: 'POST',
+  });
+  return token;
+}
+
+/** How far the visit got. Best effort, and sent even as the page closes. */
+export function reportProgress(slug: string, input: ProgressInput): Promise<void> {
+  return apiRequest(`${publicFormPath(slug)}/progress`, z.undefined(), {
+    ...jsonRequest('POST', input),
+    keepalive: true,
+  });
+}
+
+/** Saves answers to finish later; the API emails the respondent a link. */
+export function saveDraft(slug: string, input: SaveDraftInput): Promise<void> {
+  return apiRequest(`${publicFormPath(slug)}/drafts`, z.undefined(), jsonRequest('POST', input));
+}
+
+/** The answers behind an emailed link's token. */
+export function resumeDraft(slug: string, token: string): Promise<DraftResponse> {
+  return apiRequest(
+    `${publicFormPath(slug)}/drafts/resume`,
+    draftResponseSchema,
+    jsonRequest('POST', { token }),
+  );
 }
 
 export function submitResponse(slug: string, input: SubmissionInput): Promise<SubmissionResponse> {
