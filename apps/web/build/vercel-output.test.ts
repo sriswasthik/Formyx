@@ -33,6 +33,14 @@ describe('contentSecurityPolicy', () => {
     expect(policy).not.toContain('unsafe-eval');
   });
 
+  it('plays uploaded voice notes and embeds YouTube and Vimeo players only', () => {
+    const policy = contentSecurityPolicy({ scriptHashes: [], frameAncestors: '*' });
+    expect(policy).toContain("media-src 'self' blob: https://res.cloudinary.com;");
+    expect(policy).toContain(
+      'frame-src https://www.youtube-nocookie.com https://player.vimeo.com;',
+    );
+  });
+
   it('only connects to this site when the socket is served here too', () => {
     const policy = contentSecurityPolicy({ scriptHashes: [], frameAncestors: '*' });
     expect(policy).toContain("connect-src 'self' https://api.cloudinary.com;");
@@ -91,6 +99,13 @@ describe('vercelRoutes', () => {
       expect(page['X-Frame-Options']).toBe('DENY');
       expect(page['X-Content-Type-Options']).toBe('nosniff');
     }
+  });
+
+  it('lets public forms, and only them, ask for the microphone', () => {
+    expect(headersFor('/f/customer-survey-x7k2')['Permissions-Policy']).toContain(
+      'microphone=(self)',
+    );
+    expect(headersFor('/app/forms')['Permissions-Policy']).toContain('microphone=()');
   });
 
   it('leaves API responses to the API’s own headers', () => {
