@@ -3,13 +3,27 @@ import { recordFormView, reportProgress } from './public-form-api';
 
 const viewKey = (slug: string) => `formyx:view:${slug}`;
 
+/** Views being counted, by slug, so asking twice at once (React may) still counts one. */
+const counting = new Map<string, Promise<string | null>>();
+
 /**
  * Counts a view of the form once per browser session, and resolves with the visit's token
  * (kept for the session, so a reload is the same visit). Storage can be unavailable
  * (private windows, blocked site data); then every visit counts, which beats counting none.
  * Views are best effort: `null` when it fails, which never gets in the respondent's way.
  */
-export async function recordViewOnce(slug: string): Promise<string | null> {
+export function recordViewOnce(slug: string): Promise<string | null> {
+  let view = counting.get(slug);
+  if (!view) {
+    view = countView(slug).finally(() => {
+      counting.delete(slug);
+    });
+    counting.set(slug, view);
+  }
+  return view;
+}
+
+async function countView(slug: string): Promise<string | null> {
   try {
     const kept = sessionStorage.getItem(viewKey(slug));
     if (kept) return kept;

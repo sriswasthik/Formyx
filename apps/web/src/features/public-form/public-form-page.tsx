@@ -9,7 +9,7 @@ import {
 } from '@formyx/shared';
 import { useQuery } from '@tanstack/react-query';
 import { FileQuestion, Lock, WifiOff } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
@@ -36,18 +36,24 @@ import { createProgressReporter, recordViewOnce } from './record-view';
 
 /**
  * The token of an emailed "continue later" link, from the page's fragment (where it never
- * reaches a server), which is then cleared from the address bar.
+ * reaches a server). Only reads it: `useClearResumeToken` then takes it out of the address bar.
  */
-function takeResumeToken(): string | null {
+function readResumeToken(): string | null {
   const match = /(?:^#|&)resume=([^&]+)/.exec(window.location.hash);
   const token = match?.[1] ? decodeURIComponent(match[1]) : null;
-  if (!token || !DRAFT_TOKEN_PATTERN.test(token)) return null;
-  window.history.replaceState(
-    window.history.state,
-    '',
-    window.location.pathname + window.location.search,
-  );
-  return token;
+  return token && DRAFT_TOKEN_PATTERN.test(token) ? token : null;
+}
+
+/** Clears a resume link's token from the address bar once it has been read. */
+function useClearResumeToken(token: string | null) {
+  useEffect(() => {
+    if (token === null) return;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      window.location.pathname + window.location.search,
+    );
+  }, [token]);
 }
 
 /** A missing form stays missing, so asking again would not help. */
@@ -207,7 +213,8 @@ export function PublicFormPage() {
     return params;
   });
   const [closedWhileOpen, setClosedWhileOpen] = useState(false);
-  const [resumeToken] = useState(takeResumeToken);
+  const [resumeToken] = useState(readResumeToken);
+  useClearResumeToken(resumeToken);
   const query = useQuery({
     queryKey: ['public-form', slug],
     queryFn: async () => {

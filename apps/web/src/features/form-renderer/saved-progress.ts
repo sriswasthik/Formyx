@@ -69,7 +69,10 @@ function writeSavedProgress(key: string, progress: Omit<SavedProgress, 'version'
   }
 }
 
-/** Keeps `progress` saved under `key` while `key` is set, a moment after each change. */
+/**
+ * Keeps `progress` saved under `key` while `key` is set, a moment after each change, or at
+ * once when the page goes away (a reload or a closed tab) before that moment comes.
+ */
 export function useSavedProgress(
   key: string | null,
   progress: Omit<SavedProgress, 'version' | 'savedAt'>,
@@ -81,11 +84,17 @@ export function useSavedProgress(
   const { answers, pageKey, seed } = progress;
   useEffect(() => {
     if (key === null || Object.keys(answers).length === 0) return;
-    const timer = setTimeout(() => {
+    let saved = false;
+    const save = () => {
+      if (saved) return;
+      saved = true;
       writeSavedProgress(key, latest.current);
-    }, SAVE_DELAY_MS);
+    };
+    const timer = setTimeout(save, SAVE_DELAY_MS);
+    window.addEventListener('pagehide', save);
     return () => {
       clearTimeout(timer);
+      window.removeEventListener('pagehide', save);
     };
   }, [key, answers, pageKey, seed]);
 }

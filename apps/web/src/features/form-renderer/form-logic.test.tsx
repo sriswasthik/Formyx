@@ -7,7 +7,7 @@ import {
   type Field,
   type FormSchema,
 } from '@formyx/shared';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FormView, type SubmitOutcome } from './form-view';
@@ -154,6 +154,17 @@ describe('FormView with logic', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps the latest answers when the page goes away before the save', () => {
+    renderForm({ saveProgressKey: 'pets-unload' });
+    fireEvent.change(screen.getByRole('textbox', { name: /Your name/ }), {
+      target: { value: 'Ada' },
+    });
+    expect(localStorage.getItem('formyx:progress:pets-unload')).toBeNull();
+
+    window.dispatchEvent(new PageTransitionEvent('pagehide'));
+    expect(localStorage.getItem('formyx:progress:pets-unload')).toContain('"Ada"');
   });
 
   it('emails a link to finish later when the form offers it', async () => {

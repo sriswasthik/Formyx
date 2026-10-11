@@ -10,7 +10,7 @@ import {
 } from '@formyx/shared';
 import { Check, CircleCheck, X } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { RichText } from './rich-text';
@@ -61,9 +61,12 @@ function expectedText(field: Field, expected: readonly string[]): string {
 /** "Taking you on in 3 seconds", counting down, then going. */
 function Redirect({ url, delaySeconds }: { url: string; delaySeconds: number }) {
   const [left, setLeft] = useState(delaySeconds);
+  const gone = useRef(false);
   useEffect(() => {
     if (left <= 0) {
-      window.location.assign(url);
+      // Once: a second navigation would cancel the first.
+      if (!gone.current) window.location.assign(url);
+      gone.current = true;
       return;
     }
     const timer = setTimeout(() => {
