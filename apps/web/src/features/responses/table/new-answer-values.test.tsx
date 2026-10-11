@@ -145,4 +145,12 @@ describe('AnswerDetail for newer question types', () => {
     expect(address).toHaveTextContent('Flat 4');
     expect(address).toHaveTextContent('Bengaluru, Karnataka');
   });
+
+  it('spaces phone numbers and dials them', () => {
+    render(<AnswerDetail field={createField('phone')} value="+919876543210" />);
+    expect(screen.getByRole('link', { name: '+91 98765 43210' })).toHaveAttribute(
+      'href',
+      'tel:+919876543210',
+    );
+  });
 });

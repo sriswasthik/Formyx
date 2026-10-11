@@ -334,9 +334,9 @@ export function AnswerDetail({ field, value }: { field: Field; value: unknown })
       return (
         <a
           href={`tel:${value.replace(/[^\d+]/g, '')}`}
-          className="text-14 text-accent hover:underline"
+          className="text-14 text-accent tabular-nums hover:underline"
         >
-          {value}
+          {formatAnswer(field, value)}
         </a>
       );
     case 'date':

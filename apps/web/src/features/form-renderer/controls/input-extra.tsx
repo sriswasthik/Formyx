@@ -70,7 +70,8 @@ function PhoneControl({
         </select>
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-(--form-input-px) flex items-center bg-(--form-input-bg) pr-1 form-text tabular-nums"
+          // Covers the select's own text (the country's full name) up to the chevron.
+          className="pointer-events-none absolute inset-y-px right-8 left-px flex items-center overflow-hidden rounded-l-(--form-input-radius) bg-(--form-input-bg) pl-[calc(var(--form-input-px)-1px)] form-text whitespace-nowrap tabular-nums"
         >
           {country ? `${country.code} +${country.dial}` : ''}
         </span>

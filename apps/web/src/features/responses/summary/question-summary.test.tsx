@@ -122,4 +122,35 @@ describe('QuestionSummaryCard for newer question types', () => {
     });
     expect(screen.getByText(/₹\s?1,500/)).toBeInTheDocument();
   });
+
+  it('spaces phone numbers', () => {
+    const latest = (value: string, id: string) => ({
+      submissionId: id,
+      createdAt: '2026-10-11T08:00:00.000Z',
+      value,
+    });
+    renderCard({
+      kind: 'text',
+      ...base,
+      type: 'phone',
+      answered: 1,
+      latest: [latest('+919876543210', 's1')],
+    });
+    expect(screen.getByText('+91 98765 43210')).toBeInTheDocument();
+  });
+
+  it('only says picks add up past 100% when someone picked several', () => {
+    renderCard({
+      kind: 'choice',
+      ...base,
+      type: 'picture_choice',
+      answered: 2,
+      options: [
+        { id: 'r', label: 'Red', count: 1 },
+        { id: 'b', label: 'Blue', count: 1 },
+      ],
+      removed: 0,
+    });
+    expect(screen.queryByText(/more than 100%/)).not.toBeInTheDocument();
+  });
 });

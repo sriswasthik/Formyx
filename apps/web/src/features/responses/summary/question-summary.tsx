@@ -3,6 +3,7 @@ import {
   averageRanks,
   FIELD_TYPE_LABELS,
   formatCurrency,
+  formatPhone,
   npsBreakdown,
   shareOf,
   type ChoiceSummary,
@@ -67,6 +68,7 @@ function ShareRow({
 
 function ChoiceBody({ summary }: { summary: ChoiceSummary }) {
   if (summary.answered === 0) return <NoAnswers />;
+  const picks = summary.options.reduce((total, option) => total + option.count, summary.removed);
   return (
     <>
       <ul className="flex flex-col gap-4">
@@ -87,7 +89,8 @@ function ChoiceBody({ summary }: { summary: ChoiceSummary }) {
           />
         )}
       </ul>
-      {(summary.type === 'multi_choice' || summary.type === 'picture_choice') && (
+      {/* Several picks per response (multiple choice, or pictures that allow several). */}
+      {picks > summary.answered && (
         <p className="mt-4 text-12 text-muted-foreground">
           People could pick more than one option, so the percentages add up to more than 100%.
         </p>
@@ -337,6 +340,17 @@ function ValuesBody({ summary }: { summary: ValuesSummary }) {
   );
 }
 
+/** A latest answer as people read it: dates in words, phone numbers spaced. */
+function textAnswer(type: TextSummary['type'], value: string): string {
+  if (type === 'date') return formatCalendarDate(value);
+  if (type === 'phone' && value.startsWith('+')) return formatPhone(value);
+  if (type === 'date_range') {
+    const [start, end] = value.split(' to ');
+    if (start && end) return `${formatCalendarDate(start)} – ${formatCalendarDate(end)}`;
+  }
+  return value;
+}
+
 function TextBody({ summary }: { summary: TextSummary }) {
   if (summary.latest.length === 0) return <NoAnswers />;
   const now = new Date();
@@ -354,7 +368,7 @@ function TextBody({ summary }: { summary: TextSummary }) {
                   style={{ backgroundColor: answer.value }}
                 />
               )}
-              {summary.type === 'date' ? formatCalendarDate(answer.value) : answer.value}
+              {textAnswer(summary.type, answer.value)}
             </p>
             <p className="text-12 text-muted-foreground">
               <time dateTime={answer.createdAt}>{formatRelativeTime(answer.createdAt, now)}</time>
