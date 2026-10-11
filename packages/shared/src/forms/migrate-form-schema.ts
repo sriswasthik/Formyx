@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { FORM_SCHEMA_VERSION, formSchema, type FormSchema } from './form-schema.js';
+import { DEFAULT_PHONE_COUNTRY } from './phone.js';
+import { escapeRichText } from './rich-text.js';
 
 type SchemaData = Record<string, unknown>;
 
@@ -11,10 +13,40 @@ export type FormSchemaUpgrade = (schema: SchemaData) => SchemaData;
  * old schemas rewritten, bump FORM_SCHEMA_VERSION and add the step from the previous version
  * here; stored forms then upgrade on read and with `scripts/migrate-forms.ts` in the API.
  */
-export const FORM_SCHEMA_UPGRADES: Readonly<Record<number, FormSchemaUpgrade>> = {};
+export const FORM_SCHEMA_UPGRADES: Readonly<Record<number, FormSchemaUpgrade>> = {
+  1: upgradeV1,
+};
 
 function isSchemaData(value: unknown): value is SchemaData {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * v1 to v2 (Sprint 12), keeping how every form looks and works: statements become rich text
+ * with their plain text escaped, so a `*` still shows as a star; phone questions get the
+ * country picker, starting on India; ratings keep drawing numbers.
+ */
+function upgradeV1(schema: SchemaData): SchemaData {
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  return {
+    ...schema,
+    version: 2,
+    fields: fields.map((field: unknown) => {
+      if (!isSchemaData(field)) return field;
+      switch (field.type) {
+        case 'statement':
+          return typeof field.label === 'string'
+            ? { ...field, label: escapeRichText(field.label) }
+            : field;
+        case 'phone':
+          return { ...field, defaultCountry: DEFAULT_PHONE_COUNTRY };
+        case 'rating':
+          return { ...field, ratingStyle: 'numbers' };
+        default:
+          return field;
+      }
+    }),
+  };
 }
 
 /**

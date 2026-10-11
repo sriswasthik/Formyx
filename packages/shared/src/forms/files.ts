@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { FileCategory } from './fields.js';
+import type { Field, FileCategory } from './fields.js';
 
 export const BYTES_PER_MB = 1024 * 1024;
 
@@ -75,4 +75,55 @@ export function formatFileSize(bytes: number): string {
   if (bytes < BYTES_PER_MB) return `${Math.round(bytes / 1024)} KB`;
   const mb = bytes / BYTES_PER_MB;
   return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+/** Signatures are drawn or typed, then saved as a small PNG. */
+export const SIGNATURE_MAX_MB = 1;
+export const SIGNATURE_EXTENSIONS: readonly string[] = ['png'];
+
+/** What MediaRecorder writes: WebM or Ogg (Chrome, Firefox), MP4/AAC (Safari). */
+export const VOICE_NOTE_MAX_MB = 10;
+export const VOICE_NOTE_EXTENSIONS: readonly string[] = [
+  'webm',
+  'ogg',
+  'mp4',
+  'm4a',
+  'aac',
+  'mp3',
+  'wav',
+];
+
+export interface UploadRules {
+  maxSizeMb: number;
+  /** File extensions, which double as the formats storage accepts. */
+  extensions: readonly string[];
+}
+
+/** What uploads a question takes, or `null` if it takes none. */
+export function uploadRules(field: Field): UploadRules | null {
+  switch (field.type) {
+    case 'file':
+      return {
+        maxSizeMb: field.fileConfig.maxSizeMb,
+        extensions: allowedExtensions(field.fileConfig.allowedTypes),
+      };
+    case 'signature':
+      return { maxSizeMb: SIGNATURE_MAX_MB, extensions: SIGNATURE_EXTENSIONS };
+    case 'voice_note':
+      return { maxSizeMb: VOICE_NOTE_MAX_MB, extensions: VOICE_NOTE_EXTENSIONS };
+    default:
+      return null;
+  }
+}
+
+/** Why a file breaks `rules`, or `null` if it fits. */
+export function uploadProblem(file: FileFacts, rules: UploadRules): string | null {
+  if (!rules.extensions.includes(fileExtension(file.name))) {
+    return 'This type of file isn’t accepted here';
+  }
+  if (file.size > rules.maxSizeMb * BYTES_PER_MB) {
+    return `This file is too big. The limit is ${rules.maxSizeMb} MB`;
+  }
+  if (file.size === 0) return 'This file is empty';
+  return null;
 }

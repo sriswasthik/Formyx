@@ -9,7 +9,7 @@ import {
 import { OPERATORS_BY_FIELD_TYPE, type Condition, type ConditionOperator } from './conditions.js';
 import { createEmptyForm, createField } from './factories.js';
 import { FIELD_TYPES, type FieldType } from './field-types.js';
-import type { Field } from './fields.js';
+import type { Field, FieldOfType } from './fields.js';
 import type { FormSchema } from './form-schema.js';
 
 const text = createField('short_text');
@@ -40,6 +40,11 @@ describe('isAnswered', () => {
     [['a'], true],
     [0, true],
     [Number.NaN, false],
+    [true, true],
+    [false, false],
+    [{ start: '', end: '' }, false],
+    [{ r1: [] }, false],
+    [{ r1: 'c1' }, true],
   ])('%j -> %s', (value, expected) => {
     expect(isAnswered(value)).toBe(expected);
   });
@@ -55,6 +60,9 @@ describe('evaluateCondition', () => {
   const [choiceYes = '', choiceNo = ''] = choice.options.map((option) => option.id);
   const [dropYes = '', dropNo = ''] = dropdown.options.map((option) => option.id);
   const [boxA = '', boxB = ''] = checkboxes.options.map((option) => option.id);
+  const pictures = sources.picture_choice as FieldOfType<'picture_choice'>;
+  const [picA = '', picB = ''] = pictures.options.map((option) => option.id);
+  const address = { line1: '1 MG Road', pin: '560001', city: 'Bengaluru', state: 'Karnataka' };
 
   type Case = [
     type: FieldType,
@@ -66,32 +74,36 @@ describe('evaluateCondition', () => {
 
   // Every operator each question type offers, with a case that holds and one that does not.
   const cases: Case[] = [
-    ...(['short_text', 'long_text', 'email', 'phone'] as const).flatMap((type): Case[] => [
-      [type, 'equals', 'Yes', ' yes ', true],
-      [type, 'equals', 'Yes', 'no', false],
-      [type, 'not_equals', 'Yes', 'no', true],
-      [type, 'not_equals', 'Yes', 'YES', false],
-      [type, 'contains', 'URGENT', 'this is urgent!', true],
-      [type, 'contains', 'urgent', 'later', false],
-      [type, 'is_answered', undefined, 'x', true],
-      [type, 'is_answered', undefined, '  ', false],
-      [type, 'is_not_answered', undefined, null, true],
-      [type, 'is_not_answered', undefined, 'x', false],
-    ]),
-    ...(['number', 'rating'] as const).flatMap((type): Case[] => [
-      [type, 'equals', 4, 4, true],
-      [type, 'equals', 4, 3, false],
-      [type, 'not_equals', 4, 3, true],
-      [type, 'not_equals', 4, 4, false],
-      [type, 'greater_than', 3, 4, true],
-      [type, 'greater_than', 3, 3, false],
-      [type, 'less_than', 3, 2, true],
-      [type, 'less_than', 3, 3, false],
-      [type, 'is_answered', undefined, 0, true],
-      [type, 'is_answered', undefined, null, false],
-      [type, 'is_not_answered', undefined, null, true],
-      [type, 'is_not_answered', undefined, 1, false],
-    ]),
+    ...(['short_text', 'long_text', 'email', 'phone', 'url', 'hidden'] as const).flatMap(
+      (type): Case[] => [
+        [type, 'equals', 'Yes', ' yes ', true],
+        [type, 'equals', 'Yes', 'no', false],
+        [type, 'not_equals', 'Yes', 'no', true],
+        [type, 'not_equals', 'Yes', 'YES', false],
+        [type, 'contains', 'URGENT', 'this is urgent!', true],
+        [type, 'contains', 'urgent', 'later', false],
+        [type, 'is_answered', undefined, 'x', true],
+        [type, 'is_answered', undefined, '  ', false],
+        [type, 'is_not_answered', undefined, null, true],
+        [type, 'is_not_answered', undefined, 'x', false],
+      ],
+    ),
+    ...(['number', 'rating', 'nps', 'opinion_scale', 'slider', 'currency'] as const).flatMap(
+      (type): Case[] => [
+        [type, 'equals', 4, 4, true],
+        [type, 'equals', 4, 3, false],
+        [type, 'not_equals', 4, 3, true],
+        [type, 'not_equals', 4, 4, false],
+        [type, 'greater_than', 3, 4, true],
+        [type, 'greater_than', 3, 3, false],
+        [type, 'less_than', 3, 2, true],
+        [type, 'less_than', 3, 3, false],
+        [type, 'is_answered', undefined, 0, true],
+        [type, 'is_answered', undefined, null, false],
+        [type, 'is_not_answered', undefined, null, true],
+        [type, 'is_not_answered', undefined, 1, false],
+      ],
+    ),
     // Number inputs hold text until submitted, so conditions read numbers from strings too.
     ['number', 'greater_than', 10, '11', true],
     ['number', 'equals', 10, '10.0', true],
@@ -123,9 +135,54 @@ describe('evaluateCondition', () => {
     ['multi_choice', 'is_answered', undefined, [], false],
     ['multi_choice', 'is_not_answered', undefined, [], true],
     ['multi_choice', 'is_not_answered', undefined, [boxA], false],
-    ['file', 'is_answered', undefined, 'cv.pdf', true],
-    ['file', 'is_not_answered', undefined, 'cv.pdf', false],
-    ['file', 'is_not_answered', undefined, null, true],
+    ['time', 'equals', '09:30', '09:30', true],
+    ['time', 'equals', '09:30', '10:30', false],
+    ['time', 'not_equals', '09:30', '10:30', true],
+    ['time', 'not_equals', '09:30', '09:30', false],
+    ['time', 'greater_than', '09:30', '18:00', true],
+    ['time', 'greater_than', '09:30', '08:00', false],
+    ['time', 'less_than', '09:30', '08:00', true],
+    ['time', 'less_than', '09:30', '09:30', false],
+    ['time', 'is_answered', undefined, '09:30', true],
+    ['time', 'is_not_answered', undefined, '09:30', false],
+    ['yes_no', 'equals', 'yes', 'yes', true],
+    ['yes_no', 'equals', 'yes', 'no', false],
+    ['yes_no', 'not_equals', 'yes', 'no', true],
+    ['yes_no', 'not_equals', 'yes', 'yes', false],
+    ['yes_no', 'is_answered', undefined, 'no', true],
+    ['yes_no', 'is_not_answered', undefined, null, true],
+    ['picture_choice', 'equals', picA, picA, true],
+    ['picture_choice', 'equals', picA, [picA], true],
+    ['picture_choice', 'equals', picA, [picA, picB], false],
+    ['picture_choice', 'not_equals', picA, picB, true],
+    ['picture_choice', 'not_equals', picA, picA, false],
+    ['picture_choice', 'contains', picB, [picA, picB], true],
+    ['picture_choice', 'contains', picB, [picA], false],
+    ['picture_choice', 'is_answered', undefined, picA, true],
+    ['picture_choice', 'is_not_answered', undefined, null, true],
+    ...(['file', 'signature', 'voice_note'] as const).flatMap((type): Case[] => [
+      [type, 'is_answered', undefined, 'cv.pdf', true],
+      [type, 'is_not_answered', undefined, 'cv.pdf', false],
+      [type, 'is_not_answered', undefined, null, true],
+    ]),
+    ['ranking', 'is_answered', undefined, ['a', 'b'], true],
+    ['ranking', 'is_not_answered', undefined, [], true],
+    ['matrix', 'is_answered', undefined, { r1: 'c1' }, true],
+    ['matrix', 'is_not_answered', undefined, {}, true],
+    ['address', 'is_answered', undefined, address, true],
+    [
+      'address',
+      'is_not_answered',
+      undefined,
+      { ...address, line1: '', pin: '', city: '', state: '' },
+      true,
+    ],
+    ['date_range', 'is_answered', undefined, { start: '2026-01-01', end: '2026-01-02' }, true],
+    ['date_range', 'is_not_answered', undefined, { start: '', end: '' }, true],
+    ['color', 'is_answered', undefined, '#112233', true],
+    ['color', 'is_not_answered', undefined, '', true],
+    ['consent', 'is_answered', undefined, true, true],
+    ['consent', 'is_not_answered', undefined, false, true],
   ];
 
   it.each(cases)('%s %s %j with answer %j -> %s', (type, operator, value, answer, expected) => {

@@ -61,6 +61,28 @@ export const OPERATORS_BY_FIELD_TYPE: Record<FieldType, readonly ConditionOperat
   multi_choice: ['contains', ...PRESENCE],
   file: PRESENCE,
   statement: [],
+  picture_choice: ['equals', 'not_equals', 'contains', ...PRESENCE],
+  yes_no: ['equals', 'not_equals', ...PRESENCE],
+  nps: ORDERED_OPERATORS,
+  opinion_scale: ORDERED_OPERATORS,
+  slider: ORDERED_OPERATORS,
+  currency: ORDERED_OPERATORS,
+  time: ORDERED_OPERATORS,
+  url: TEXT_OPERATORS,
+  // Hidden fields carry where respondents came from: "source is instagram".
+  hidden: TEXT_OPERATORS,
+  ranking: PRESENCE,
+  matrix: PRESENCE,
+  address: PRESENCE,
+  date_range: PRESENCE,
+  signature: PRESENCE,
+  voice_note: PRESENCE,
+  color: PRESENCE,
+  consent: PRESENCE,
+  image: [],
+  video: [],
+  divider: [],
+  page_break: [],
 };
 
 export const CONDITION_OPERATOR_LABELS: Record<ConditionOperator, string> = {
