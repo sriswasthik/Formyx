@@ -39,8 +39,11 @@ export interface JobPayloads {
     submissionId: string;
     change: SubmissionChange;
   };
-  /** Every response so far, written to a newly connected (or reconnected) integration. */
-  'integration.backfill': { formId: string; integrationId: string };
+  /**
+   * Every response it doesn't have yet, written to a newly connected (or reconnected, or
+   * resumed) integration; with `fresh`, everything again from a clean slate.
+   */
+  'integration.backfill': { formId: string; integrationId: string; fresh?: boolean };
   /** Digests, retention and clean-up, once an hour. */
   'upkeep.hourly': { hour: string };
 }
@@ -162,7 +165,7 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
       return {
         formId: job.formId,
         integrationId: job.integrationId,
-        summary: 'Copy every response so far',
+        summary: job.fresh ? 'Copy every response again' : 'Copy every response so far',
       };
     }
     default:

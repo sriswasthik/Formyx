@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import { createApp } from './app.js';
 import type { Env } from './config/env.js';
 import type { JobQueue } from './jobs/queue.js';
+import { registerIntegrationJobs } from './integrations/sync.js';
 import { registerUpkeep } from './jobs/upkeep.js';
 import { encryptionFromEnv } from './lib/encryption.js';
 import { createEventBus, type EventBus } from './lib/events.js';
@@ -64,6 +65,7 @@ export function createServer(deps: ServerDependencies): FormyxServer {
   registerChatNotifier({ ...background, chat });
   registerAutoresponder(background);
   registerWebhookNotifier({ ...background, webhooks });
+  registerIntegrationJobs(background);
   registerUpkeep(background);
 
   return {

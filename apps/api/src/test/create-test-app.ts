@@ -127,6 +127,7 @@ export async function startTestServer({
   storage = null,
   chat = createFakeChatTransport(),
   autoRunJobs = true,
+  env = {},
 }: {
   mailer?: Mailer;
   logger?: typeof silentLogger;
@@ -134,10 +135,12 @@ export async function startTestServer({
   chat?: WebhookTransport;
   /** Run jobs as soon as they are sent (the default), or only on `server.jobs.drain()`. */
   autoRunJobs?: boolean;
+  /** Settings on top of the test defaults (fake Google's address, say). */
+  env?: Record<string, string>;
 } = {}): Promise<TestServer> {
   const jobs = createTestQueue({ autoRun: autoRunJobs });
   const server = createServer({
-    env: testEnv({}),
+    env: testEnv(env),
     logger,
     prisma: testPrisma,
     mailer,

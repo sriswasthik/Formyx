@@ -9,6 +9,7 @@ import { createAuthRouter } from './auth.js';
 import { createBrandKitsRouter } from './brand-kits.js';
 import { createFormSettingsRouter } from './form-settings.js';
 import { createFormsRouter } from './forms.js';
+import { createIntegrationsRouter } from './integrations.js';
 import { healthRouter } from './health.js';
 import { createNotificationsRouter } from './notifications.js';
 import { createPinCodesRouter } from './pin-codes.js';
@@ -48,6 +49,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createAccountRouter(deps, guards));
   router.use(createBrandKitsRouter(deps, guards));
   router.use(createWebhooksRouter(deps, guards));
+  router.use(createIntegrationsRouter(deps, guards));
 
   return router;
 }
