@@ -203,6 +203,19 @@ describe('subscribe', () => {
     expect(razorpay.requests.filter(({ path }) => path === '/v1/customers')).toHaveLength(1);
   });
 
+  it('lets one owner pay for two workspaces as one Razorpay customer', async () => {
+    const other = await prisma.workspace.create({ data: { name: 'Side', slug: 'side' } });
+    await prisma.membership.create({
+      data: { userId: team.users.OWNER, workspaceId: other.id, role: 'OWNER' },
+    });
+    await owner.post(`${billing()}/subscribe`, { plan: 'PRO', interval: 'monthly' }).expect(201);
+    await owner
+      .post(`/api/workspaces/${other.id}/billing/subscribe`, { plan: 'PRO', interval: 'monthly' })
+      .expect(201);
+    const customers = await prisma.workspace.findMany({ select: { razorpayCustomerId: true } });
+    expect(new Set(customers.map(({ razorpayCustomerId }) => razorpayCustomerId)).size).toBe(1);
+  });
+
   it('starts a plan bought during the trial when the trial ends', async () => {
     const trialEndsAt = new Date(Date.now() + 12 * DAY_MS);
     await prisma.workspace.update({

@@ -88,8 +88,9 @@ model Workspace {
   /// `complimentaryUntil`.
   complimentaryPlan  Plan?           @map("complimentary_plan")
   complimentaryUntil DateTime?       @map("complimentary_until")
-  /// The Razorpay customer that pays for it, made with its first subscription.
-  razorpayCustomerId String?         @unique @map("razorpay_customer_id")
+  /// The Razorpay customer that pays for it, made with its first subscription. Not unique:
+  /// Razorpay keeps one customer per email, so an owner paying for two workspaces is one.
+  razorpayCustomerId String?         @map("razorpay_customer_id")
   /// The plan it had before it last fell back to FREE, and when: shown as "what changed"
   /// until the owner dismisses it or upgrades.
   downgradedFrom     Plan?           @map("downgraded_from")
