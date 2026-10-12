@@ -201,6 +201,7 @@ export function ExperienceSection({ form }: SectionProps) {
           label="“Made with Formyx”"
           description="A small link under the form."
           controlId={ids.badge}
+          compact
           pro={!hasFeature('remove_branding')}
           published
         >

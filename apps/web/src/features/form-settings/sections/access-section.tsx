@@ -267,6 +267,7 @@ export function AccessSection({ form, view }: SectionProps) {
               : 'Before the first question. Kept with each response, and used by the autoresponder.'
           }
           controlId={ids.requireEmail}
+          compact
         >
           <Switch
             id={ids.requireEmail}
@@ -343,6 +344,7 @@ export function AccessSection({ form, view }: SectionProps) {
           label="Changing responses"
           description="Each respondent gets a private link (on the end screen, and in the autoresponder) to change their answers while the form is open."
           controlId={ids.edits}
+          compact
         >
           <Switch
             id={ids.edits}
@@ -357,6 +359,7 @@ export function AccessSection({ form, view }: SectionProps) {
           label="Search engines"
           description="Forms are only found through their link. Turn this on to let search engines list it too."
           controlId={ids.listed}
+          compact
         >
           <Switch
             id={ids.listed}

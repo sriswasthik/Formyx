@@ -16,6 +16,8 @@ interface SettingRowProps {
   published?: boolean;
   /** Under the label rather than beside it: wide controls (lists, editors). */
   stacked?: boolean;
+  /** A small control (a switch): beside the label at every width, at the row's end. */
+  compact?: boolean;
   children: React.ReactNode;
 }
 
@@ -31,6 +33,7 @@ export function SettingRow({
   pro = false,
   published = false,
   stacked = false,
+  compact = false,
   children,
 }: SettingRowProps) {
   const labelId = `${settingAnchor(id)}-label`;
@@ -40,10 +43,14 @@ export function SettingRow({
       className={cn(
         'scroll-mt-24 rounded-lg px-5 py-4 transition-colors duration-250 ease-standard sm:px-6',
         'data-[highlight=true]:bg-accent-subtle',
-        stacked ? 'flex flex-col gap-3' : 'flex flex-col gap-3 md:flex-row md:items-start md:gap-8',
+        stacked
+          ? 'flex flex-col gap-3'
+          : compact
+            ? 'flex items-start justify-between gap-4 md:gap-8'
+            : 'flex flex-col gap-3 md:flex-row md:items-start md:gap-8',
       )}
     >
-      <div className={cn('flex min-w-0 flex-col gap-1', !stacked && 'md:flex-1')}>
+      <div className={cn('flex min-w-0 flex-col gap-1', !stacked && 'flex-1')}>
         <div className="flex flex-wrap items-center gap-2">
           {controlId ? (
             <label id={labelId} htmlFor={controlId} className="text-14 font-medium">
@@ -63,7 +70,11 @@ export function SettingRow({
         </div>
         {description && <div className="text-13 text-muted-foreground">{description}</div>}
       </div>
-      <div className={cn('min-w-0', !stacked && 'md:w-80 md:shrink-0')}>{children}</div>
+      <div
+        className={cn('min-w-0', compact ? 'shrink-0 pt-0.5' : !stacked && 'md:w-80 md:shrink-0')}
+      >
+        {children}
+      </div>
     </div>
   );
 }

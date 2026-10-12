@@ -272,6 +272,7 @@ export function AutoresponderSection({ form, view }: SectionProps) {
           label="Send an autoresponder"
           description="After each response, in the form's language. An address gets at most three a day from one form."
           controlId={ids.enabled}
+          compact
           pro={!hasFeature('autoresponder')}
         >
           <Switch

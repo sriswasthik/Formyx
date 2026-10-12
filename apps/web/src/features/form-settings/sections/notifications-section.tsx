@@ -248,6 +248,7 @@ export function NotificationsSection({ form, view }: SectionProps) {
           id="my-email"
           label="Email me"
           description="Just for you: each member chooses for themselves."
+          compact
         >
           <NotifyToggle formId={form.id} />
         </SettingRow>
