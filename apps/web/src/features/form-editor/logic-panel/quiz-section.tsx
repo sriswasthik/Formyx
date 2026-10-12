@@ -162,7 +162,7 @@ export function QuizSection() {
       />
       {!hasFeature('quiz_mode') && (
         <p className="flex items-center gap-1.5 text-13 text-muted-foreground">
-          <ProBadge /> Publishing a quiz takes a Pro plan.
+          <ProBadge feature="quiz_mode" /> Publishing a quiz takes a Pro plan.
         </p>
       )}
       {quiz?.enabled && (

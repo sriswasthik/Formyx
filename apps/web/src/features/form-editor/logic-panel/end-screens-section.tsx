@@ -573,7 +573,7 @@ export function EndScreensSection() {
           <Plus aria-hidden />
           Add end screen
         </Button>
-        {!hasFeature('advanced_logic') && <ProBadge />}
+        {!hasFeature('advanced_logic') && <ProBadge feature="advanced_logic" />}
       </div>
       {preview && (
         <PreviewDialog

@@ -11,7 +11,7 @@ import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/session-context';
-import { UpgradeDialog } from '@/features/entitlements/upgrade-dialog';
+import { UpgradeDialog, UpgradeDialogHost } from '@/features/entitlements/upgrade-dialog';
 import { useWorkspaceEntitlements } from '@/features/entitlements/use-entitlements';
 import { formKeys } from '@/features/forms/form-list-cache';
 import { FormNav, INLINE_FORM_NAV_QUERY } from '@/features/forms/form-nav';
@@ -259,6 +259,7 @@ function FormEditor({ form }: { form: FormDetail }) {
               features={upgrade.features}
               returnFocusTo={publishButton}
             />
+            <UpgradeDialogHost />
             <ShareDialog
               open={share.open}
               onOpenChange={(open) => {

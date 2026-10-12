@@ -33,6 +33,14 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        path: 'pricing',
+        handle: { title: 'Pricing' } satisfies RouteHandle,
+        lazy: async () => {
+          const { PricingPage } = await import('@/features/pricing/pricing-page');
+          return { Component: PricingPage };
+        },
+      },
+      {
         path: 'changelog',
         handle: { title: 'Changelog' } satisfies RouteHandle,
         lazy: async () => {
@@ -119,6 +127,13 @@ export const routes: RouteObject[] = [
                       const { WorkspaceSettingsPage } =
                         await import('@/features/settings/workspace/workspace-settings-page');
                       return { Component: WorkspaceSettingsPage };
+                    },
+                  },
+                  {
+                    path: 'billing',
+                    lazy: async () => {
+                      const { BillingPage } = await import('@/features/billing/billing-page');
+                      return { Component: BillingPage };
                     },
                   },
                 ],

@@ -17,6 +17,9 @@ export function SiteFooter() {
           <a href="/#features" className={linkClass}>
             Features
           </a>
+          <Link to="/pricing" className={linkClass}>
+            Pricing
+          </Link>
           <Link to="/changelog" className={linkClass}>
             Changelog
           </Link>

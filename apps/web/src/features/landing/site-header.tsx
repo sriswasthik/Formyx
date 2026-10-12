@@ -11,6 +11,9 @@ export function SiteHeader() {
       </Link>
       <nav aria-label="Account" className="flex items-center gap-1 sm:gap-2">
         <ThemeToggle />
+        <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+          <Link to="/pricing">Pricing</Link>
+        </Button>
         <Button asChild variant="ghost" size="sm">
           <Link to="/login">Log in</Link>
         </Button>

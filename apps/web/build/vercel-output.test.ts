@@ -114,6 +114,23 @@ describe('vercelRoutes', () => {
     expect(headersFor('/app/forms')['Permissions-Policy']).toContain('microphone=()');
   });
 
+  it('lets the app’s pages, and never public forms, open Razorpay Checkout', () => {
+    const app = headersFor('/app/settings/billing');
+    expect(app['Content-Security-Policy']).toContain("script-src 'self' 'sha256-");
+    expect(app['Content-Security-Policy']).toMatch(
+      /script-src [^;]*https:\/\/checkout\.razorpay\.com/,
+    );
+    expect(app['Content-Security-Policy']).toMatch(/frame-src [^;]*https:\/\/api\.razorpay\.com/);
+    expect(app['Content-Security-Policy']).toMatch(
+      /connect-src [^;]*https:\/\/lumberjack\.razorpay\.com/,
+    );
+    expect(app['Permissions-Policy']).toContain('payment=(self "https://api.razorpay.com")');
+
+    const form = headersFor('/f/customer-survey-x7k2');
+    expect(form['Content-Security-Policy']).not.toContain('razorpay');
+    expect(form['Permissions-Policy']).toContain('payment=()');
+  });
+
   it('leaves API responses to the API’s own headers', () => {
     expect(headersFor('/api/auth/me')).toEqual({});
   });

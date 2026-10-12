@@ -39,18 +39,22 @@ function originOf(url: string, name: string): URL {
  * The content security policy. Scripts only from this site (plus the hashed inline ones); styles
  * allow inline `style` attributes, which animations set; images may come from any https host,
  * because form logos and covers are links people paste; audio from uploads; video players from
- * YouTube and Vimeo. `frameAncestors` decides who may embed the page.
+ * YouTube and Vimeo. `frameAncestors` decides who may embed the page. With `payments` (the
+ * app's own pages, never public forms), Razorpay Checkout's script, window and API too.
  */
 export function contentSecurityPolicy({
   scriptHashes,
   realtimeUrl,
   frameAncestors,
+  payments = false,
 }: {
   scriptHashes: string[];
   realtimeUrl?: string | undefined;
   frameAncestors: string;
+  payments?: boolean;
 }): string {
   const connect = ["'self'", 'https://api.cloudinary.com'];
+  if (payments) connect.push(...RAZORPAY.connect);
   if (realtimeUrl) {
     const realtime = originOf(realtimeUrl, 'VITE_REALTIME_URL');
     const socket = realtime.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -58,7 +62,7 @@ export function contentSecurityPolicy({
   }
   return [
     "default-src 'self'",
-    `script-src 'self' ${scriptHashes.join(' ')}`.trim(),
+    ['script-src', "'self'", ...scriptHashes, ...(payments ? RAZORPAY.script : [])].join(' '),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     // Voice notes: a respondent's own recording, and uploads played back in responses.
@@ -66,7 +70,12 @@ export function contentSecurityPolicy({
     "font-src 'self'",
     `connect-src ${connect.join(' ')}`,
     // Video blocks: the privacy-friendly YouTube and Vimeo players only.
-    'frame-src https://www.youtube-nocookie.com https://player.vimeo.com',
+    [
+      'frame-src',
+      'https://www.youtube-nocookie.com',
+      'https://player.vimeo.com',
+      ...(payments ? RAZORPAY.frame : []),
+    ].join(' '),
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -74,12 +83,23 @@ export function contentSecurityPolicy({
   ].join('; ');
 }
 
+/** What Razorpay Checkout loads, as Razorpay documents it. */
+const RAZORPAY = {
+  script: ['https://checkout.razorpay.com'],
+  frame: ['https://api.razorpay.com', 'https://checkout.razorpay.com'],
+  connect: ['https://api.razorpay.com', 'https://lumberjack.razorpay.com'],
+};
+
 const COMMON_HEADERS = {
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
 };
+
+/** The app's pages: payments through Razorpay's window, nothing else. */
+const APP_PERMISSIONS =
+  'camera=(), microphone=(), geolocation=(), payment=(self "https://api.razorpay.com")';
 
 /** Public forms may use the microphone, for voice-note questions; nothing else may. */
 const FORM_PERMISSIONS = 'camera=(), microphone=(self), geolocation=(), payment=()';
@@ -92,8 +112,8 @@ const FORM_PERMISSIONS = 'camera=(), microphone=(self), geolocation=(), payment=
 export function vercelRoutes({ apiUrl, realtimeUrl, html }: DeployOptions): VercelRoute[] {
   const api = originOf(apiUrl, 'API_URL');
   const scriptHashes = inlineScriptHashes(html);
-  const policy = (frameAncestors: string) =>
-    contentSecurityPolicy({ scriptHashes, realtimeUrl, frameAncestors });
+  const policy = (frameAncestors: string, payments = false) =>
+    contentSecurityPolicy({ scriptHashes, realtimeUrl, frameAncestors, payments });
 
   return [
     {
@@ -116,7 +136,9 @@ export function vercelRoutes({ apiUrl, realtimeUrl, html }: DeployOptions): Verc
       src: '^/(?!f/|api/).*$',
       headers: {
         ...COMMON_HEADERS,
-        'Content-Security-Policy': policy("'none'"),
+        'Content-Security-Policy': policy("'none'", true),
+        // Razorpay Checkout may offer the browser's own payment sheet.
+        'Permissions-Policy': APP_PERMISSIONS,
         'X-Frame-Options': 'DENY',
       },
       continue: true,
