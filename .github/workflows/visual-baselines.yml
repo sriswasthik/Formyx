@@ -1,0 +1,63 @@
+name: Visual baselines
+
+# Draws the visual regression baselines (every theme preset, at desktop and phone sizes) on
+# CI's Linux, where they are compared, and uploads them. Run it after an intended visual change,
+# download the "visual-baselines" artifact into e2e/tests/__screenshots__ and commit it.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baselines:
+    name: Draw preset screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: formyx
+          POSTGRES_PASSWORD: formyx
+          POSTGRES_DB: formyx
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U formyx -d formyx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://formyx:formyx@localhost:5432/formyx
+      JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else
+      E2E_VISUAL: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:deploy
+
+      - name: Install Playwright browser
+        run: pnpm --filter @formyx/e2e exec playwright install --with-deps chromium
+
+      - name: Draw the screenshots
+        run: pnpm test:visual -- --update-snapshots=all
+
+      - name: Upload them
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines
+          path: e2e/tests/__screenshots__
+          retention-days: 14

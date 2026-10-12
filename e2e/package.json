@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "e2e": "playwright test",
+    "visual": "playwright test --project=visual-desktop --project=visual-mobile",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "render:images": "node scripts/render-images.mjs",

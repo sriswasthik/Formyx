@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 import { AUTH_STATE_PATH, OUTBOX_DIR } from './tests/helpers.js';
 
 const isCI = Boolean(process.env.CI);
+// Visual regression (tests/visual.spec.ts) runs on its own: E2E_VISUAL=1, Linux only.
+const visual = Boolean(process.env.E2E_VISUAL);
 // Ports can move, to run the tests beside a dev server that already uses the usual ones.
 const webPort = process.env.E2E_WEB_PORT ?? '5173';
 const apiPort = process.env.E2E_API_PORT ?? '4000';
@@ -28,6 +30,7 @@ export default defineConfig({
     { name: 'warm-up', testMatch: /warm-up\.setup\.ts/, dependencies: ['setup'] },
     {
       name: 'desktop',
+      testIgnore: /visual\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },
@@ -37,6 +40,7 @@ export default defineConfig({
     },
     {
       name: 'mobile',
+      testIgnore: /visual\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 375, height: 812 },
@@ -45,6 +49,22 @@ export default defineConfig({
       },
       dependencies: ['warm-up'],
     },
+    // Screenshots of every preset, compared with the baselines in tests/__screenshots__.
+    ...(visual
+      ? (['desktop', 'mobile'] as const).map((size) => ({
+          name: `visual-${size}`,
+          testMatch: /visual\.spec\.ts/,
+          snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
+          use: {
+            ...devices['Desktop Chrome'],
+            viewport:
+              size === 'desktop' ? { width: 1280, height: 800 } : { width: 375, height: 812 },
+            hasTouch: size === 'mobile',
+            storageState: AUTH_STATE_PATH,
+          },
+          dependencies: ['warm-up'],
+        }))
+      : []),
   ],
   webServer: [
     {
