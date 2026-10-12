@@ -1,6 +1,6 @@
 import { Mail } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { inputRadius, secondaryButton, textControl } from './styles';
 import { useFormMessages } from './i18n/form-locale';
 
@@ -30,7 +30,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
     return (
       <button
         type="button"
-        className={cn(secondaryButton, 'px-0')}
+        className={cx(secondaryButton, 'px-0!')}
         onClick={() => {
           setOpen(true);
         }}
@@ -84,7 +84,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
           id={inputId}
           type="email"
           autoComplete="email"
-          className={cn(textControl, inputRadius, 'h-11 min-w-0 flex-1')}
+          className={cx(textControl, inputRadius, 'h-11 min-w-0 flex-1')}
           value={email}
           aria-invalid={state.status === 'error' || undefined}
           aria-describedby={messageId}
@@ -106,14 +106,12 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
       </div>
       <p
         id={messageId}
-        className={cn(
+        className={cx(
           'form-text-sm',
           state.status === 'error' ? 'text-(--form-danger)' : 'text-(--form-muted)',
         )}
       >
-        {state.status === 'error'
-          ? state.message
-          : messages.save.privacy}
+        {state.status === 'error' ? state.message : messages.save.privacy}
       </p>
     </div>
   );

@@ -1,7 +1,7 @@
 import { fontStack, isFileAnswer, type FieldOfType } from '@formyx/shared';
 import { Check, Eraser } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { inputRadius, secondaryButton, textControl } from '../styles';
 import { loadFont } from '../theme/fonts';
 import type { ControlProps } from '../types';
@@ -149,9 +149,9 @@ function SignatureControl({
             key={option}
             type="button"
             aria-pressed={mode === option}
-            className={cn(
+            className={cx(
               secondaryButton,
-              'h-9 aria-pressed:bg-(--form-accent-subtle) aria-pressed:text-(--form-fg)',
+              'h-9! aria-pressed:bg-(--form-accent-subtle) aria-pressed:text-(--form-fg)',
             )}
             onClick={() => {
               clear();
@@ -168,7 +168,7 @@ function SignatureControl({
           type="text"
           autoComplete="name"
           placeholder="Type your full name"
-          className={cn(textControl, inputRadius, 'h-11')}
+          className={cx(textControl, inputRadius, 'h-11')}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
           value={name}
@@ -187,10 +187,10 @@ function SignatureControl({
           tabIndex={mode === 'draw' ? 0 : -1}
           aria-label={mode === 'draw' ? messages.signature.padLabel : messages.signature.typedLabel}
           aria-describedby={describedBy}
-          className={cn(
-            'block w-full touch-none rounded-(--form-input-radius) border border-dashed border-(--form-box-border) bg-(--form-box-bg) text-(--form-fg)',
+          className={cx(
+            'block w-full touch-none rounded-(--form-input-radius) border border-dashed bg-(--form-box-bg) text-(--form-fg)',
             mode === 'draw' && 'cursor-crosshair',
-            invalid && 'border-(--form-danger)',
+            invalid ? 'border-(--form-danger)' : 'border-(--form-box-border)',
           )}
           style={{ height: HEIGHT }}
           onPointerDown={(event) => {

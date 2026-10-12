@@ -8,7 +8,7 @@ import {
 } from '@formyx/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiRequestError, apiRequest } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { inputRadius, textControl } from '../styles';
 import type { ControlProps } from '../types';
 import { useFormMessages } from '../i18n/form-locale';
@@ -143,7 +143,7 @@ function AddressControl({
     const id = part === 'line1' ? controlId : `${controlId}-${part}`;
     const optional = part === 'line2';
     return (
-      <div className={cn('flex min-w-0 flex-col gap-1', className)}>
+      <div className={cx('flex min-w-0 flex-col gap-1', className)}>
         <label htmlFor={id} className="form-text-sm text-(--form-muted)">
           {messages.address[part]}
           {optional && ' (optional)'}
@@ -155,7 +155,7 @@ function AddressControl({
           maxLength={part === 'pin' ? 6 : 200}
           autoComplete={AUTOCOMPLETE[part]}
           list={part === 'state' ? `${controlId}-states` : undefined}
-          className={cn(textControl, inputRadius, 'h-11')}
+          className={cx(textControl, inputRadius, 'h-11')}
           value={address[part] ?? ''}
           aria-describedby={
             part === 'pin' ? `${controlId}-pin-status ${describedBy ?? ''}`.trim() : describedBy

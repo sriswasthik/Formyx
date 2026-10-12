@@ -13,7 +13,7 @@ import { Check, CircleCheck, Copy, X } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { useFormLocale } from './i18n/form-locale';
 import { RichText } from './rich-text';
 import { formButton, inputRadius, secondaryButton, textControl } from './styles';
@@ -119,7 +119,7 @@ function EditLink({ url }: { url: string }) {
           id={id}
           readOnly
           value={url}
-          className={cn(textControl, inputRadius, 'h-11 min-w-0 flex-1 form-text-sm')}
+          className={cx(textControl, inputRadius, 'h-11 min-w-0 flex-1 form-text-sm')}
           onFocus={(event) => {
             event.currentTarget.select();
           }}
@@ -133,7 +133,11 @@ function EditLink({ url }: { url: string }) {
             });
           }}
         >
-          {copied ? <Check aria-hidden className="size-4" /> : <Copy aria-hidden className="size-4" />}
+          {copied ? (
+            <Check aria-hidden className="size-4" />
+          ) : (
+            <Copy aria-hidden className="size-4" />
+          )}
           <span aria-live="polite">{copied ? messages.end.copied : messages.end.copyLink}</span>
         </button>
       </div>
@@ -185,7 +189,7 @@ export function EndScreenView({
       initial={reduceMotion ? ENTRANCES.none : ENTRANCES[theme.motion.pageTransition]}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
-      className={cn(
+      className={cx(
         'flex flex-col gap-4 py-12',
         centered ? 'items-center text-center' : 'items-start',
       )}
@@ -267,7 +271,7 @@ export function EndScreenView({
       )}
 
       {button && (
-        <a href={button.url} className={cn(formButton(theme.components), 'w-auto no-underline')}>
+        <a href={button.url} className={cx(formButton(theme.components), 'w-auto no-underline')}>
           {button.label}
         </a>
       )}
@@ -276,7 +280,7 @@ export function EndScreenView({
         <Redirect url={redirectUrl} delaySeconds={screen.redirect.delaySeconds} />
       )}
       {onAnotherResponse && !redirectUrl && (
-        <button type="button" className={cn(secondaryButton, 'mt-2')} onClick={onAnotherResponse}>
+        <button type="button" className={cx(secondaryButton, 'mt-2')} onClick={onAnotherResponse}>
           {messages.nav.anotherResponse}
         </button>
       )}

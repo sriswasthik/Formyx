@@ -1,6 +1,6 @@
 import type { FormTheme } from '@formyx/shared';
 import type * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { FormCover, FormLogo } from '../branding';
 import { ThemeBackground } from './background';
 import { FormThemeContext } from './theme-context';
@@ -96,7 +96,7 @@ function Column({ theme, variant, layout, children }: ColumnProps) {
 
   if (!boxed) {
     return (
-      <div className={cn('w-full max-w-(--form-width)', align, centered && 'my-auto')}>
+      <div className={cx('w-full max-w-(--form-width)', align, centered && 'my-auto')}>
         {cover}
         <div className={CONTENT_PADDING[variant]}>{children}</div>
       </div>
@@ -104,10 +104,10 @@ function Column({ theme, variant, layout, children }: ColumnProps) {
   }
 
   return (
-    <div className={cn('flex w-full flex-col', GUTTER[variant], centered && 'my-auto')}>
+    <div className={cx('flex w-full flex-col', GUTTER[variant], centered && 'my-auto')}>
       <div
         data-form-container={theme.components.containerStyle}
-        className={cn(
+        className={cx(
           'w-full max-w-(--form-width) overflow-clip',
           'rounded-(--form-container-radius) border border-(--form-container-border)',
           'bg-(--form-container-bg) [box-shadow:var(--form-container-shadow)]',
@@ -163,7 +163,7 @@ export function ThemeRenderer({
       <div
         data-form-theme
         data-layout={layout}
-        className={cn(
+        className={cx(
           '@container relative isolate flex flex-col',
           variant === 'page' && 'min-h-dvh',
           className,
@@ -173,7 +173,7 @@ export function ThemeRenderer({
       >
         {layout === 'split' ? (
           <div
-            className={cn(
+            className={cx(
               'flex flex-1 flex-col @3xl:flex-row',
               theme.layout.alignment === 'start' && '@3xl:flex-row-reverse',
             )}
@@ -183,7 +183,7 @@ export function ThemeRenderer({
               className="relative isolate h-44 shrink-0 @3xl:h-auto @3xl:flex-1"
             >
               <ThemeBackground theme={theme} sticky={variant === 'page'} />
-              <FormCover theme={theme} className="absolute inset-0 h-full @xl:h-full" />
+              <FormCover theme={theme} fill />
             </div>
             <div className="flex flex-1 flex-col bg-(--form-bg)">
               {atTop && progress}

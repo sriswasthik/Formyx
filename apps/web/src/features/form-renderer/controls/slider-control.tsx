@@ -1,5 +1,5 @@
 import type { FieldOfType } from '@formyx/shared';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import type { ControlProps } from '../types';
 import { useFormMessages } from '../i18n/form-locale';
 
@@ -34,7 +34,7 @@ function SliderControl({
         <output
           htmlFor={controlId}
           aria-live="polite"
-          className={cn('form-text font-medium tabular-nums', !answered && 'text-(--form-muted)')}
+          className={cx('form-text font-medium tabular-nums', !answered && 'text-(--form-muted)')}
         >
           {answered ? formatValue(value, field) : messages.controls.dragToAnswer}
         </output>

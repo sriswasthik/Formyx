@@ -1,5 +1,5 @@
 import type { FormTheme } from '@formyx/shared';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { useFormMessages } from './i18n/form-locale';
 
 /** More steps than this read better as a line. */
@@ -49,7 +49,7 @@ export function FormProgress({ theme, value, total, current }: FormProgressProps
       }
       data-form-progress={style}
       data-position={position}
-      className={cn(
+      className={cx(
         // It floats over the form as it scrolls; clicks go through to what is under it.
         'pointer-events-none z-10 flex w-full items-center gap-3 px-4 py-2 @xl:px-6',
         position === 'top' ? 'sticky top-0' : 'sticky bottom-0',
@@ -61,7 +61,7 @@ export function FormProgress({ theme, value, total, current }: FormProgressProps
             <span
               key={index}
               data-step-segment
-              className={cn(
+              className={cx(
                 'h-1 flex-1 rounded-full transition-colors duration-250 ease-standard motion-reduce:transition-none',
                 index < value || index === current ? 'bg-(--form-accent)' : 'bg-(--form-border)',
               )}

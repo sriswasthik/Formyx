@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { fieldIds } from '../field-ids';
 import { FieldRenderer } from '../field-renderer';
 import { FormButton } from '../form-button';
@@ -278,7 +278,7 @@ export function ConversationalForm({
       {/* The title and the question are centred together; after the first question the
           title stays the page's heading for screen readers only. */}
       <div className="flex min-h-[min(24rem,55dvh)] flex-col justify-center">
-        <div className={cn(index > 0 && 'sr-only')}>{header}</div>
+        <div className={cx(index > 0 && 'sr-only')}>{header}</div>
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <m.div
             key={shownId ?? 'empty'}
@@ -309,7 +309,7 @@ export function ConversationalForm({
       {hiddenFields}
       <div
         data-step-nav
-        className={cn(
+        className={cx(
           'flex flex-col gap-3 pt-8',
           // On phones the buttons stay in reach, above the on-screen keyboard.
           variant === 'page' &&
@@ -328,7 +328,7 @@ export function ConversationalForm({
             type="submit"
             busy={busy}
             disabled={busy}
-            className={cn(!theme.components.buttonFullWidth && 'ml-auto @xl:ml-0')}
+            className={cx(!theme.components.buttonFullWidth && 'ml-auto @xl:ml-0')}
           >
             {isLast ? schema.settings.submitButtonText : messages.nav.next}
           </FormButton>

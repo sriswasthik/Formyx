@@ -1,7 +1,7 @@
 import { isMatrixAnswer, type FieldOfType, type MatrixAnswer } from '@formyx/shared';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { choiceOption, secondaryButton } from '../styles';
 import type { ControlProps } from '../types';
 import { useFormMessages } from '../i18n/form-locale';
@@ -52,10 +52,12 @@ function toggle(
 }
 
 const cellIndicator = (multiple: boolean, checked: boolean) =>
-  cn(
-    'flex size-4.5 shrink-0 items-center justify-center border border-(--form-border-strong) bg-(--form-bg) transition-colors duration-150',
+  cx(
+    'flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-150',
     multiple ? 'rounded-[min(var(--form-radius),5px)]' : 'rounded-full',
-    checked && 'border-(--form-accent) bg-(--form-accent) text-(--form-accent-fg)',
+    checked
+      ? 'border-(--form-accent) bg-(--form-accent) text-(--form-accent-fg)'
+      : 'border-(--form-border-strong) bg-(--form-bg)',
   );
 
 /** Rows down the side, columns across the top, a radio (or checkbox) in each cell. */
@@ -97,10 +99,10 @@ function MatrixTable({ field, controlId, describedBy, answer, onPick }: TablePro
                   return (
                     <td
                       key={column.id}
-                      className={cn('p-0 text-center', last && 'rounded-r-(--form-choice-radius)')}
+                      className={cx('p-0 text-center', last && 'rounded-r-(--form-choice-radius)')}
                     >
                       <label
-                        className={cn(
+                        className={cx(
                           'flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-md',
                           'transition-colors duration-150 hover:bg-(--form-choice-bg-hover)',
                           'has-focus-visible:outline-2 has-focus-visible:outline-(--form-accent)',
@@ -195,7 +197,7 @@ function MatrixCards({ field, controlId, describedBy, answer, onPick }: TablePro
                 {field.columns.map((column, columnIndex) => {
                   const checked = cells.includes(column.id);
                   return (
-                    <label key={column.id} className={cn(choiceOption.list, 'py-2.5')}>
+                    <label key={column.id} className={cx(choiceOption.list, 'py-2.5!')}>
                       <input
                         id={rowIndex === 0 && columnIndex === 0 ? controlId : undefined}
                         type={field.multiple ? 'checkbox' : 'radio'}

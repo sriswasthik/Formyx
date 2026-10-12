@@ -1,7 +1,7 @@
 import type { FieldOfType } from '@formyx/shared';
 import { Angry, Check, Frown, Heart, Laugh, Meh, Smile, Star, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { ChoiceList, ScaleButtons } from '../choice-controls';
 import { RichText } from '../rich-text';
 import { controlSurface } from '../styles';
@@ -31,7 +31,7 @@ function PictureChoice({
         return (
           <label
             key={option.id}
-            className={cn(
+            className={cx(
               controlSurface,
               'group relative flex cursor-pointer flex-col overflow-hidden p-1.5',
               'has-checked:border-(--form-accent) has-checked:bg-(--form-accent-subtle)',
@@ -131,10 +131,10 @@ function StyledRating({
         return (
           <label
             key={rating}
-            className={cn(
-              'relative flex size-11 cursor-pointer items-center justify-center rounded-full text-(--form-muted)',
-              'transition-colors duration-150 ease-standard hover:text-(--form-accent)',
-              filled && 'text-(--form-accent)',
+            className={cx(
+              'relative flex size-11 cursor-pointer items-center justify-center rounded-full',
+              'transition-colors duration-150 ease-standard',
+              filled ? 'text-(--form-accent)' : 'text-(--form-muted) hover:text-(--form-accent)',
               focusRing,
             )}
             onPointerEnter={() => {
@@ -182,7 +182,7 @@ function ConsentControl({
 }: ControlProps<FieldOfType<'consent'>>) {
   return (
     <label
-      className={cn(
+      className={cx(
         controlSurface,
         'relative flex cursor-pointer items-start gap-3 px-3.5 py-3 form-text',
         'has-checked:border-(--form-accent) has-checked:bg-(--form-accent-subtle)',
@@ -203,7 +203,7 @@ function ConsentControl({
       />
       <span
         aria-hidden
-        className={cn(
+        className={cx(
           'mt-0.5 flex size-4.5 shrink-0 items-center justify-center rounded-[min(var(--form-radius),5px)] border border-(--form-border-strong) bg-(--form-bg)',
           'peer-checked:border-(--form-accent) peer-checked:bg-(--form-accent) peer-checked:text-(--form-accent-fg)',
         )}

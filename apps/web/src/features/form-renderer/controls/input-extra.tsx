@@ -9,13 +9,13 @@ import {
 } from '@formyx/shared';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { namedCountries } from '../countries';
 import { inputRadius, textControl } from '../styles';
 import type { ControlProps } from '../types';
 import { useFormMessages } from '../i18n/form-locale';
 
-const input = cn(textControl, inputRadius, 'h-11');
+const input = cx(textControl, inputRadius, 'h-11');
 
 function text(value: ControlProps['value']): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -57,7 +57,7 @@ function PhoneControl({
         <select
           aria-label={messages.controls.countryCode}
           autoComplete="tel-country-code"
-          className={cn(input, 'appearance-none pr-8 tabular-nums')}
+          className={cx(input, 'appearance-none pr-8 tabular-nums')}
           value={countryCode}
           onChange={(event) => {
             setCountryCode(event.target.value);
@@ -87,7 +87,7 @@ function PhoneControl({
         type="tel"
         inputMode="tel"
         autoComplete="tel-national"
-        className={cn(input, 'min-w-0 flex-1')}
+        className={cx(input, 'min-w-0 flex-1')}
         placeholder={field.placeholder || (country?.code === 'IN' ? '98765 43210' : undefined)}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
@@ -114,7 +114,7 @@ function TimeControl({
     <input
       id={controlId}
       type="time"
-      className={cn(input, 'max-w-48')}
+      className={cx(input, 'max-w-48')}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
       aria-required={field.required || undefined}
@@ -240,7 +240,7 @@ function CurrencyControl({
         id={controlId}
         type="text"
         inputMode="decimal"
-        className={cn(input, 'tabular-nums')}
+        className={cx(input, 'tabular-nums')}
         style={{ paddingLeft: `calc(var(--form-input-px) + ${symbol.length + 0.75}ch)` }}
         aria-label={undefined}
         aria-describedby={describedBy}
@@ -271,7 +271,7 @@ function ColorControl({
   return (
     <div className="flex items-center gap-2">
       <label
-        className={cn(
+        className={cx(
           'relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-(--form-input-radius) border border-(--form-border-strong)',
           'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)',
         )}
@@ -294,7 +294,7 @@ function ColorControl({
         spellCheck={false}
         autoComplete="off"
         placeholder="#2E5AAC"
-        className={cn(input, 'max-w-36 font-mono uppercase')}
+        className={cx(input, 'max-w-36 font-mono uppercase')}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
         aria-required={field.required || undefined}

@@ -1,7 +1,7 @@
 import { parseVideoUrl, type FieldOfType } from '@formyx/shared';
 import { Play } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import type { ControlProps } from '../types';
 import { useFormMessages } from '../i18n/form-locale';
 
@@ -10,7 +10,7 @@ const IMAGE_WIDTHS = { small: 'max-w-60', medium: 'max-w-md', full: 'max-w-full'
 /** A picture with its alt text, and its caption (the block's description) under it. */
 export function ImageBlock({ field }: { field: FieldOfType<'image'> }) {
   return (
-    <figure className={cn('flex w-full flex-col gap-2', IMAGE_WIDTHS[field.width])}>
+    <figure className={cx('flex w-full flex-col gap-2', IMAGE_WIDTHS[field.width])}>
       {field.imageUrl ? (
         <img
           src={field.imageUrl}

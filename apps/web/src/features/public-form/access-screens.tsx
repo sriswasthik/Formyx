@@ -5,7 +5,7 @@ import { FormLocaleContext } from '@/features/form-renderer/i18n/form-locale';
 import { inputRadius, secondaryButton, textControl } from '@/features/form-renderer/styles';
 import { ThemeRenderer, type ThemeVariant } from '@/features/form-renderer/theme/theme-renderer';
 import { ApiRequestError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 
 /*
  * The screens before a form's questions, in the form's own look and language: its password,
@@ -74,7 +74,7 @@ function Field({
       <p
         id={`${id}-message`}
         role={error ? 'alert' : undefined}
-        className={cn(
+        className={cx(
           'form-text-sm empty:hidden',
           error ? 'text-(--form-danger)' : 'text-(--form-muted)',
         )}
@@ -139,7 +139,7 @@ export function PasswordGate({
               autoComplete="current-password"
               // eslint-disable-next-line jsx-a11y/no-autofocus -- the only thing to do here
               autoFocus
-              className={cn(textControl, inputRadius, 'h-11')}
+              className={cx(textControl, inputRadius, 'h-11')}
               value={password}
               onChange={(event) => {
                 setPassword(event.target.value);
@@ -251,7 +251,7 @@ export function EmailStep({
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                className={cn(textControl, inputRadius, 'h-11')}
+                className={cx(textControl, inputRadius, 'h-11')}
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value);
@@ -285,7 +285,7 @@ export function EmailStep({
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
-                className={cn(
+                className={cx(
                   textControl,
                   inputRadius,
                   'h-11 max-w-48 tracking-[0.3em] tabular-nums',

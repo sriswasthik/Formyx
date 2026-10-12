@@ -1,6 +1,6 @@
 import type { Field } from '@formyx/shared';
 import type * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import type { FieldIds } from './field-ids';
 import { useFormMessages } from './i18n/form-locale';
 import { useFormTheme } from './theme/theme-context';
@@ -69,7 +69,7 @@ export function FieldFrame({
   size = 'regular',
   children,
 }: FieldFrameProps) {
-  const labelClass = cn(
+  const labelClass = cx(
     size === 'large' ? 'form-text-lg' : 'form-text',
     'leading-snug font-medium break-words',
   );

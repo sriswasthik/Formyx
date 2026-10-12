@@ -17,7 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { controlSurface, secondaryButton } from '../styles';
 import type { ControlProps } from '../types';
 import { useFormMessages } from '../i18n/form-locale';
@@ -31,7 +31,7 @@ interface RankRowProps {
   onMove: (to: number) => void;
 }
 
-const iconButton = cn(
+const iconButton = cx(
   'inline-flex size-9 items-center justify-center rounded-(--form-radius) text-(--form-muted)',
   'transition-colors duration-150 ease-standard hover:not-disabled:bg-(--form-hover) hover:not-disabled:text-(--form-fg)',
   'disabled:opacity-40',
@@ -47,7 +47,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
+      className={cx(
         controlSurface,
         'flex items-center gap-2 py-1.5 pr-1.5 pl-1 form-text',
         isDragging && 'relative z-10 shadow-lg',
@@ -65,7 +65,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
       </span>
       <span
         aria-hidden
-        className={cn(
+        className={cx(
           'flex size-6 shrink-0 items-center justify-center rounded-full form-text-sm font-medium tabular-nums',
           ranked
             ? 'bg-(--form-accent) text-(--form-accent-fg)'
@@ -164,7 +164,7 @@ function RankingControl({
       {!answered && order.length > 0 && (
         <button
           type="button"
-          className={cn(secondaryButton, 'self-start')}
+          className={cx(secondaryButton, 'self-start')}
           onClick={() => {
             onChange([...order]);
             setAnnouncement(messages.controls.orderKept);

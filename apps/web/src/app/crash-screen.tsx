@@ -1,6 +1,6 @@
 import { RotateCw } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { isStaleBuildError } from './stale-build';
 
 /**
@@ -26,17 +26,20 @@ export function CrashScreen({ error }: { error: unknown }) {
         </p>
       </div>
       <div className="mt-6 flex gap-2">
-        <Button
+        {/* Plain elements, not Button: this page is in every first download (see button-variants). */}
+        <button
+          type="button"
+          className={buttonVariants()}
           onClick={() => {
             window.location.reload();
           }}
         >
           <RotateCw aria-hidden />
           Reload
-        </Button>
-        <Button asChild variant="secondary">
-          <a href="/">Go home</a>
-        </Button>
+        </button>
+        <a href="/" className={buttonVariants({ variant: 'secondary' })}>
+          Go home
+        </a>
       </div>
     </main>
   );

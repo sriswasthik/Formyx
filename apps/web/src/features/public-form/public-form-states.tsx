@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { Link } from 'react-router';
 import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { isEmbedded } from '@/lib/embed';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 
 /** A quiet credit under every public page. Uses the form's colours when inside one. */
 export function MadeWithFormyx({ label = 'Made with Formyx' }: { label?: string }) {
@@ -43,9 +43,9 @@ export function PublicFormMessage({
 }: PublicFormMessageProps) {
   const embedded = isEmbedded();
   return (
-    <div className={cn('flex flex-col', !embedded && 'min-h-dvh bg-background')}>
+    <div className={cx('flex flex-col', !embedded && 'min-h-dvh bg-background')}>
       <main
-        className={cn(
+        className={cx(
           'flex flex-1 flex-col items-center justify-center px-6 text-center',
           embedded ? 'py-10' : 'py-16',
         )}
@@ -56,7 +56,7 @@ export function PublicFormMessage({
         {eyebrow && (
           <p className="mt-5 max-w-sm truncate text-13 text-muted-foreground">{eyebrow}</p>
         )}
-        <h1 className={cn(eyebrow ? 'mt-1' : 'mt-5', 'text-24 font-semibold tracking-tight')}>
+        <h1 className={cx(eyebrow ? 'mt-1' : 'mt-5', 'text-24 font-semibold tracking-tight')}>
           {title}
         </h1>
         <div className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</div>
@@ -70,7 +70,7 @@ export function PublicFormMessage({
 function Bar({ className }: { className: string }) {
   return (
     <div
-      className={cn(
+      className={cx(
         'rounded-(--form-radius) bg-(--form-hover) motion-safe:animate-pulse',
         className,
       )}

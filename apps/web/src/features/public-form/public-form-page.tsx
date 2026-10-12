@@ -25,7 +25,7 @@ import {
 } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import {
   FormView,
   type ResponseProgress,
@@ -456,9 +456,15 @@ export function PublicFormPage() {
         title="The form could not be loaded"
         description="Check your connection and try again."
         action={
-          <Button variant="secondary" disabled={query.isFetching} onClick={refetch}>
+          // A plain button, not Button: Button's tailwind-merge stays out of public forms.
+          <button
+            type="button"
+            className={buttonVariants({ variant: 'secondary' })}
+            disabled={query.isFetching}
+            onClick={refetch}
+          >
             Try again
-          </Button>
+          </button>
         }
       />
     );

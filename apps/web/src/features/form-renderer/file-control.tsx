@@ -2,7 +2,7 @@ import { fileProblem, formatFileSize, isFileAnswer, type FieldOfType } from '@fo
 import { FileText, RotateCw, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { isUploadCancelled, uploadErrorMessage } from '@/lib/uploads';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { useFileUploads } from './file-uploads';
 import { acceptAttribute, fileHint } from './file-types';
 import { boxSurface } from './styles';
@@ -14,7 +14,7 @@ type Transfer =
   | { status: 'uploading'; file: File; progress: number }
   | { status: 'failed'; file: File };
 
-const iconButton = cn(
+const iconButton = cx(
   'inline-flex items-center gap-1.5 rounded-(--form-radius) px-2 py-1 form-text-sm text-(--form-muted)',
   'transition-colors duration-150 ease-standard hover:bg-(--form-hover) hover:text-(--form-fg)',
 );
@@ -35,10 +35,10 @@ function FileRow({
 }) {
   return (
     <div
-      className={cn(
+      className={cx(
         boxSurface,
         'flex items-center gap-3 px-3.5 py-3',
-        invalid && 'border-(--form-danger)',
+        invalid && 'border-(--form-danger)!',
       )}
     >
       <FileText aria-hidden className="size-5 shrink-0 text-(--form-muted)" />
@@ -217,7 +217,7 @@ export function FileControl({
             <button
               type="button"
               aria-label={messages.upload.remove(file.name)}
-              className={cn(iconButton, 'px-1')}
+              className={cx(iconButton, 'px-1!')}
               onClick={clear}
             >
               <X aria-hidden />
@@ -237,7 +237,7 @@ export function FileControl({
             type="button"
             data-focus-here
             aria-label={messages.upload.remove(value.name)}
-            className={cn(iconButton, 'px-1')}
+            className={cx(iconButton, 'px-1!')}
             onClick={clear}
           >
             <X aria-hidden />
@@ -262,13 +262,14 @@ export function FileControl({
           const file = event.dataTransfer.files[0];
           if (file) void start(file);
         }}
-        className={cn(
+        className={cx(
           boxSurface,
           'flex cursor-pointer flex-col items-center gap-2 border-dashed px-6 py-8 text-center',
           'transition-colors duration-150 ease-standard hover:bg-(--form-choice-bg-hover)',
           'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)',
-          dragging && 'border-(--form-accent) bg-(--form-accent-subtle)',
-          invalid && 'border-(--form-danger)',
+          dragging && 'bg-(--form-accent-subtle)!',
+          // A problem shows even while a file is dragged over.
+          invalid ? 'border-(--form-danger)!' : dragging && 'border-(--form-accent)!',
         )}
       >
         <Upload aria-hidden className="size-5 text-(--form-muted)" />

@@ -1,7 +1,7 @@
 import { isFileAnswer, type FieldOfType } from '@formyx/shared';
 import { Check, Mic, RotateCcw, Square } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { formButton, secondaryButton } from '../styles';
 import { useFormTheme } from '../theme/theme-context';
 import type { ControlProps } from '../types';
@@ -141,7 +141,7 @@ function VoiceControl({
           <button
             id={controlId}
             type="button"
-            className={cn(formButton(components), 'w-auto')}
+            className={cx(formButton(components), 'w-auto')}
             onClick={stop}
           >
             <Square aria-hidden className="size-4" fill="currentColor" />
@@ -156,7 +156,7 @@ function VoiceControl({
           <button
             id={controlId}
             type="button"
-            className={cn(formButton(components), 'w-auto')}
+            className={cx(formButton(components), 'w-auto')}
             onClick={() => {
               void start();
             }}
@@ -166,7 +166,7 @@ function VoiceControl({
           </button>
         )}
         <span
-          className={cn(
+          className={cx(
             'form-text-sm tabular-nums',
             recording ? 'text-(--form-fg)' : 'text-(--form-muted)',
           )}

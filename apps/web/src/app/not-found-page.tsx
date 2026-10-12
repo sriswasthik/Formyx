@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router';
 import { Logo } from '@/components/logo';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 
 export function NotFoundPage() {
   return (
@@ -14,12 +14,11 @@ export function NotFoundPage() {
       <p className="mt-2 max-w-sm text-14 text-muted-foreground">
         The page you are looking for does not exist or has been moved.
       </p>
-      <Button asChild variant="secondary" className="mt-6">
-        <Link to="/">
-          <ArrowLeft aria-hidden />
-          Back to home
-        </Link>
-      </Button>
+      {/* A plain link, not Button: this page is in every first download (see button-variants). */}
+      <Link to="/" className={`${buttonVariants({ variant: 'secondary' })} mt-6`}>
+        <ArrowLeft aria-hidden />
+        Back to home
+      </Link>
     </div>
   );
 }
