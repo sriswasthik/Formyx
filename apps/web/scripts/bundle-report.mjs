@@ -17,6 +17,9 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // Sprint 13 (pages, jumps, piping, shuffling, saved progress) raised it to 205 KB; it is
 // 204.8 KB with end screens, saving by email, resuming and quiz marking loading lazily, and
 // the checks that span a form schema kept out of the public form (form-schema-shape.ts).
+// Sprint 14 (form languages, password and email steps, edit links, prefilled links) added
+// about 9 KB, with Telugu and Hindi, their fonts and the access screens loading lazily; the
+// renderer joining classes with `cx` instead of tailwind-merge's `cn` took 10 KB back: 204.2 KB.
 const PUBLIC_FORM_BUDGET_KB = 205;
 
 const ROUTES = {

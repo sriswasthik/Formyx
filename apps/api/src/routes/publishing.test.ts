@@ -1,5 +1,6 @@
 import {
   apiErrorSchema,
+  createDefaultLiveSettings,
   createDefaultTheme,
   createEmptyForm,
   createField,
@@ -246,39 +247,35 @@ describe('POST /api/forms/:formId/close and /reopen', () => {
   });
 
   it('will not reopen a form that reached its response limit until the limit is raised', async () => {
-    const limited: FormSchema = {
-      ...READY,
-      settings: { ...READY.settings, closeAfterResponses: 1 },
-    };
-    const published = await publish(await createDraft(limited));
+    const published = await publish(await createDraft());
+    const access = { ...createDefaultLiveSettings().access, responseLimit: 1 };
+    await editor().patch(`/api/forms/${published.id}/settings`, { access }).expect(200);
     await prisma.submission.create({ data: { formId: published.id, answers: {}, metadata: {} } });
     await editor().post(`/api/forms/${published.id}/close`).expect(200);
 
     const refused = await editor().post(`/api/forms/${published.id}/reopen`).expect(409);
     expect(apiErrorSchema.parse(refused.body).error.message).toBe(
-      'This form has reached its response limit. Raise or remove the limit and publish, then reopen it.',
+      "This form has reached its response limit. Raise or remove the limit in the form's settings, then reopen it.",
     );
 
-    const raised = await editor()
-      .patch(`/api/forms/${published.id}`, {
-        version: published.version,
-        draftSchema: { ...limited, settings: { ...limited.settings, closeAfterResponses: 10 } },
-      })
+    // Live settings take effect at once: no publishing needed.
+    await editor()
+      .patch(`/api/forms/${published.id}/settings`, { access: { ...access, responseLimit: 10 } })
       .expect(200);
-    await publish(formDetailSchema.parse(raised.body));
     await editor().post(`/api/forms/${published.id}/reopen`).expect(200);
   });
 
-  it('will not reopen a form past its closing date', async () => {
-    const dated: FormSchema = {
-      ...READY,
-      settings: { ...READY.settings, closeAt: '2020-01-01T00:00:00Z' },
-    };
-    const published = await publish(await createDraft(dated));
+  it('will not reopen a form past its closing time', async () => {
+    const published = await publish(await createDraft());
+    await editor()
+      .patch(`/api/forms/${published.id}/settings`, {
+        access: { ...createDefaultLiveSettings().access, closesAt: '2020-01-01T00:00:00Z' },
+      })
+      .expect(200);
     await editor().post(`/api/forms/${published.id}/close`).expect(200);
 
     const refused = await editor().post(`/api/forms/${published.id}/reopen`).expect(409);
-    expect(apiErrorSchema.parse(refused.body).error.message).toMatch(/past its closing date/);
+    expect(apiErrorSchema.parse(refused.body).error.message).toMatch(/past its closing time/);
   });
 
   it('is for editors only', async () => {

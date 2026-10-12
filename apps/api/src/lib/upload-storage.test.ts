@@ -154,6 +154,52 @@ describe('createCloudinaryStorage', () => {
     // The foreign URL never reached Cloudinary.
     expect(requests).toHaveLength(2);
   });
+
+  it('deletes files a resource type at a time, ignoring URLs that are not ours', async () => {
+    const requests: { url: string; method: string | undefined }[] = [];
+    const storage = createCloudinaryStorage({
+      cloudName: 'demo',
+      apiKey: 'key',
+      apiSecret: 'secret',
+      fetch: (input, init) => {
+        requests.push({
+          url: input instanceof Request ? input.url : input.toString(),
+          method: init?.method,
+        });
+        return Promise.resolve(Response.json({ deleted: {} }));
+      },
+    });
+
+    await storage.deleteFiles([
+      'https://res.cloudinary.com/demo/image/upload/v1/formyx/a.png',
+      'https://res.cloudinary.com/demo/raw/upload/v1/formyx/b.pdf',
+      'https://res.cloudinary.com/demo/image/upload/v2/formyx/c.jpg',
+      'https://elsewhere.example/d.png',
+    ]);
+
+    expect(requests).toEqual([
+      {
+        url: 'https://api.cloudinary.com/v1_1/demo/resources/image/upload?public_ids%5B%5D=formyx%2Fa&public_ids%5B%5D=formyx%2Fc',
+        method: 'DELETE',
+      },
+      {
+        url: 'https://api.cloudinary.com/v1_1/demo/resources/raw/upload?public_ids%5B%5D=formyx%2Fb.pdf',
+        method: 'DELETE',
+      },
+    ]);
+  });
+
+  it('says so when Cloudinary refuses to delete', async () => {
+    const storage = createCloudinaryStorage({
+      cloudName: 'demo',
+      apiKey: 'key',
+      apiSecret: 'secret',
+      fetch: () => Promise.resolve(new Response('{}', { status: 500 })),
+    });
+    await expect(
+      storage.deleteFiles(['https://res.cloudinary.com/demo/image/upload/v1/formyx/a.png']),
+    ).rejects.toThrow('Cloudinary refused to delete files (500)');
+  });
 });
 
 describe('createUploadStorage', () => {

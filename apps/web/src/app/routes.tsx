@@ -135,6 +135,16 @@ export const routes: RouteObject[] = [
               return { Component: ResponsesPage };
             },
           },
+          {
+            path: 'forms/:formId/settings',
+            // Replaced by "Settings · <form title>" once the form loads.
+            handle: { title: 'Form settings' } satisfies RouteHandle,
+            lazy: async () => {
+              const { FormSettingsPage } =
+                await import('@/features/form-settings/form-settings-page');
+              return { Component: FormSettingsPage };
+            },
+          },
         ],
       },
       // Published forms, for anyone with the link. Split out, and free of editor and app code.

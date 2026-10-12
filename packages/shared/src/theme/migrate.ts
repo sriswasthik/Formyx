@@ -54,6 +54,7 @@ export function migrateTheme(v1: FormThemeV1): FormTheme {
       letterSpacing: 0,
       textAlign: 'left',
       questionNumbering: 'none',
+      requiredMarker: 'asterisk',
     },
     colors: { primary, buttonText: buttonTextOn(primary), ...surfaceColors(surface) },
     components: {

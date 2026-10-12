@@ -2,18 +2,19 @@ import { fileProblem, formatFileSize, isFileAnswer, type FieldOfType } from '@fo
 import { FileText, RotateCw, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { isUploadCancelled, uploadErrorMessage } from '@/lib/uploads';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { useFileUploads } from './file-uploads';
 import { acceptAttribute, fileHint } from './file-types';
 import { boxSurface } from './styles';
 import type { ControlProps } from './types';
+import { useFormMessages } from './i18n/form-locale';
 
 type Transfer =
   | { status: 'idle' }
   | { status: 'uploading'; file: File; progress: number }
   | { status: 'failed'; file: File };
 
-const iconButton = cn(
+const iconButton = cx(
   'inline-flex items-center gap-1.5 rounded-(--form-radius) px-2 py-1 form-text-sm text-(--form-muted)',
   'transition-colors duration-150 ease-standard hover:bg-(--form-hover) hover:text-(--form-fg)',
 );
@@ -34,10 +35,10 @@ function FileRow({
 }) {
   return (
     <div
-      className={cn(
+      className={cx(
         boxSurface,
         'flex items-center gap-3 px-3.5 py-3',
-        invalid && 'border-(--form-danger)',
+        invalid && 'border-(--form-danger)!',
       )}
     >
       <FileText aria-hidden className="size-5 shrink-0 text-(--form-muted)" />
@@ -56,12 +57,13 @@ function FileRow({
 }
 
 function ProgressBar({ name, progress }: { name: string; progress: number }) {
+  const messages = useFormMessages();
   const percent = Math.round(progress * 100);
   return (
     <div className="flex items-center gap-3">
       <div
         role="progressbar"
-        aria-label={`Uploading ${name}`}
+        aria-label={messages.upload.uploading(name)}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
@@ -92,6 +94,7 @@ export function FileControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'file'>>) {
+  const messages = useFormMessages();
   const uploads = useFileUploads();
   const [transfer, setTransfer] = useState<Transfer>({ status: 'idle' });
   const [dragging, setDragging] = useState(false);
@@ -129,7 +132,7 @@ export function FileControl({
     onChange(null);
     const problem = fileProblem(file, { maxSizeMb, allowedTypes });
     if (problem || !uploads?.upload) {
-      const message = problem ?? 'Files can’t be uploaded here.';
+      const message = problem ?? messages.upload.notHere;
       setTransfer({ status: 'idle' });
       setAnnouncement(message);
       uploads?.reportProblem(fieldId, message);
@@ -139,7 +142,7 @@ export function FileControl({
     const controller = new AbortController();
     controllerRef.current = controller;
     setTransfer({ status: 'uploading', file, progress: 0 });
-    setAnnouncement(`Uploading ${file.name}`);
+    setAnnouncement(messages.upload.uploading(file.name));
     uploads.setUploading(fieldId, true);
     try {
       const answer = await uploads.upload(field, file, {
@@ -184,7 +187,7 @@ export function FileControl({
         invalid={invalid}
         actions={
           <button type="button" data-focus-here className={iconButton} onClick={clear}>
-            Cancel
+            {messages.upload.cancel}
           </button>
         }
       >
@@ -209,12 +212,12 @@ export function FileControl({
               }}
             >
               <RotateCw aria-hidden />
-              Try again
+              {messages.upload.tryAgain}
             </button>
             <button
               type="button"
-              aria-label={`Remove ${file.name}`}
-              className={cn(iconButton, 'px-1')}
+              aria-label={messages.upload.remove(file.name)}
+              className={cx(iconButton, 'px-1!')}
               onClick={clear}
             >
               <X aria-hidden />
@@ -233,8 +236,8 @@ export function FileControl({
           <button
             type="button"
             data-focus-here
-            aria-label={`Remove ${value.name}`}
-            className={cn(iconButton, 'px-1')}
+            aria-label={messages.upload.remove(value.name)}
+            className={cx(iconButton, 'px-1!')}
             onClick={clear}
           >
             <X aria-hidden />
@@ -259,19 +262,20 @@ export function FileControl({
           const file = event.dataTransfer.files[0];
           if (file) void start(file);
         }}
-        className={cn(
+        className={cx(
           boxSurface,
           'flex cursor-pointer flex-col items-center gap-2 border-dashed px-6 py-8 text-center',
           'transition-colors duration-150 ease-standard hover:bg-(--form-choice-bg-hover)',
           'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)',
-          dragging && 'border-(--form-accent) bg-(--form-accent-subtle)',
-          invalid && 'border-(--form-danger)',
+          dragging && 'bg-(--form-accent-subtle)!',
+          // A problem shows even while a file is dragged over.
+          invalid ? 'border-(--form-danger)!' : dragging && 'border-(--form-accent)!',
         )}
       >
         <Upload aria-hidden className="size-5 text-(--form-muted)" />
-        <span className="form-text font-medium">Choose a file or drag it here</span>
+        <span className="form-text font-medium">{messages.upload.chooseFile}</span>
         <span className="form-text-sm text-(--form-muted)">
-          {fileHint(allowedTypes, maxSizeMb)}
+          {fileHint(allowedTypes, maxSizeMb, messages)}
         </span>
         <input
           id={controlId}

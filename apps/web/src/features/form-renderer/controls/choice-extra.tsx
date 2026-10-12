@@ -1,11 +1,12 @@
 import type { FieldOfType } from '@formyx/shared';
 import { Angry, Check, Frown, Heart, Laugh, Meh, Smile, Star, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { ChoiceList, ScaleButtons } from '../choice-controls';
 import { RichText } from '../rich-text';
 import { controlSurface } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 const focusRing =
   'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)';
@@ -30,7 +31,7 @@ function PictureChoice({
         return (
           <label
             key={option.id}
-            className={cn(
+            className={cx(
               controlSurface,
               'group relative flex cursor-pointer flex-col overflow-hidden p-1.5',
               'has-checked:border-(--form-accent) has-checked:bg-(--form-accent-subtle)',
@@ -85,21 +86,10 @@ function PictureChoice({
   );
 }
 
-const YES_NO = [
-  { id: 'yes', label: 'Yes' },
-  { id: 'no', label: 'No' },
-] as const;
-
 const STYLED_ICONS: Record<'stars' | 'hearts', LucideIcon> = { stars: Star, hearts: Heart };
 
 /** Five faces from unhappy to delighted; three take the ends and the middle. */
-const FACES: { icon: LucideIcon; label: string }[] = [
-  { icon: Angry, label: 'Very unhappy' },
-  { icon: Frown, label: 'Unhappy' },
-  { icon: Meh, label: 'Neutral' },
-  { icon: Smile, label: 'Happy' },
-  { icon: Laugh, label: 'Very happy' },
-];
+const FACE_ICONS: LucideIcon[] = [Angry, Frown, Meh, Smile, Laugh];
 
 /** Stars or hearts filled up to the rating (or the one hovered), or a row of faces. */
 function StyledRating({
@@ -110,11 +100,16 @@ function StyledRating({
   onChange,
 }: ControlProps<FieldOfType<'rating'>>) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const messages = useFormMessages();
+  const allFaces = FACE_ICONS.map((icon, index) => ({
+    icon,
+    label: messages.controls.faces[index] ?? '',
+  }));
   const faces =
     field.ratingStyle === 'faces' && (field.ratingScale === 3 || field.ratingScale === 5)
       ? field.ratingScale === 3
-        ? [FACES[0], FACES[2], FACES[4]]
-        : FACES
+        ? [allFaces[0], allFaces[2], allFaces[4]]
+        : allFaces
       : null;
   const current = typeof value === 'number' ? value : 0;
   const shown = hovered ?? current;
@@ -136,10 +131,10 @@ function StyledRating({
         return (
           <label
             key={rating}
-            className={cn(
-              'relative flex size-11 cursor-pointer items-center justify-center rounded-full text-(--form-muted)',
-              'transition-colors duration-150 ease-standard hover:text-(--form-accent)',
-              filled && 'text-(--form-accent)',
+            className={cx(
+              'relative flex size-11 cursor-pointer items-center justify-center rounded-full',
+              'transition-colors duration-150 ease-standard',
+              filled ? 'text-(--form-accent)' : 'text-(--form-muted) hover:text-(--form-accent)',
               focusRing,
             )}
             onPointerEnter={() => {
@@ -187,7 +182,7 @@ function ConsentControl({
 }: ControlProps<FieldOfType<'consent'>>) {
   return (
     <label
-      className={cn(
+      className={cx(
         controlSurface,
         'relative flex cursor-pointer items-start gap-3 px-3.5 py-3 form-text',
         'has-checked:border-(--form-accent) has-checked:bg-(--form-accent-subtle)',
@@ -208,7 +203,7 @@ function ConsentControl({
       />
       <span
         aria-hidden
-        className={cn(
+        className={cx(
           'mt-0.5 flex size-4.5 shrink-0 items-center justify-center rounded-[min(var(--form-radius),5px)] border border-(--form-border-strong) bg-(--form-bg)',
           'peer-checked:border-(--form-accent) peer-checked:bg-(--form-accent) peer-checked:text-(--form-accent-fg)',
         )}
@@ -253,11 +248,21 @@ function range(from: number, to: number): number[] {
 
 export function Control(props: ControlProps) {
   const { field } = props;
+  const messages = useFormMessages();
   switch (field.type) {
     case 'picture_choice':
       return <PictureChoice {...props} field={field} />;
     case 'yes_no':
-      return <ChoiceList {...props} options={YES_NO} multiple={false} />;
+      return (
+        <ChoiceList
+          {...props}
+          options={[
+            { id: 'yes', label: messages.answer.yes },
+            { id: 'no', label: messages.answer.no },
+          ]}
+          multiple={false}
+        />
+      );
     case 'nps':
       return (
         <ScaleButtons

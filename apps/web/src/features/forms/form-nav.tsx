@@ -1,5 +1,14 @@
 import { formResponsesPath } from '@formyx/shared';
-import { Check, ChevronDown, Eye, Inbox, Share2, SquarePen, type LucideIcon } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  Eye,
+  Inbox,
+  Settings2,
+  Share2,
+  SquarePen,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Ref } from 'react';
 import { Link } from 'react-router';
 import { ActionTooltip } from '@/components/action-tooltip';
@@ -13,9 +22,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
-import { formOpenPath } from './form-paths';
+import { formOpenPath, formSettingsPath } from './form-paths';
 
-export type FormSection = 'edit' | 'responses';
+export type FormSection = 'edit' | 'responses' | 'settings';
 
 /** Below this width the sections fold into a menu, leaving the top bar room for the title. */
 export const INLINE_FORM_NAV_QUERY = '(min-width: 768px)';
@@ -34,6 +43,17 @@ function sections(formId: string, canEdit: boolean): Section[] {
       ? { id: 'edit', label: 'Edit', to: formOpenPath(formId, true), icon: SquarePen }
       : { id: 'edit', label: 'Overview', to: formOpenPath(formId, false), icon: Eye },
     { id: 'responses', label: 'Responses', to: formResponsesPath(formId), icon: Inbox },
+    // Settings change how the form works for everyone, so they are for editors.
+    ...(canEdit
+      ? [
+          {
+            id: 'settings' as const,
+            label: 'Settings',
+            to: formSettingsPath(formId),
+            icon: Settings2,
+          },
+        ]
+      : []),
   ];
 }
 

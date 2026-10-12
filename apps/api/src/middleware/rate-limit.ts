@@ -38,16 +38,25 @@ const VIEW_LIMIT = 100;
 const PROGRESS_LIMIT = 600;
 const DRAFT_SAVE_LIMIT = 10;
 const DRAFT_RESUME_LIMIT = 30;
+const UNLOCK_LIMIT = 10;
+const CODE_SEND_LIMIT = 5;
+const CODE_CHECK_LIMIT = 20;
+const EDIT_LOAD_LIMIT = 30;
 
 /** Each client IP counts separately for each form, so one busy form cannot block another. */
 function perFormKey(req: Request): string {
   return `${ipKeyGenerator(req.ip ?? '')}:${String(req.params.slug)}`;
 }
 
-function publicLimiter(limit: number, message: string) {
+function publicLimiter(
+  limit: number,
+  message: string,
+  { skipSuccessfulRequests = false }: { skipSuccessfulRequests?: boolean } = {},
+) {
   return rateLimit({
     windowMs: WINDOW_MS,
     limit,
+    skipSuccessfulRequests,
     keyGenerator: perFormKey,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
@@ -74,6 +83,15 @@ export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_M
       DRAFT_RESUME_LIMIT,
       'Too many requests. Try again in a few minutes.',
     ),
+    /** Wrong passwords count, right ones do not: slows guessing a form's password. */
+    unlock: publicLimiter(UNLOCK_LIMIT, 'Too many tries. Wait a few minutes and try again.', {
+      skipSuccessfulRequests: true,
+    }),
+    /** Each code is an email to someone, so few are sent. */
+    sendCode: publicLimiter(CODE_SEND_LIMIT, 'Too many codes. Wait a few minutes and try again.'),
+    /** Each code also allows only a few tries (CODE_ATTEMPTS). */
+    checkCode: publicLimiter(CODE_CHECK_LIMIT, 'Too many tries. Wait a few minutes and try again.'),
+    loadEdit: publicLimiter(EDIT_LOAD_LIMIT, 'Too many requests. Try again in a few minutes.'),
   };
 }
 

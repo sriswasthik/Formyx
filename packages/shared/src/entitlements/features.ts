@@ -66,6 +66,36 @@ export const FEATURES = {
     description: 'Right answers, points, scores and a pass mark.',
     minPlan: 'PRO',
   },
+  verified_responses: {
+    name: 'Verified responses',
+    description: 'One response per person, confirmed with a code sent to their email.',
+    minPlan: 'PRO',
+  },
+  autoresponder: {
+    name: 'Autoresponder',
+    description: 'A designed email to respondents with a copy of their answers.',
+    minPlan: 'PRO',
+  },
+  chat_notifications: {
+    name: 'Slack and Discord',
+    description: 'Post each new response to a Slack or Discord channel.',
+    minPlan: 'PRO',
+  },
+  extra_recipients: {
+    name: 'More notification emails',
+    description: 'Email new responses to addresses outside the workspace.',
+    minPlan: 'PRO',
+  },
+  custom_social: {
+    name: 'Custom link previews',
+    description: 'Your own preview image and favicon when the form is shared.',
+    minPlan: 'PRO',
+  },
+  excel_export: {
+    name: 'Excel export',
+    description: 'Download responses as an Excel workbook.',
+    minPlan: 'PRO',
+  },
 } as const satisfies Record<string, FeatureDefinition>;
 
 export type FeatureId = keyof typeof FEATURES;

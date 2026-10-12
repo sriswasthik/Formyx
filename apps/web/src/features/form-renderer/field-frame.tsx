@@ -1,7 +1,9 @@
 import type { Field } from '@formyx/shared';
 import type * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import type { FieldIds } from './field-ids';
+import { useFormMessages } from './i18n/form-locale';
+import { useFormTheme } from './theme/theme-context';
 
 interface FieldFrameProps {
   field: Field;
@@ -16,7 +18,14 @@ interface FieldFrameProps {
   children: React.ReactNode;
 }
 
+/**
+ * The question's words, with its number, and marked as the theme says: required questions
+ * with an asterisk or the word, or optional ones instead. Screen readers always hear which
+ * questions are required.
+ */
 function LabelText({ field, number }: { field: Field; number?: string | undefined }) {
+  const messages = useFormMessages();
+  const marker = useFormTheme().typography.requiredMarker;
   return (
     <>
       {number && (
@@ -27,12 +36,24 @@ function LabelText({ field, number }: { field: Field; number?: string | undefine
       {field.label || <span className="text-(--form-muted)">Untitled question</span>}
       {field.required && (
         <>
-          <span aria-hidden className="text-(--form-muted)">
-            {' '}
-            *
-          </span>{' '}
-          <span className="sr-only">(required)</span>
+          {marker === 'asterisk' && (
+            <span aria-hidden className="text-(--form-muted)">
+              {' '}
+              *
+            </span>
+          )}
+          {marker === 'word' && (
+            <span aria-hidden className="ml-2 form-text-sm font-normal text-(--form-muted)">
+              {messages.marker.requiredWord}
+            </span>
+          )}{' '}
+          <span className="sr-only">{messages.marker.required}</span>
         </>
+      )}
+      {!field.required && marker === 'optional' && (
+        <span className="ml-2 form-text-sm font-normal text-(--form-muted)">
+          {messages.marker.optionalWord}
+        </span>
       )}
     </>
   );
@@ -48,7 +69,7 @@ export function FieldFrame({
   size = 'regular',
   children,
 }: FieldFrameProps) {
-  const labelClass = cn(
+  const labelClass = cx(
     size === 'large' ? 'form-text-lg' : 'form-text',
     'leading-snug font-medium break-words',
   );

@@ -18,6 +18,7 @@ export type FormSchemaUpgrade = (schema: SchemaData) => SchemaData;
 export const FORM_SCHEMA_UPGRADES: Readonly<Record<number, FormSchemaUpgrade>> = {
   1: upgradeV1,
   2: upgradeV2,
+  3: upgradeV3,
 };
 
 function isSchemaData(value: unknown): value is SchemaData {
@@ -75,6 +76,21 @@ function upgradeV2(schema: SchemaData): SchemaData {
         }),
       ],
     },
+  };
+}
+
+/**
+ * v3 to v4 (Sprint 14): forms speak English with the formats they always had. The response
+ * limit and closing time leave the schema: they are live settings now, copied there by the
+ * migration that added them.
+ */
+function upgradeV3(schema: SchemaData): SchemaData {
+  const settings = isSchemaData(schema.settings) ? schema.settings : {};
+  const { closeAfterResponses: _limit, closeAt: _closeAt, ...rest } = settings;
+  return {
+    ...schema,
+    version: 4,
+    settings: { ...rest, language: 'en', dateFormat: 'auto', numberFormat: 'auto' },
   };
 }
 

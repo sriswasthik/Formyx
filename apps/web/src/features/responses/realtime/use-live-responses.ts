@@ -8,6 +8,7 @@ import {
   addResponseToAnalytics,
   canPlaceNewResponse,
   filtersFromKey,
+  replaceResponse,
   responseKeys,
   type ResponsePages,
 } from '../response-cache';
@@ -69,6 +70,24 @@ export function useLiveResponses(
         );
         adjustCachedResponseCount(queryClient, { id: formId, workspaceId }, 1);
         arrive(submission.id);
+        reconcileSoon();
+      },
+
+      onUpdated: ({ submission }) => {
+        queryClient.setQueriesData<ResponsePages>(
+          { queryKey: responseKeys.lists(formId) },
+          (data) => (data ? replaceResponse(data, submission) : data),
+        );
+        queryClient.setQueryData(responseKeys.detail(formId, submission.id), submission);
+        // Searches and answer filters may now match differently, and the summary has moved.
+        for (const [key] of queryClient.getQueriesData<ResponsePages>({
+          queryKey: responseKeys.lists(formId),
+        })) {
+          const filters = filtersFromKey(key);
+          if (filters && (filters.search || filters.answered)) {
+            void queryClient.invalidateQueries({ queryKey: key, exact: true });
+          }
+        }
         reconcileSoon();
       },
 

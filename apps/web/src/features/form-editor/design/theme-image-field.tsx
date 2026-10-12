@@ -29,12 +29,14 @@ interface ThemeImageFieldProps {
   kind: ThemeImageKind;
   url: string | undefined;
   onChange: (url: string | undefined) => void;
+  /** What the image is called and the line under it, when not the kind's own. */
+  copy?: { noun: string; hint: string };
 }
 
 /** Uploads, replaces or removes the form's logo or cover image. */
-export function ThemeImageField({ kind, url, onChange }: ThemeImageFieldProps) {
+export function ThemeImageField({ kind, url, onChange, copy }: ThemeImageFieldProps) {
   const { formId = '' } = useParams();
-  const { noun, hint } = COPY[kind];
+  const { noun, hint } = copy ?? COPY[kind];
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const moveFocus = useRef(false);

@@ -3,6 +3,9 @@ import type { FormSchema } from '../forms/form-schema.js';
 import { formPages } from '../forms/page-layout.js';
 import type { Redirect } from '../forms/logic-schema.js';
 import type { Answers } from '../forms/answers.js';
+import { en } from '../i18n/en.js';
+import { DEFAULT_FORMAT } from '../i18n/format.js';
+import type { FormLocale } from '../i18n/locale.js';
 import { pipedAnswer, resolvePiping, type PipingContext } from './piping.js';
 import { seededShuffle, shuffleOptions } from './shuffle.js';
 
@@ -55,6 +58,9 @@ export function presentField<T extends Field>(
   return presented;
 }
 
+/** Redirect parameters are read by other software: English words, ISO dates. */
+const URL_LOCALE: FormLocale = { messages: en, format: { ...DEFAULT_FORMAT, dateFormat: 'ymd' } };
+
 /**
  * Where an end screen sends the respondent: its URL with the chosen answers and values
  * added as query parameters (keeping any the URL already has). `null` unless it is https.
@@ -79,7 +85,7 @@ export function buildRedirectUrl(
     let value = '';
     if (param.source.kind === 'answer') {
       const field = context.fieldById.get(param.source.fieldId);
-      value = field ? pipedAnswer(field, context.answers[field.id]) : '';
+      value = field ? pipedAnswer(field, context.answers[field.id], URL_LOCALE) : '';
     } else {
       // Plain numbers, so the page receiving them can read them.
       const raw = context.values[param.source.variableId];

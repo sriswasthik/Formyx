@@ -38,11 +38,19 @@
         try {
           var form = /^\/f\/([^/?#]+)/.exec(location.pathname);
           if (form && window.fetch) {
+            var slug = decodeURIComponent(form[1]);
+            var headers = { Accept: 'application/json' };
+            // A password-protected form this tab has unlocked (see form-access.ts).
+            var access = null;
+            try {
+              access = sessionStorage.getItem('formyx:access:' + slug);
+            } catch (_) {}
+            if (access) headers['X-Form-Access'] = access;
             window.__formyxPrefetch = {
-              slug: decodeURIComponent(form[1]),
+              slug: slug,
               response: fetch('/api/public/forms/' + form[1], {
                 credentials: 'include',
-                headers: { Accept: 'application/json' },
+                headers: headers,
               }),
             };
           }
@@ -61,6 +69,8 @@
             (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           root.classList.toggle('dark', dark);
           root.style.colorScheme = dark ? 'dark' : 'light';
+          var motion = localStorage.getItem('formyx-motion');
+          if (motion === 'reduce' || motion === 'full') root.dataset.motion = motion;
         } catch (_) {}
       })();
     </script>

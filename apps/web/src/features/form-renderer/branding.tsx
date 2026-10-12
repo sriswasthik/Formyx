@@ -1,13 +1,16 @@
 import type { FormTheme } from '@formyx/shared';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 
 /*
  * A form's own images. Both are decorative: the title right below names the form, so they
  * carry empty alt text rather than repeating it.
  */
 
-/** A wide image across the top of the form, cropped around its focal point. */
-export function FormCover({ theme, className }: { theme: FormTheme; className?: string }) {
+/**
+ * A wide image across the top of the form, cropped around its focal point. `fill` makes it
+ * cover its (positioned) parent instead, as in the side-by-side layouts.
+ */
+export function FormCover({ theme, fill = false }: { theme: FormTheme; fill?: boolean }) {
   const cover = theme.layout.coverImage;
   if (!cover) return null;
   return (
@@ -15,7 +18,10 @@ export function FormCover({ theme, className }: { theme: FormTheme; className?: 
       src={cover.url}
       alt=""
       data-form-cover
-      className={cn('block h-36 w-full object-cover @xl:h-52', className)}
+      className={cx(
+        'block w-full object-cover',
+        fill ? 'absolute inset-0 h-full' : 'h-36 @xl:h-52',
+      )}
       style={{ objectPosition: `${cover.focalPoint.x}% ${cover.focalPoint.y}%` }}
     />
   );
@@ -42,7 +48,7 @@ export function FormLogo({ theme, placement, className }: FormLogoProps) {
       src={logoUrl}
       alt=""
       data-form-logo
-      className={cn(
+      className={cx(
         'block h-10 w-auto max-w-40 object-contain',
         centered ? 'mx-auto object-center' : 'object-left',
         className,

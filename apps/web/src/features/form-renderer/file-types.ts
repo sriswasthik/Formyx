@@ -1,4 +1,4 @@
-import type { FileCategory } from '@formyx/shared';
+import { en, type FileCategory, type FormMessages } from '@formyx/shared';
 
 export const FILE_CATEGORY_LABELS: Record<FileCategory, string> = {
   image: 'Images',
@@ -27,8 +27,33 @@ export function acceptAttribute(categories: readonly FileCategory[]): string {
   return categories.flatMap((category) => ACCEPT[category]).join(',');
 }
 
-/** "PDF or images, up to 10 MB" */
-export function fileHint(categories: readonly FileCategory[], maxSizeMb: number): string {
+const KIND_KEYS: Record<FileCategory, keyof FormMessages['upload']['kinds'] | null> = {
+  image: 'images',
+  pdf: null,
+  document: 'documents',
+  spreadsheet: 'spreadsheets',
+  presentation: 'presentations',
+  audio: 'audio',
+  video: 'video',
+  archive: 'archives',
+};
+
+/**
+ * "PDF or images, up to 10 MB"; in other languages, the kinds in their words and the size:
+ * "PDF, చిత్రాలు · 10 MB".
+ */
+export function fileHint(
+  categories: readonly FileCategory[],
+  maxSizeMb: number,
+  messages?: FormMessages,
+): string {
+  if (messages && messages !== en) {
+    const kinds = categories.map((category) => {
+      const key = KIND_KEYS[category];
+      return key ? messages.upload.kinds[key] : 'PDF';
+    });
+    return `${kinds.length > 0 ? kinds.join(', ') : messages.upload.anyFile} · ${maxSizeMb} MB`;
+  }
   const names = categories.map((category, index) =>
     index === 0 ? FILE_CATEGORY_LABELS[category] : FILE_CATEGORY_LABELS[category].toLowerCase(),
   );

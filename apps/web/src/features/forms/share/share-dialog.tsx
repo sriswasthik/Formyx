@@ -1,7 +1,7 @@
+import type { QrColors } from '@formyx/shared';
 import { Check, Code, Copy, Download, ExternalLink, Link2 } from 'lucide-react';
 import { AnimatePresence, m } from 'motion/react';
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import { toast } from 'sonner';
+import { useRef, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,44 +17,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { publicFormUrl } from '@/features/forms/form-paths';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { embedSnippet } from './embed-snippet';
+import { useCopy } from './use-copy';
 import { useQrCode } from './use-qr-code';
 
-const COPIED_FOR_MS = 2000;
-
-/**
- * Copies text, and says "Copied" for a moment. If the clipboard is unavailable, `onFail`
- * selects the text so people can copy it themselves.
- */
-function useCopy(what: string, onFail: () => void) {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => {
-      setCopied(false);
-    }, COPIED_FOR_MS);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [copied]);
-
-  const copy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      onFail();
-      toast.error(`Could not copy the ${what}`, {
-        description: 'It is selected: copy it yourself.',
-      });
-    }
-  };
-
-  return { copied, copy };
-}
-
 /** The button's label, swapping to "Copied" with a short fade. */
-function CopyLabel({ copied, label }: { copied: boolean; label: string }) {
+export function CopyLabel({ copied, label }: { copied: boolean; label: string }) {
   return (
     <AnimatePresence initial={false} mode="wait">
       <m.span
@@ -103,8 +70,16 @@ function CopyLink({ url, buttonRef }: { url: string; buttonRef: RefObject<HTMLBu
   );
 }
 
-function QrCode({ url, slug }: { url: string; slug: string }) {
-  const qr = useQrCode(url);
+export function QrCode({
+  url,
+  slug,
+  colors,
+}: {
+  url: string;
+  slug: string;
+  colors?: QrColors | undefined;
+}) {
+  const qr = useQrCode(url, colors);
 
   return (
     <div className="flex flex-col items-center gap-4 rounded-lg border p-4 sm:flex-row">
@@ -187,6 +162,8 @@ interface ShareDialogProps {
   justPublished: boolean;
   /** Where focus goes when the dialog closes; it may open without a trigger. */
   returnFocusTo?: RefObject<HTMLElement>;
+  /** The QR code's colours, from the form's look (see `qrCodeColors`). */
+  qrColors?: QrColors;
 }
 
 /** The public link to copy or open, a QR code for it, and code to embed the form. */
@@ -197,6 +174,7 @@ export function ShareDialog({
   closed,
   justPublished,
   returnFocusTo,
+  qrColors,
 }: ShareDialogProps) {
   const url = publicFormUrl(slug);
   const copyButton = useRef<HTMLButtonElement>(null);
@@ -237,7 +215,7 @@ export function ShareDialog({
           </TabsList>
           <TabsContent value="link" className="flex flex-col gap-4">
             <CopyLink url={url} buttonRef={copyButton} />
-            <QrCode key={url} url={url} slug={slug} />
+            <QrCode key={url} url={url} slug={slug} colors={qrColors} />
           </TabsContent>
           <TabsContent value="embed">
             <EmbedCode slug={slug} />

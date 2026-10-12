@@ -8,9 +8,10 @@ import {
   formDetailSchema,
   publicFormResponseSchema,
   submissionResponseSchema,
+  createDefaultLiveSettings,
+  type AccessSettings,
   type FormDetail,
   type FormSchema,
-  type FormSettings,
 } from '@formyx/shared';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -48,8 +49,13 @@ const guests = {
 const email = { ...createField('email'), label: 'Email' };
 const RSVP: FormSchema = { ...createEmptyForm(), fields: [name, attending, guests, email] };
 
-function rsvp(settings: Partial<FormSettings> = {}): FormSchema {
-  return { ...RSVP, settings: { ...RSVP.settings, ...settings } };
+/** Changes the form's access settings, which take effect without publishing. */
+async function setAccess(formId: string, access: Partial<AccessSettings>) {
+  await editor()
+    .patch(`/api/forms/${formId}/settings`, {
+      access: { ...createDefaultLiveSettings().access, ...access },
+    })
+    .expect(200);
 }
 
 /** A published form, with its draft left as published unless changed afterwards. */
@@ -86,6 +92,12 @@ describe('GET /api/public/forms/:slug', () => {
       title: 'Party RSVP',
       schema: RSVP,
       theme: form.theme,
+      access: {
+        emailStep: 'none',
+        oneResponsePerBrowser: false,
+        allowEdits: false,
+        indexable: false,
+      },
     });
     expect(res.headers['cache-control']).toBe('no-store');
   });
@@ -106,6 +118,7 @@ describe('GET /api/public/forms/:slug', () => {
     expect(res.body).toMatchObject({ title: 'Party RSVP', schema: RSVP });
     expect(JSON.stringify(res.body)).not.toContain('Secret');
     expect(Object.keys(res.body as object).sort()).toEqual([
+      'access',
       'schema',
       'slug',
       'status',
@@ -123,26 +136,30 @@ describe('GET /api/public/forms/:slug', () => {
     }
   });
 
-  it.each<[string, (form: FormDetail) => Promise<unknown>, FormSchema]>([
-    ['closed', (form) => editor().post(`/api/forms/${form.id}/close`).expect(200), RSVP],
-    ['past its closing date', () => Promise.resolve(), rsvp({ closeAt: '2020-01-01T00:00:00Z' })],
+  it.each<[string, (form: FormDetail) => Promise<unknown>]>([
+    ['closed', (form) => editor().post(`/api/forms/${form.id}/close`).expect(200)],
+    ['past its closing time', (form) => setAccess(form.id, { closesAt: '2020-01-01T00:00:00Z' })],
     [
       'full',
-      (form) => prisma.submission.create({ data: { formId: form.id, answers: {}, metadata: {} } }),
-      rsvp({ closeAfterResponses: 1 }),
+      async (form) => {
+        await setAccess(form.id, { responseLimit: 1 });
+        await prisma.submission.create({ data: { formId: form.id, answers: {}, metadata: {} } });
+      },
     ],
-  ])(
-    'says the form is closed, with only its title, when it is %s',
-    async (_state, close, schema) => {
-      const form = await publishForm(schema);
-      await close(form);
+  ])('says the form is closed, with only its title, when it is %s', async (_state, close) => {
+    const form = await publishForm();
+    await close(form);
 
-      // An expected state rather than an error, so browsers do not log it as a failed request.
-      const res = await request(app).get(formUrl(form.slug)).expect(200);
+    // An expected state rather than an error, so browsers do not log it as a failed request.
+    const res = await request(app).get(formUrl(form.slug)).expect(200);
 
-      expect(res.body).toEqual({ status: 'closed', slug: form.slug, title: 'Party RSVP' });
-    },
-  );
+    expect(res.body).toEqual({
+      status: 'closed',
+      slug: form.slug,
+      title: 'Party RSVP',
+      locale: { language: 'en', dateFormat: 'auto', numberFormat: 'auto' },
+    });
+  });
 });
 
 describe('POST /api/public/forms/:slug/view', () => {
@@ -258,13 +275,15 @@ describe('POST /api/public/forms/:slug/submissions', () => {
     expect(await storedSubmissions(form.id)).toEqual([]);
   });
 
-  it('refuses responses after the closing date', async () => {
-    const form = await publishForm(rsvp({ closeAt: '2020-01-01T00:00:00Z' }));
+  it('refuses responses after the closing time', async () => {
+    const form = await publishForm();
+    await setAccess(form.id, { closesAt: '2020-01-01T00:00:00Z' });
     await submit(form.slug, { answers: VALID }).expect(410);
   });
 
   it('closes the form with the response that reaches its limit', async () => {
-    const form = await publishForm(rsvp({ closeAfterResponses: 2 }));
+    const form = await publishForm();
+    await setAccess(form.id, { responseLimit: 2 });
 
     await submit(form.slug, { answers: VALID }).expect(201);
     await submit(form.slug, { answers: VALID }).expect(201);
@@ -276,7 +295,8 @@ describe('POST /api/public/forms/:slug/submissions', () => {
   });
 
   it('never overshoots the limit, even with simultaneous responses', async () => {
-    const form = await publishForm(rsvp({ closeAfterResponses: 3 }));
+    const form = await publishForm();
+    await setAccess(form.id, { responseLimit: 3 });
 
     const results = await Promise.all(
       Array.from({ length: 6 }, () => submit(form.slug, { answers: VALID })),

@@ -4,17 +4,17 @@ import type * as React from 'react';
 import { Link } from 'react-router';
 import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { isEmbedded } from '@/lib/embed';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 
 /** A quiet credit under every public page. Uses the form's colours when inside one. */
-export function MadeWithFormyx() {
+export function MadeWithFormyx({ label = 'Made with Formyx' }: { label?: string }) {
   return (
     <footer className="px-6 pb-8 text-center">
       <Link
         to="/"
         className="rounded-sm text-12 text-(--form-muted,var(--muted-foreground)) underline-offset-4 transition-colors duration-150 ease-standard hover:text-(--form-fg,var(--foreground)) hover:underline"
       >
-        Made with Formyx
+        {label}
       </Link>
     </footer>
   );
@@ -25,8 +25,11 @@ interface PublicFormMessageProps {
   /** Small line above the heading, such as the form's title. */
   eyebrow?: string | undefined;
   title: string;
-  description: string;
+  /** Plain words, or the form's own (rich text) for why it is closed. */
+  description: React.ReactNode;
   action?: React.ReactNode;
+  /** The credit in the form's language. */
+  madeWith?: string | undefined;
 }
 
 /** A full page explaining why there is no form to fill in. */
@@ -36,12 +39,13 @@ export function PublicFormMessage({
   title,
   description,
   action,
+  madeWith,
 }: PublicFormMessageProps) {
   const embedded = isEmbedded();
   return (
-    <div className={cn('flex flex-col', !embedded && 'min-h-dvh bg-background')}>
+    <div className={cx('flex flex-col', !embedded && 'min-h-dvh bg-background')}>
       <main
-        className={cn(
+        className={cx(
           'flex flex-1 flex-col items-center justify-center px-6 text-center',
           embedded ? 'py-10' : 'py-16',
         )}
@@ -52,13 +56,13 @@ export function PublicFormMessage({
         {eyebrow && (
           <p className="mt-5 max-w-sm truncate text-13 text-muted-foreground">{eyebrow}</p>
         )}
-        <h1 className={cn(eyebrow ? 'mt-1' : 'mt-5', 'text-24 font-semibold tracking-tight')}>
+        <h1 className={cx(eyebrow ? 'mt-1' : 'mt-5', 'text-24 font-semibold tracking-tight')}>
           {title}
         </h1>
-        <p className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</p>
+        <div className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</div>
         {action && <div className="mt-6">{action}</div>}
       </main>
-      {!embedded && <MadeWithFormyx />}
+      {!embedded && <MadeWithFormyx label={madeWith} />}
     </div>
   );
 }
@@ -66,7 +70,7 @@ export function PublicFormMessage({
 function Bar({ className }: { className: string }) {
   return (
     <div
-      className={cn(
+      className={cx(
         'rounded-(--form-radius) bg-(--form-hover) motion-safe:animate-pulse',
         className,
       )}

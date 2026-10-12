@@ -46,7 +46,10 @@ const FORM: PublicForm = {
     logic: createDefaultLogic('See you there!'),
   },
   theme: createDefaultTheme(),
+  access: { emailStep: 'none', oneResponsePerBrowser: false, allowEdits: false, indexable: false },
 };
+
+const LOCALE = { language: 'en', dateFormat: 'auto', numberFormat: 'auto' } as const;
 
 interface Request {
   method: string;
@@ -243,7 +246,8 @@ describe('PublicFormPage', () => {
 
   it('explains that a form is closed, naming it', async () => {
     serve({
-      load: () => jsonResponse({ status: 'closed', slug: FORM.slug, title: 'Party RSVP' }),
+      load: () =>
+        jsonResponse({ status: 'closed', slug: FORM.slug, title: 'Party RSVP', locale: LOCALE }),
     });
     renderPage();
 

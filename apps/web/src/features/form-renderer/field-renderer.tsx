@@ -1,7 +1,7 @@
 import type { AnswerValue, Field } from '@formyx/shared';
 import { EyeOff, Scissors } from 'lucide-react';
 import { memo, useLayoutEffect, useRef } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { ChoiceControl, DropdownControl, RatingControl } from './choice-controls';
 import { controlChunk, useControlChunk, type ControlChunkId } from './controls/registry';
 import { FieldFrame } from './field-frame';
@@ -130,17 +130,17 @@ export const FieldRenderer = memo(function FieldRenderer({
     if (rootRef.current) rootRef.current.inert = mode === 'editor';
   }, [mode]);
 
-  const rootClass = cn(mode === 'editor' && 'pointer-events-none select-none');
+  const rootClass = cx(mode === 'editor' && 'pointer-events-none select-none');
   const textSize = size === 'large' ? 'form-text-lg' : 'form-text';
 
   switch (field.type) {
     case 'statement':
       return (
-        <div ref={rootRef} className={cn(rootClass, 'flex flex-col gap-2')}>
+        <div ref={rootRef} className={cx(rootClass, 'flex flex-col gap-2')}>
           {field.label ? (
-            <RichText text={field.label} className={cn(textSize, 'leading-relaxed')} />
+            <RichText text={field.label} className={cx(textSize, 'leading-relaxed')} />
           ) : (
-            <p className={cn(textSize, 'text-(--form-muted)')}>Untitled statement</p>
+            <p className={cx(textSize, 'text-(--form-muted)')}>Untitled statement</p>
           )}
           {field.description && (
             <p className="form-text-sm whitespace-pre-wrap text-(--form-muted)">
@@ -204,7 +204,7 @@ export const FieldRenderer = memo(function FieldRenderer({
   // Consent's label is the checkbox's own text; the frame adds the description and error.
   if (field.type === 'consent') {
     return (
-      <div ref={rootRef} className={cn(rootClass, 'flex min-w-0 flex-col gap-2')}>
+      <div ref={rootRef} className={cx(rootClass, 'flex min-w-0 flex-col gap-2')}>
         {control}
         {field.description && (
           <p id={ids.description} className="form-text-sm whitespace-pre-wrap text-(--form-muted)">

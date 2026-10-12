@@ -60,6 +60,8 @@ interface StoredRow {
   answers: unknown;
   metadata: unknown;
   outcome: unknown;
+  respondentEmail: string | null;
+  editedAt: string | null;
 }
 
 function toRecord(row: StoredRow): SubmissionRecord {
@@ -78,6 +80,8 @@ function toRecord(row: StoredRow): SubmissionRecord {
     metadata: metadata.success ? metadata.data : NO_METADATA,
     // Responses from before Sprint 13 have none.
     outcome: outcome.success ? outcome.data : null,
+    respondentEmail: row.respondentEmail,
+    editedAt: row.editedAt,
   };
 }
 
@@ -88,12 +92,18 @@ const recordSelect = {
   answers: true,
   metadata: true,
   outcome: true,
+  respondentEmail: true,
+  editedAt: true,
 } satisfies Prisma.SubmissionSelect;
 
 type SelectedRow = Prisma.SubmissionGetPayload<{ select: typeof recordSelect }>;
 
 function fromSelected(row: SelectedRow): SubmissionRecord {
-  return toRecord({ ...row, createdAt: row.createdAt.toISOString() });
+  return toRecord({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    editedAt: row.editedAt?.toISOString() ?? null,
+  });
 }
 
 /** The raw rows `list` reads. */
@@ -104,9 +114,12 @@ interface RawRow {
   answers: unknown;
   metadata: unknown;
   outcome: unknown;
+  respondent_email: string | null;
+  edited_at: string | null;
 }
 
 const CREATED_AT_ISO = Prisma.raw(`to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
+const EDITED_AT_ISO = Prisma.raw(`to_char(edited_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
 
 /**
  * Responses where some answer contains `search`, ignoring case. Choices are stored as option
@@ -185,6 +198,8 @@ export interface SubmissionService {
   get(formId: string, submissionId: string): Promise<SubmissionRecord>;
   /** Deletes those of `ids` that belong to the form, and returns their ids. */
   remove(formId: string, ids: readonly string[]): Promise<string[]>;
+  /** Deletes every response to the form, and returns their ids. */
+  removeAll(formId: string): Promise<string[]>;
   /** The title respondents see and the published questions: what an export is made of. */
   published(formId: string): Promise<{ title: string; schema: FormSchema | null }>;
 }
@@ -223,7 +238,8 @@ export function createSubmissionService(prisma: Database): SubmissionService {
       // One row more than asked for says whether another page follows.
       const [rows, counted] = await Promise.all([
         prisma.$queryRaw<RawRow[]>`
-          SELECT id, ${CREATED_AT_ISO} AS created_at, completion_time_ms, answers, metadata, outcome
+          SELECT id, ${CREATED_AT_ISO} AS created_at, completion_time_ms, answers, metadata, outcome,
+            respondent_email, ${EDITED_AT_ISO} AS edited_at
           FROM submissions
           WHERE ${where} ${page}
           ORDER BY created_at ${direction}, id ${direction}
@@ -242,6 +258,8 @@ export function createSubmissionService(prisma: Database): SubmissionService {
           answers: row.answers,
           metadata: row.metadata,
           outcome: row.outcome,
+          respondentEmail: row.respondent_email,
+          editedAt: row.edited_at,
         }),
       );
       const last = submissions.at(-1);
@@ -271,6 +289,13 @@ export function createSubmissionService(prisma: Database): SubmissionService {
         DELETE FROM submissions
         WHERE form_id = ${formId} AND id IN (${Prisma.join([...new Set(ids)])})
         RETURNING id
+      `;
+      return deleted.map(({ id }) => id);
+    },
+
+    async removeAll(formId) {
+      const deleted = await prisma.$queryRaw<{ id: string }[]>`
+        DELETE FROM submissions WHERE form_id = ${formId} RETURNING id
       `;
       return deleted.map(({ id }) => id);
     },

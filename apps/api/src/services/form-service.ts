@@ -2,9 +2,16 @@ import { randomBytes } from 'node:crypto';
 import {
   applyBrandKit,
   copyFormTitle,
+  createDefaultLiveSettings,
   createDefaultTheme,
+  defaultFormNotifications,
   findPublishIssues,
+  FORM_MESSAGES,
+  formAvailability,
   getFormTemplate,
+  readAccountPreferences,
+  readLiveSettings,
+  readWorkspacePreferences,
   requiredFeatures,
   requiredLogicFeatures,
   slugify,
@@ -14,9 +21,9 @@ import {
   type FormTheme,
   type FormTemplateId,
   type ListFormsQuery,
+  type LiveSettings,
   type PublishFormInput,
   type UpdateFormInput,
-  responseLimitReached,
   storedFormSchemaSchema,
   storedFormThemeSchema,
 } from '@formyx/shared';
@@ -134,9 +141,9 @@ function versionConflict(currentVersion: number): AppError {
 
 const LIMIT_REACHED_MESSAGES = {
   response_limit:
-    'This form has reached its response limit. Raise or remove the limit and publish, then reopen it.',
+    "This form has reached its response limit. Raise or remove the limit in the form's settings, then reopen it.",
   close_date:
-    'This form is past its closing date. Change or remove the date and publish, then reopen it.',
+    "This form is past its closing time. Change or remove it in the form's settings, then reopen it.",
 } as const;
 
 interface NewForm {
@@ -145,6 +152,27 @@ interface NewForm {
   title: string;
   draftSchema: FormSchema;
   theme: FormTheme;
+  liveSettings: LiveSettings;
+}
+
+/**
+ * A template's schema in the creator's language: the form's own words (buttons, checks)
+ * follow it, and the submit button too unless the template words it its own way.
+ */
+function inLanguage(schema: FormSchema, language: FormSchema['settings']['language']): FormSchema {
+  if (language === 'en') return schema;
+  const englishSubmit = FORM_MESSAGES.en.nav.submit;
+  return {
+    ...schema,
+    settings: {
+      ...schema.settings,
+      language,
+      submitButtonText:
+        schema.settings.submitButtonText === englishSubmit
+          ? FORM_MESSAGES[language].nav.submit
+          : schema.settings.submitButtonText,
+    },
+  };
 }
 
 export interface FormService {
@@ -168,7 +196,7 @@ export interface FormService {
   publish(formId: string, input: PublishFormInput): Promise<FormDetail>;
   /** Stops a published form taking responses. */
   close(formId: string): Promise<FormDetail>;
-  /** Takes responses again, unless the published response limit or closing date says no. */
+  /** Takes responses again, unless the response limit or closing time says no. */
   reopen(formId: string): Promise<FormDetail>;
 }
 
@@ -213,15 +241,27 @@ export function createFormService(
 
     async create(workspaceId, userId, { templateId, title }) {
       const template = getFormTemplate(templateId);
-      // New forms start in the workspace's default brand kit, if it has one.
-      const kit = await workspaceDefaultKit(prisma, workspaceId);
-      return insert({
+      const [kit, workspace, user] = await Promise.all([
+        // New forms start in the workspace's default brand kit, if it has one.
+        workspaceDefaultKit(prisma, workspaceId),
+        prisma.workspace.findUnique({ where: { id: workspaceId }, select: { preferences: true } }),
+        prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
+      ]);
+      // In the creator's language, notifying as the workspace's new forms do.
+      const account = readAccountPreferences(user?.preferences);
+      const defaults = readWorkspacePreferences(workspace?.preferences);
+      const created = await insert({
         workspaceId,
         createdById: userId,
         title: title ?? template.defaultTitle,
-        draftSchema: template.build(),
+        draftSchema: inLanguage(template.build(), account.language),
         theme: kit ? applyBrandKit(createDefaultTheme(), kit) : createDefaultTheme(),
+        liveSettings: createDefaultLiveSettings(defaultFormNotifications(defaults)),
       });
+      if (account.emailOnNewForms) {
+        await prisma.formSubscription.create({ data: { userId, formId: created.id } });
+      }
+      return created;
     },
 
     get,
@@ -246,12 +286,18 @@ export function createFormService(
 
     async duplicate(formId, userId) {
       const source = await get(formId);
+      const stored = await prisma.form.findUnique({
+        where: { id: formId },
+        select: { liveSettings: true },
+      });
+      // Settings come along; the password and chat webhooks (secrets) do not.
       return insert({
         workspaceId: source.workspaceId,
         createdById: userId,
         title: copyFormTitle(source.title),
         draftSchema: source.draftSchema,
         theme: source.theme,
+        liveSettings: readLiveSettings(stored?.liveSettings),
       });
     },
 
@@ -334,10 +380,22 @@ export function createFormService(
       if (form.status !== 'CLOSED') {
         throw new AppError(409, 'CONFLICT', 'Only closed forms can be reopened.');
       }
-      const reached =
-        form.publishedSchema &&
-        responseLimitReached(form.publishedSchema.settings, form.responseCount);
-      if (reached) throw new AppError(409, 'CONFLICT', LIMIT_REACHED_MESSAGES[reached]);
+      const stored = await prisma.form.findUnique({
+        where: { id: formId },
+        select: { liveSettings: true },
+      });
+      // As if it were open again: would its limit or closing time close it at once?
+      const availability = formAvailability({
+        status: 'PUBLISHED',
+        access: readLiveSettings(stored?.liveSettings).access,
+        responseCount: form.responseCount,
+      });
+      if (
+        availability.state === 'closed' &&
+        (availability.reason === 'response_limit' || availability.reason === 'close_date')
+      ) {
+        throw new AppError(409, 'CONFLICT', LIMIT_REACHED_MESSAGES[availability.reason]);
+      }
 
       await prisma.form.updateMany({
         where: { id: formId, status: 'CLOSED' },

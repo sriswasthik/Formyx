@@ -1,5 +1,6 @@
 import type { FormTheme } from '@formyx/shared';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
+import { useFormMessages } from './i18n/form-locale';
 
 /** More steps than this read better as a line. */
 export const MAX_STEP_SEGMENTS = 20;
@@ -18,6 +19,7 @@ interface FormProgressProps {
  * or a percentage. A progressbar for assistive technology, whatever it looks like.
  */
 export function FormProgress({ theme, value, total, current }: FormProgressProps) {
+  const messages = useFormMessages();
   const { style, position } = theme.layout.progress;
   if (style === 'none' || total === 0) return null;
   const fraction = Math.min(Math.max(value / total, 0), 1);
@@ -36,16 +38,18 @@ export function FormProgress({ theme, value, total, current }: FormProgressProps
   return (
     <div
       role="progressbar"
-      aria-label="Progress"
+      aria-label={messages.nav.progress}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
       aria-valuetext={
-        current === undefined ? `${percent}% complete` : `Question ${current + 1} of ${total}`
+        current === undefined
+          ? messages.nav.percentComplete(`${percent}%`)
+          : messages.nav.questionOf(current + 1, total)
       }
       data-form-progress={style}
       data-position={position}
-      className={cn(
+      className={cx(
         // It floats over the form as it scrolls; clicks go through to what is under it.
         'pointer-events-none z-10 flex w-full items-center gap-3 px-4 py-2 @xl:px-6',
         position === 'top' ? 'sticky top-0' : 'sticky bottom-0',
@@ -57,7 +61,7 @@ export function FormProgress({ theme, value, total, current }: FormProgressProps
             <span
               key={index}
               data-step-segment
-              className={cn(
+              className={cx(
                 'h-1 flex-1 rounded-full transition-colors duration-250 ease-standard motion-reduce:transition-none',
                 index < value || index === current ? 'bg-(--form-accent)' : 'bg-(--form-border)',
               )}

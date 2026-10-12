@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { fieldIds } from '../field-ids';
 import { FieldRenderer } from '../field-renderer';
 import { FormButton } from '../form-button';
@@ -38,6 +38,7 @@ import {
   type AnswerIntent,
 } from './steps';
 import { useKeyboardInset } from './use-keyboard-inset';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** Long enough to see the answer picked, short enough to feel like one motion. */
 export const AUTO_ADVANCE_DELAY_MS = 350;
@@ -102,6 +103,7 @@ export function ConversationalForm({
   previewStep,
 }: ConversationalFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
+  const messages = useFormMessages();
   const { answers, errors, formError, status, handleChange, checkField, submit } = response;
   const visibleIds = useMemo(
     () => stepVisibleIds(fields, response.activeIds),
@@ -271,12 +273,12 @@ export function ConversationalForm({
       className="flex flex-col"
     >
       <p aria-live="polite" className="sr-only">
-        {steps.length > 0 && `Question ${index + 1} of ${steps.length}`}
+        {steps.length > 0 && messages.nav.questionOf(index + 1, steps.length)}
       </p>
       {/* The title and the question are centred together; after the first question the
           title stays the page's heading for screen readers only. */}
       <div className="flex min-h-[min(24rem,55dvh)] flex-col justify-center">
-        <div className={cn(index > 0 && 'sr-only')}>{header}</div>
+        <div className={cx(index > 0 && 'sr-only')}>{header}</div>
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <m.div
             key={shownId ?? 'empty'}
@@ -307,7 +309,7 @@ export function ConversationalForm({
       {hiddenFields}
       <div
         data-step-nav
-        className={cn(
+        className={cx(
           'flex flex-col gap-3 pt-8',
           // On phones the buttons stay in reach, above the on-screen keyboard.
           variant === 'page' &&
@@ -319,20 +321,20 @@ export function ConversationalForm({
           {index > 0 && (
             <button type="button" className={secondaryButton} onClick={back} disabled={busy}>
               <ChevronLeft aria-hidden />
-              Back
+              {messages.nav.back}
             </button>
           )}
           <FormButton
             type="submit"
             busy={busy}
             disabled={busy}
-            className={cn(!theme.components.buttonFullWidth && 'ml-auto @xl:ml-0')}
+            className={cx(!theme.components.buttonFullWidth && 'ml-auto @xl:ml-0')}
           >
-            {isLast ? schema.settings.submitButtonText : 'Next'}
+            {isLast ? schema.settings.submitButtonText : messages.nav.next}
           </FormButton>
           {steps.length > 0 && (
             <span className="hidden form-text-sm text-(--form-muted) @xl:inline">
-              {longText ? 'or press Ctrl + Enter' : 'or press Enter'}
+              {messages.nav.pressKeys(longText ? 'Ctrl + Enter' : 'Enter')}
             </span>
           )}
         </div>

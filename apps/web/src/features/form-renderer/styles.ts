@@ -72,7 +72,8 @@ export const choiceOption: Record<ChoiceStyle, string> = {
 /** A rating button: takes the choice style's corners, filled with the primary once picked. */
 export const ratingOption = [
   controlSurface,
-  'relative flex size-11 cursor-pointer items-center justify-center form-text font-medium tabular-nums',
+  // Add a size: `size-11`, or a stretched layout's own.
+  'relative flex cursor-pointer items-center justify-center form-text font-medium tabular-nums',
   pickedSolid,
   focusWithin,
 ].join(' ');

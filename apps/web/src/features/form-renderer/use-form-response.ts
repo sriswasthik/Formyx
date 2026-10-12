@@ -1,5 +1,7 @@
 import {
   buildSubmissionValidator,
+  ENGLISH_LOCALE,
+  type FormLocale,
   resolvePath,
   validateAnswers,
   type AnswerValue,
@@ -59,6 +61,8 @@ interface UseFormResponseOptions {
   initialAnswers?: Readonly<Record<string, AnswerValue>> | undefined;
   /** Answers this response carries on from (a saved draft); not kept on reset. */
   startFrom?: Readonly<Record<string, AnswerValue>> | undefined;
+  /** The form's words, for the problems shown under answers. English if not given. */
+  locale?: FormLocale | undefined;
 }
 
 /**
@@ -71,7 +75,9 @@ export function useFormResponse({
   uploadFile,
   initialAnswers,
   startFrom,
+  locale = ENGLISH_LOCALE,
 }: UseFormResponseOptions) {
+  const messages = locale.messages;
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>(() => ({
     ...startFrom,
     ...initialAnswers,
@@ -118,16 +124,16 @@ export function useFormResponse({
   /** Problems with the visible answers, by field id; `only` limits them to some questions. */
   const findProblems = useCallback(
     (only?: ReadonlySet<string>): Record<string, string> => {
-      const problems = validateAnswers(schema, answers);
+      const problems = validateAnswers(schema, answers, messages);
       for (const field of schema.fields) {
         if (uploading.has(field.id) && activeIds.has(field.id)) {
-          problems[field.id] = 'Wait for the file to finish uploading';
+          problems[field.id] = messages.check.waitForUpload;
         }
       }
       if (!only) return problems;
       return Object.fromEntries(Object.entries(problems).filter(([id]) => only.has(id)));
     },
-    [schema, answers, uploading, activeIds],
+    [schema, answers, uploading, activeIds, messages],
   );
 
   /** Checks one question's answer, showing its problem if it has one. */
@@ -171,7 +177,7 @@ export function useFormResponse({
     setStatus('submitting');
     setFormError(null);
     try {
-      const submitted = buildSubmissionValidator(schema, answers).parse(answers);
+      const submitted = buildSubmissionValidator(schema, answers, messages).parse(answers);
       const sent: SubmitOutcome = onSubmit ? await onSubmit(submitted) : { ok: true };
       if (!sent.ok) {
         setStatus('filling');
@@ -185,10 +191,10 @@ export function useFormResponse({
       return { ok: true };
     } catch {
       setStatus('filling');
-      setFormError('Your answers could not be sent. Check your connection and try again.');
+      setFormError(messages.check.sendFailed);
       return { ok: false, problems: {} };
     }
-  }, [findProblems, schema, answers, onSubmit]);
+  }, [findProblems, schema, answers, onSubmit, messages]);
 
   /** Back to an empty form, for "Submit another response". */
   const reset = useCallback(() => {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateFormatSchema, formLanguageSchema, numberFormatSchema } from '../i18n/languages.js';
 import { fieldSchema } from './fields.js';
 import { formLogicSchema } from './logic-schema.js';
 
@@ -8,8 +9,10 @@ import { formLogicSchema } from './logic-schema.js';
 /**
  * 2: Sprint 12's question types, rich-text statements and phone country codes.
  * 3: Sprint 13's logic: page jumps, variables, quizzes and end screens.
+ * 4: Sprint 14's language and formats; the response limit and closing time moved to the
+ *    form's live settings, which take effect without publishing.
  */
-export const FORM_SCHEMA_VERSION = 3;
+export const FORM_SCHEMA_VERSION = 4;
 export const MAX_FIELDS = 250;
 export const FORM_DESCRIPTION_MAX_LENGTH = 2000;
 
@@ -24,10 +27,10 @@ export const formSettingsSchema = z.object({
    * device, `email` also lets them email themselves a link to finish later.
    */
   saveProgress: z.enum(['off', 'browser', 'email']),
-  /** Stop accepting responses after this many. */
-  closeAfterResponses: z.number().int().min(1).max(1_000_000).optional(),
-  /** Stop accepting responses at this moment (ISO 8601). */
-  closeAt: z.iso.datetime({ offset: true, error: 'Use an ISO 8601 date and time' }).optional(),
+  /** The language of everything Formyx says on the form: buttons, checks, dates. */
+  language: formLanguageSchema,
+  dateFormat: dateFormatSchema,
+  numberFormat: numberFormatSchema,
 });
 export type FormSettings = z.infer<typeof formSettingsSchema>;
 

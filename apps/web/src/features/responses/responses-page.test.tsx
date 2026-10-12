@@ -355,6 +355,23 @@ describe('ResponsesPage: responses', () => {
     expect(screen.getByText('A new response arrived.')).toBeInTheDocument();
   });
 
+  it('shows a response as its respondent changes it', async () => {
+    installApi();
+    renderPage({ path: '/app/forms/form_1/responses?tab=responses' });
+    await screen.findByText('Fast and calm');
+
+    liveListener().onUpdated({
+      formId: 'form_1',
+      submission: {
+        ...response('sub_2', new Date().toISOString(), { [likes.id]: 'Calm, and now quick' }),
+        editedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(await screen.findByText('Calm, and now quick')).toBeInTheDocument();
+    expect(screen.queryByText('Fast and calm')).not.toBeInTheDocument();
+  });
+
   it('removes responses that someone else deletes', async () => {
     const api = installApi();
     renderPage({ path: '/app/forms/form_1/responses?tab=responses' });

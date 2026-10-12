@@ -111,6 +111,7 @@ function created(formId: string, id = 'sub_1') {
 function listener() {
   return {
     onCreated: vi.fn<FormListener['onCreated']>(),
+    onUpdated: vi.fn<FormListener['onUpdated']>(),
     onDeleted: vi.fn<FormListener['onDeleted']>(),
     onResync: vi.fn<FormListener['onResync']>(),
   };
@@ -170,12 +171,17 @@ describe('createRealtimeClient', () => {
     await socket.accept();
 
     socket.fire('submission:created', created('form_a'));
+    socket.fire('submission:updated', created('form_b'));
     socket.fire('submissions:deleted', { formId: 'form_b', ids: ['sub_9'] });
     socket.fire('submission:created', { formId: 'form_a', submission: { id: 42 } });
+    socket.fire('submission:updated', { formId: 'form_b', submission: { id: 42 } });
 
     expect(a.onCreated).toHaveBeenCalledOnce();
     expect(a.onCreated).toHaveBeenCalledWith(created('form_a'));
+    expect(a.onUpdated).not.toHaveBeenCalled();
     expect(b.onCreated).not.toHaveBeenCalled();
+    expect(b.onUpdated).toHaveBeenCalledOnce();
+    expect(b.onUpdated).toHaveBeenCalledWith(created('form_b'));
     expect(b.onDeleted).toHaveBeenCalledWith({ formId: 'form_b', ids: ['sub_9'] });
   });
 

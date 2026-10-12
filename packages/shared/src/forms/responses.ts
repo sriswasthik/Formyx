@@ -94,6 +94,10 @@ export const submissionRecordSchema = z.object({
   metadata: submissionMetadataSchema,
   /** Where it ended up; `null` for responses from before Sprint 13. */
   outcome: storedOutcomeSchema.nullable(),
+  /** The address given before the questions, when the form asked for one. */
+  respondentEmail: z.string().nullable().optional(),
+  /** When the respondent last changed it through its private link. */
+  editedAt: z.iso.datetime().nullable().optional(),
 });
 export type SubmissionRecord = z.infer<typeof submissionRecordSchema>;
 

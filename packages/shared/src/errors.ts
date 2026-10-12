@@ -10,6 +10,18 @@ export const ERROR_CODES = [
   'CONFLICT',
   /** The form is closed, full or past its closing date. */
   'FORM_CLOSED',
+  /** The form opens later; `details.opensAt` says when. */
+  'FORM_NOT_OPEN',
+  /** The form has a password: unlock it first, or unlock it again after it changed. */
+  'FORM_LOCKED',
+  /** The password, or an emailed code, was not right. */
+  'WRONG_CODE',
+  /** The form takes one response per person, and this person has responded. */
+  'ALREADY_RESPONDED',
+  /** The form needs the respondent's email address verified first. */
+  'VERIFICATION_REQUIRED',
+  /** The edit link is unknown, or editing is off or over. */
+  'EDIT_UNAVAILABLE',
   /** The draft is not ready to publish; `details` lists what to fix. */
   'FORM_INCOMPLETE',
   /** The invite link was used, revoked or has expired; `details.status` says which. */

@@ -1,6 +1,6 @@
 import { parseRichText, type RichInline } from '@formyx/shared';
 import { Fragment, useMemo } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 
 function Inline({ nodes }: { nodes: readonly RichInline[] }) {
   return nodes.map((node, index) => {
@@ -44,7 +44,7 @@ function Inline({ nodes }: { nodes: readonly RichInline[] }) {
 export function RichText({ text, className }: { text: string; className?: string }) {
   const blocks = useMemo(() => parseRichText(text), [text]);
   return (
-    <div className={cn('flex flex-col gap-3 break-words', className)}>
+    <div className={cx('flex flex-col gap-3 break-words', className)}>
       {blocks.map((block, index) =>
         block.type === 'paragraph' ? (
           <p key={index}>

@@ -1,6 +1,6 @@
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import type * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { formButton } from './styles';
 import { useFormTheme } from './theme/theme-context';
 
@@ -31,7 +31,7 @@ export function FormButton({
       {components.buttonArrow && !busy && <ArrowRight aria-hidden data-button-arrow />}
     </>
   );
-  const classes = cn(formButton(components), className);
+  const classes = cx(formButton(components), className);
 
   if (as === 'span') return <span className={classes}>{content}</span>;
   return (

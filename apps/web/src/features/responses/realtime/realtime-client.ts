@@ -19,6 +19,8 @@ export type RealtimeSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 export interface FormListener {
   onCreated: (event: SubmissionCreatedEvent) => void;
+  /** A respondent changed their response through its private link. */
+  onUpdated: (event: SubmissionCreatedEvent) => void;
   onDeleted: (event: SubmissionsDeletedEvent) => void;
   /** Back after a gap, during which events may have been missed: fetch afresh. */
   onResync: () => void;
@@ -139,6 +141,13 @@ export function createRealtimeClient({
       if (!event.success) return;
       for (const listener of subscriptions.get(event.data.formId) ?? [])
         listener.onCreated(event.data);
+    });
+
+    created.on('submission:updated', (payload) => {
+      const event = submissionCreatedEventSchema.safeParse(payload);
+      if (!event.success) return;
+      for (const listener of subscriptions.get(event.data.formId) ?? [])
+        listener.onUpdated(event.data);
     });
 
     created.on('submissions:deleted', (payload) => {

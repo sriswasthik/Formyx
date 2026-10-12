@@ -6,7 +6,7 @@ import {
   type BackgroundLayer,
   type FormTheme,
 } from '@formyx/shared';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { isAnimatableLayer, layerStyle } from './layer-styles';
 
 type ShapesLayer = Extract<BackgroundLayer, { type: 'shapes' }>;
@@ -62,7 +62,7 @@ function Layer({
   return (
     <div
       data-layer={layer.type}
-      className={cn(
+      className={cx(
         'absolute',
         // A drifting layer is a little larger than its area, so its edges never show.
         drifts ? '-inset-[6%] motion-safe:animate-form-drift' : 'inset-0',
@@ -102,10 +102,10 @@ export function ThemeBackground({ theme, sticky = false, className }: Background
       aria-hidden
       data-theme-background
       // `clip` rather than `hidden`, which would stop the sticky layer inside from sticking.
-      className={cn('pointer-events-none absolute inset-0 -z-10 overflow-clip', className)}
+      className={cx('pointer-events-none absolute inset-0 -z-10 overflow-clip', className)}
     >
       <div
-        className={cn('relative w-full overflow-clip', sticky ? 'sticky top-0 h-dvh' : 'h-full')}
+        className={cx('w-full overflow-clip', sticky ? 'sticky top-0 h-dvh' : 'relative h-full')}
       >
         {theme.background.layers.map((layer) =>
           layer.hidden ? null : (

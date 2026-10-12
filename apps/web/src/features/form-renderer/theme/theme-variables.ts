@@ -233,7 +233,12 @@ function containerVariables(theme: FormTheme): CssVariables {
  * A form always looks like its theme, never like the builder's light or dark mode, so what
  * the editor shows is what respondents get.
  */
-export function themeVariables(theme: FormTheme): CssVariables {
+/**
+ * `scriptFont` is a font for a script the theme's fonts lack (Telugu, Devanagari), tried
+ * after them for each character they cannot draw.
+ */
+export function themeVariables(theme: FormTheme, scriptFont?: string): CssVariables {
+  const withScript = (stack: string) => (scriptFont ? `${stack}, ${scriptFont}` : stack);
   const { colors, typography, components } = theme;
   // What text, inputs and choices sit on: the container, or the background without one.
   const surface = colors.containerBackground;
@@ -255,8 +260,8 @@ export function themeVariables(theme: FormTheme): CssVariables {
     '--ring': colors.primary,
 
     '--form-text': `${typography.baseSize}px`,
-    '--form-body-font': fontStack(typography.bodyFont),
-    '--form-heading-font': fontStack(typography.headingFont),
+    '--form-body-font': withScript(fontStack(typography.bodyFont)),
+    '--form-heading-font': withScript(fontStack(typography.headingFont)),
     '--form-heading-weight': String(typography.headingWeight),
     '--form-letter-spacing': `${typography.letterSpacing}em`,
     // Headings stay a touch tighter than body text, as in the builder's type scale.
@@ -272,9 +277,9 @@ export function themeVariables(theme: FormTheme): CssVariables {
 }
 
 /** `themeVariables` plus the root's own font settings, ready for a `style` prop. */
-export function themeStyle(theme: FormTheme): React.CSSProperties {
+export function themeStyle(theme: FormTheme, scriptFont?: string): React.CSSProperties {
   return {
-    ...themeVariables(theme),
+    ...themeVariables(theme, scriptFont),
     fontFamily: 'var(--form-body-font)',
     fontSize: 'var(--form-text)',
     letterSpacing: 'var(--form-letter-spacing)',

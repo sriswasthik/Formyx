@@ -163,6 +163,11 @@ export const PAGE_TRANSITIONS = ['none', 'fade', 'slide'] as const;
 export const TEXT_ALIGNS = ['left', 'center'] as const;
 /** How questions are numbered: not at all, 1. 2. 3., or A. B. C. */
 export const QUESTION_NUMBERING = ['none', 'number', 'letter'] as const;
+/**
+ * How required questions are marked: an asterisk, the word "Required", or the optional ones
+ * marked instead. Screen readers hear "required" whichever it is.
+ */
+export const REQUIRED_MARKERS = ['asterisk', 'word', 'optional'] as const;
 /** Single and multiple choice: a list of rows, bordered cards, wrapped pills or buttons. */
 export const CHOICE_STYLES = ['list', 'cards', 'pills', 'buttons'] as const;
 export const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;
@@ -223,6 +228,7 @@ export const formThemeSchema = z
       textAlign: z.enum(TEXT_ALIGNS),
       // Settings added after v2 shipped have defaults, so themes saved before them still read.
       questionNumbering: z.enum(QUESTION_NUMBERING).default('none'),
+      requiredMarker: z.enum(REQUIRED_MARKERS).default('asterisk'),
     }),
     colors: themeColorsSchema,
     components: z.object({

@@ -4,7 +4,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { parseThemePreference } from '@/features/theme/theme';
 import { useThemeStore } from '@/features/theme/theme-store';
 import { THEME_OPTIONS } from '@/features/theme/theme-options';
+import { FormDefaultsCard, MotionCard } from './account/account-preferences-cards';
+import { DeleteAccountCard, PasswordCard } from './account/account-security-cards';
 
+/** The signed-in person's own settings: look, motion, new forms, password and account. */
 export function PreferencesPage() {
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
@@ -14,7 +17,7 @@ export function PreferencesPage() {
       <Card>
         <CardHeader>
           <CardTitle id="appearance-title">Appearance</CardTitle>
-          <CardDescription>Choose how Formyx looks on this device.</CardDescription>
+          <CardDescription>How Formyx looks, on every device you sign in on.</CardDescription>
         </CardHeader>
         <CardContent>
           <RadioGroup
@@ -39,6 +42,10 @@ export function PreferencesPage() {
           </RadioGroup>
         </CardContent>
       </Card>
+      <MotionCard />
+      <FormDefaultsCard />
+      <PasswordCard />
+      <DeleteAccountCard />
     </div>
   );
 }

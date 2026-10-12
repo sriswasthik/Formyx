@@ -74,9 +74,12 @@ export async function deleteResponses(formId: string, ids: readonly string[]): P
   return deleted;
 }
 
-/** Downloading this sends the session cookie, like any other API request from this site. */
-export function exportResponsesUrl(formId: string): string {
-  return `/api${submissionsPath(formId)}/export`;
+/**
+ * Where every response downloads from, as CSV or Excel. Downloading sends the session cookie,
+ * like any other API request from this site.
+ */
+export function exportResponsesUrl(formId: string, format: 'csv' | 'xlsx' = 'csv'): string {
+  return `/api${submissionsPath(formId)}/${format === 'csv' ? 'export' : 'export.xlsx'}`;
 }
 
 export function getNotificationSettings(formId: string): Promise<NotificationSettings> {

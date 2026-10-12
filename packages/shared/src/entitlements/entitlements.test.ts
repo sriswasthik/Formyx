@@ -22,6 +22,12 @@ const FEATURE_MATRIX: Record<FeatureId, Record<Plan, boolean>> = {
   google_sheets: { FREE: false, PRO: true, BUSINESS: true },
   advanced_logic: { FREE: false, PRO: true, BUSINESS: true },
   quiz_mode: { FREE: false, PRO: true, BUSINESS: true },
+  verified_responses: { FREE: false, PRO: true, BUSINESS: true },
+  autoresponder: { FREE: false, PRO: true, BUSINESS: true },
+  chat_notifications: { FREE: false, PRO: true, BUSINESS: true },
+  extra_recipients: { FREE: false, PRO: true, BUSINESS: true },
+  custom_social: { FREE: false, PRO: true, BUSINESS: true },
+  excel_export: { FREE: false, PRO: true, BUSINESS: true },
 };
 
 const LIMIT_MATRIX: Record<LimitId, Record<Plan, number | null>> = {

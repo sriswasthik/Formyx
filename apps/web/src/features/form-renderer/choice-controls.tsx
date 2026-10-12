@@ -1,16 +1,17 @@
 import type { AnswerValue, FieldOfType } from '@formyx/shared';
 import { Check, ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { choiceGroup, choiceOption, inputRadius, ratingOption, textControl } from './styles';
 import { useFormTheme } from './theme/theme-context';
 import type { ControlProps } from './types';
+import { useFormMessages } from './i18n/form-locale';
 
 /** The radio or checkbox drawn beside an option in the list and card styles. */
 function ChoiceIndicator({ multiple, checked }: { multiple: boolean; checked: boolean }) {
   return (
     <span
       aria-hidden
-      className={cn(
+      className={cx(
         'flex size-4.5 shrink-0 items-center justify-center border border-(--form-border-strong) bg-(--form-bg) transition-colors duration-150',
         multiple ? 'rounded-[min(var(--form-radius),5px)]' : 'rounded-full',
         'peer-checked:border-(--form-accent) peer-checked:bg-(--form-accent) peer-checked:text-(--form-accent-fg)',
@@ -91,7 +92,7 @@ export function ChoiceList({
             ) : (
               checked && <Check aria-hidden className="-ml-1 size-4 shrink-0" strokeWidth={2.5} />
             )}
-            <span className={cn('min-w-0 break-words', indicator && 'flex-1')}>
+            <span className={cx('min-w-0 break-words', indicator && 'flex-1')}>
               {option.label || <span className="text-(--form-muted)">Untitled option</span>}
             </span>
           </label>
@@ -118,17 +119,18 @@ export function DropdownControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'dropdown'>>) {
+  const messages = useFormMessages();
   const current = typeof value === 'string' ? value : '';
 
   return (
     <div className="relative">
       <select
         id={controlId}
-        className={cn(
+        className={cx(
           textControl,
           inputRadius,
           'h-11 appearance-none pr-10',
-          current === '' && 'text-(--form-muted)',
+          current === '' && 'text-(--form-muted)!',
         )}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
@@ -139,7 +141,7 @@ export function DropdownControl({
         }}
       >
         <option value="" disabled={field.required}>
-          {field.placeholder || 'Select an option'}
+          {field.placeholder || messages.controls.selectOption}
         </option>
         {field.options.map((option) => (
           <option key={option.id} value={option.id} className="text-(--form-fg)">
@@ -193,11 +195,11 @@ export function ScaleButtons({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className={cn('flex gap-1.5 @sm:gap-2', stretch ? 'w-full' : 'flex-wrap')}>
+      <div className={cx('flex gap-1.5 @sm:gap-2', stretch ? 'w-full' : 'flex-wrap')}>
         {values.map((rating) => (
           <label
             key={rating}
-            className={cn(ratingOption, stretch && 'size-auto h-11 min-w-0 flex-1 px-0')}
+            className={cx(ratingOption, stretch ? 'h-11 min-w-0 flex-1 px-0' : 'size-11')}
           >
             <input
               id={rating === first ? controlId : undefined}

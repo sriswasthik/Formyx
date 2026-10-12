@@ -40,8 +40,24 @@ function cookieFor(userId: string): string {
 
 describe('requireAuth', () => {
   it('exposes the signed-in user id to later handlers', async () => {
-    const res = await request(app).get('/whoami').set('Cookie', cookieFor('user-1')).expect(200);
-    expect(res.body).toEqual({ userId: 'user-1' });
+    const res = await request(app)
+      .get('/whoami')
+      .set('Cookie', cookieFor(userIds.OWNER))
+      .expect(200);
+    expect(res.body).toEqual({ userId: userIds.OWNER });
+  });
+
+  it('signs out sessions of deleted accounts, and from before a password change', async () => {
+    await request(app).get('/whoami').set('Cookie', cookieFor('no-such-user')).expect(401);
+
+    const before = cookieFor(userIds.OWNER);
+    await prisma.user.update({ where: { id: userIds.OWNER }, data: { passwordVersion: 1 } });
+    const res = await request(app).get('/whoami').set('Cookie', before).expect(401);
+    expect(String(res.headers['set-cookie'])).toMatch(/^formyx_session=;/);
+    await request(app)
+      .get('/whoami')
+      .set('Cookie', `${SESSION_COOKIE}=${signSessionToken(userIds.OWNER, TEST_JWT_SECRET, 1)}`)
+      .expect(200);
   });
 
   it('rejects a missing or invalid session', async () => {

@@ -189,6 +189,7 @@ describe('createDefaultTheme', () => {
           "headingWeight": 600,
           "letterSpacing": 0,
           "questionNumbering": "none",
+          "requiredMarker": "asterisk",
           "textAlign": "left",
         },
         "version": 2,

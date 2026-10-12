@@ -45,6 +45,8 @@ export type SubmissionsDeletedEvent = z.infer<typeof submissionsDeletedEventSche
 
 export interface ServerToClientEvents {
   'submission:created': (event: SubmissionCreatedEvent) => void;
+  /** A respondent changed their response through its private link. */
+  'submission:updated': (event: SubmissionCreatedEvent) => void;
   'submissions:deleted': (event: SubmissionsDeletedEvent) => void;
 }
 

@@ -118,8 +118,13 @@ export function attachRealtime(
     });
   });
 
-  events.on('submission.created', (event) => {
-    io.to(formRoom(event.formId)).emit('submission:created', event);
+  // Only the response itself: never the respondent's edit token, which would let members
+  // change their answers.
+  events.on('submission.created', ({ formId, submission }) => {
+    io.to(formRoom(formId)).emit('submission:created', { formId, submission });
+  });
+  events.on('submission.updated', ({ formId, submission }) => {
+    io.to(formRoom(formId)).emit('submission:updated', { formId, submission });
   });
   events.on('submissions.deleted', (event) => {
     io.to(formRoom(event.formId)).emit('submissions:deleted', event);

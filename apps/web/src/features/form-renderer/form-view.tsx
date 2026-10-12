@@ -1,9 +1,11 @@
 import {
   createShuffleSeed,
   displayOrder,
+  ENGLISH_LOCALE,
+  FORM_LOCALES,
   formPages,
-  hiddenFieldValues,
   isAnswered,
+  linkAnswers,
   isShownQuestionType,
   presentField,
   QUIZ_PERCENT_VARIABLE,
@@ -11,6 +13,7 @@ import {
   resolvePiping,
   type AnswerValue,
   type DraftState,
+  type FormLocale,
   type FormSchema,
   type FormTheme,
   type SubmissionOutcome,
@@ -24,6 +27,7 @@ import { useConversational } from './conversational/load-conversational';
 import { FormLogo } from './branding';
 import { FileUploadsContext, type FileUploader } from './file-uploads';
 import { FormProgress } from './form-progress';
+import { FormLocaleContext } from './i18n/form-locale';
 import { endScreenModule, saveForLaterModule, useLazyModule } from './lazy-module';
 import { questionNumbers } from './numbering';
 import { clearSavedProgress, readSavedProgress, useSavedProgress } from './saved-progress';
@@ -90,8 +94,20 @@ interface FormViewProps {
   previewEndScreenId?: string | undefined;
   /** A line for the respondent above the questions, such as an expired link. */
   notice?: string | undefined;
+  /** The form's words and formats; English with the usual formats if not given. */
+  locale?: FormLocale | undefined;
+  /** The private link to change the response, shown on the end screen once sent. */
+  editUrl?: string | null | undefined;
+  /** Changing an earlier response: says so above the questions, and the button saves. */
+  editing?: boolean;
   className?: string;
 }
+
+/** Fonts for scripts most theme fonts lack; loaded with their languages' catalogs. */
+const SCRIPT_FONTS: Partial<Record<FormLocale['format']['language'], string>> = {
+  te: "'Noto Sans Telugu'",
+  hi: "'Noto Sans Devanagari'",
+};
 
 /**
  * Animation code arrives after the form first renders: a form's first paint never waits for
@@ -149,13 +165,16 @@ export function FormView({
   allowRedirect = false,
   previewEndScreenId,
   notice,
+  locale = ENGLISH_LOCALE,
+  editUrl,
+  editing = false,
   className,
 }: FormViewProps) {
   const idPrefix = useId();
-  // Read once: the link and what was saved do not change while the form is open.
-  const [hiddenValues] = useState(() =>
-    linkParams ? hiddenFieldValues(schema, linkParams) : undefined,
-  );
+  const messages = locale.messages;
+  // Read once: the link and what was saved do not change while the form is open. The link
+  // fills hidden fields, and prefills questions it names.
+  const [hiddenValues] = useState(() => (linkParams ? linkAnswers(schema, linkParams) : undefined));
   const [start] = useState<ResumeFrom | null>(() => {
     if (resume) return resume;
     const saved = saveProgressKey ? readSavedProgress(saveProgressKey) : null;
@@ -173,6 +192,7 @@ export function FormView({
     uploadFile,
     initialAnswers: hiddenValues,
     startFrom: start?.answers,
+    locale,
   });
   const { answers, status, path, activeIds, fileUploads, outcome } = response;
   const conversational = theme.layout.mode === 'conversational';
@@ -182,6 +202,17 @@ export function FormView({
 
   // The form as this respondent sees it: their order, answers piped in.
   const ordered = useMemo(() => displayOrder(schema, seed), [schema, seed]);
+  // Changing a response: the last button saves the changes, whatever the form calls it.
+  const sendingSchema = useMemo(
+    () =>
+      editing
+        ? {
+            ...schema,
+            settings: { ...schema.settings, submitButtonText: messages.access.saveChanges },
+          }
+        : schema,
+    [editing, schema, messages],
+  );
   const fieldById = useMemo(
     () => new Map(schema.fields.map((field) => [field.id, field])),
     [schema.fields],
@@ -192,8 +223,14 @@ export function FormView({
       const value = answers[id];
       if (value !== undefined) seen[id] = value;
     }
-    return { fieldById, answers: seen, values: path.values, variables: schema.logic.variables };
-  }, [fieldById, answers, activeIds, path.values, schema.logic.variables]);
+    return {
+      fieldById,
+      answers: seen,
+      values: path.values,
+      variables: schema.logic.variables,
+      locale,
+    };
+  }, [fieldById, answers, activeIds, path.values, schema.logic.variables, locale]);
   const presented = useMemo(
     () => ordered.map((field) => presentField(field, { piping, seed })),
     [ordered, piping, seed],
@@ -303,14 +340,20 @@ export function FormView({
           {notice}
         </p>
       )}
-      {welcomeBack && (
+      {editing && (
+        <div role="status" className="flex flex-col gap-1 form-text-sm text-(--form-muted)">
+          <p className="font-medium text-(--form-fg)">{messages.access.editingTitle}</p>
+          <p>{messages.access.editingText}</p>
+        </div>
+      )}
+      {welcomeBack && !editing && (
         <p
           role="status"
           className="flex flex-wrap items-center gap-x-3 gap-y-1 form-text-sm text-(--form-muted)"
         >
-          Welcome back: your answers are as you left them.
+          {messages.nav.welcomeBack}
           <button type="button" className={secondaryButton} onClick={startOver}>
-            Start over
+            {messages.nav.startOver}
           </button>
         </p>
       )}
@@ -348,17 +391,18 @@ export function FormView({
         onAnotherResponse={
           allowAnotherResponse && previewEndScreenId === undefined ? startOver : undefined
         }
+        editUrl={previewEndScreenId === undefined ? (editUrl ?? null) : null}
       />
     ) : (
       <p role="status" className="py-12 text-center form-text">
-        Thank you.
+        {messages.nav.thankYou}
       </p>
     );
   } else if (conversational) {
     body = conversationalModule ? (
       <conversationalModule.ConversationalForm
         key={attempt}
-        schema={schema}
+        schema={sendingSchema}
         fields={presented}
         theme={theme}
         response={response}
@@ -378,7 +422,7 @@ export function FormView({
     body = (
       <ClassicForm
         key={attempt}
-        schema={schema}
+        schema={sendingSchema}
         fields={presented}
         response={response}
         idPrefix={idPrefix}
@@ -397,15 +441,19 @@ export function FormView({
 
   return (
     <LazyMotion features={loadMotionFeatures}>
-      <ThemeRenderer
-        theme={theme}
-        variant={variant}
-        footer={footer}
-        progress={progress}
-        className={className}
-      >
-        <FileUploadsContext.Provider value={fileUploads}>{body}</FileUploadsContext.Provider>
-      </ThemeRenderer>
+      <FormLocaleContext.Provider value={locale}>
+        <ThemeRenderer
+          theme={theme}
+          variant={variant}
+          footer={footer}
+          progress={progress}
+          className={className}
+          scriptFont={SCRIPT_FONTS[locale.format.language]}
+          lang={FORM_LOCALES[locale.format.language]}
+        >
+          <FileUploadsContext.Provider value={fileUploads}>{body}</FileUploadsContext.Provider>
+        </ThemeRenderer>
+      </FormLocaleContext.Provider>
     </LazyMotion>
   );
 }

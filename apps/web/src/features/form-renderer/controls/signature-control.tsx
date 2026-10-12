@@ -1,11 +1,12 @@
 import { fontStack, isFileAnswer, type FieldOfType } from '@formyx/shared';
 import { Check, Eraser } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { inputRadius, secondaryButton, textControl } from '../styles';
 import { loadFont } from '../theme/fonts';
 import type { ControlProps } from '../types';
 import { useAnswerUpload } from './use-answer-upload';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** How long after the last stroke (or key) the signature is saved. */
 const SAVE_DELAY_MS = 800;
@@ -68,6 +69,7 @@ function SignatureControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'signature'>>) {
+  const messages = useFormMessages();
   const { state, upload, reset } = useAnswerUpload(field, onChange);
   const [mode, setMode] = useState<Mode>('draw');
   const [name, setName] = useState('');
@@ -130,10 +132,10 @@ function SignatureControl({
       <div className="flex flex-wrap items-center gap-3" id={controlId} tabIndex={-1}>
         <span className="inline-flex items-center gap-2 form-text">
           <Check aria-hidden className="size-4 text-(--form-accent)" />
-          Signature saved
+          {messages.signature.saved}
         </span>
         <button type="button" className={secondaryButton} onClick={clear}>
-          Sign again
+          {messages.signature.signAgain}
         </button>
       </div>
     );
@@ -147,16 +149,16 @@ function SignatureControl({
             key={option}
             type="button"
             aria-pressed={mode === option}
-            className={cn(
+            className={cx(
               secondaryButton,
-              'h-9 aria-pressed:bg-(--form-accent-subtle) aria-pressed:text-(--form-fg)',
+              'h-9! aria-pressed:bg-(--form-accent-subtle) aria-pressed:text-(--form-fg)',
             )}
             onClick={() => {
               clear();
               setMode(option);
             }}
           >
-            {option === 'draw' ? 'Draw' : 'Type'}
+            {option === 'draw' ? messages.signature.draw : messages.signature.type}
           </button>
         ))}
       </div>
@@ -166,7 +168,7 @@ function SignatureControl({
           type="text"
           autoComplete="name"
           placeholder="Type your full name"
-          className={cn(textControl, inputRadius, 'h-11')}
+          className={cx(textControl, inputRadius, 'h-11')}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
           value={name}
@@ -183,16 +185,12 @@ function SignatureControl({
           ref={canvasRef}
           id={mode === 'draw' ? controlId : undefined}
           tabIndex={mode === 'draw' ? 0 : -1}
-          aria-label={
-            mode === 'draw'
-              ? 'Signature pad: sign with a mouse, finger or pen, or choose Type'
-              : 'Your typed signature'
-          }
+          aria-label={mode === 'draw' ? messages.signature.padLabel : messages.signature.typedLabel}
           aria-describedby={describedBy}
-          className={cn(
-            'block w-full touch-none rounded-(--form-input-radius) border border-dashed border-(--form-box-border) bg-(--form-box-bg) text-(--form-fg)',
+          className={cx(
+            'block w-full touch-none rounded-(--form-input-radius) border border-dashed bg-(--form-box-bg) text-(--form-fg)',
             mode === 'draw' && 'cursor-crosshair',
-            invalid && 'border-(--form-danger)',
+            invalid ? 'border-(--form-danger)' : 'border-(--form-box-border)',
           )}
           style={{ height: HEIGHT }}
           onPointerDown={(event) => {
@@ -225,18 +223,18 @@ function SignatureControl({
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center form-text-sm text-(--form-muted)"
           >
-            Sign here
+            {messages.signature.signHere}
           </span>
         )}
       </div>
       <div className="flex items-center justify-between gap-2">
         <p role="status" className="form-text-sm text-(--form-muted)">
-          {state.status === 'uploading' && 'Saving your signature…'}
+          {state.status === 'uploading' && messages.signature.saving}
           {state.status === 'failed' && state.message}
         </p>
         <button type="button" className={secondaryButton} onClick={clear}>
           <Eraser aria-hidden className="size-4" />
-          Clear
+          {messages.signature.clear}
         </button>
       </div>
     </div>

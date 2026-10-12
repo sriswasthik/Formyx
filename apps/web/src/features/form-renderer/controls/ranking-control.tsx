@@ -17,9 +17,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { controlSurface, secondaryButton } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 interface RankRowProps {
   id: string;
@@ -30,13 +31,14 @@ interface RankRowProps {
   onMove: (to: number) => void;
 }
 
-const iconButton = cn(
+const iconButton = cx(
   'inline-flex size-9 items-center justify-center rounded-(--form-radius) text-(--form-muted)',
   'transition-colors duration-150 ease-standard hover:not-disabled:bg-(--form-hover) hover:not-disabled:text-(--form-fg)',
   'disabled:opacity-40',
 );
 
 function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
+  const messages = useFormMessages();
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id,
   });
@@ -45,7 +47,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
+      className={cx(
         controlSurface,
         'flex items-center gap-2 py-1.5 pr-1.5 pl-1 form-text',
         isDragging && 'relative z-10 shadow-lg',
@@ -63,7 +65,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
       </span>
       <span
         aria-hidden
-        className={cn(
+        className={cx(
           'flex size-6 shrink-0 items-center justify-center rounded-full form-text-sm font-medium tabular-nums',
           ranked
             ? 'bg-(--form-accent) text-(--form-accent-fg)'
@@ -76,7 +78,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
       <button
         type="button"
         className={iconButton}
-        aria-label={`Move ${name} up`}
+        aria-label={messages.controls.moveUp(name)}
         disabled={rank === 1}
         onClick={() => {
           onMove(rank - 2);
@@ -87,7 +89,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
       <button
         type="button"
         className={iconButton}
-        aria-label={`Move ${name} down`}
+        aria-label={messages.controls.moveDown(name)}
         disabled={rank === total}
         onClick={() => {
           onMove(rank);
@@ -110,6 +112,7 @@ function RankingControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'ranking'>>) {
+  const messages = useFormMessages();
   const ids = field.options.map((option) => option.id);
   const answered =
     Array.isArray(value) && value.length === ids.length && value.every((id) => ids.includes(id));
@@ -141,7 +144,7 @@ function RankingControl({
     <div className="flex flex-col gap-2" id={controlId} aria-describedby={describedBy}>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
-          <ol className="flex flex-col gap-2" aria-label="Your order, first at the top">
+          <ol className="flex flex-col gap-2" aria-label={messages.controls.rankingHelp}>
             {order.map((id, index) => (
               <RankRow
                 key={id}
@@ -161,13 +164,13 @@ function RankingControl({
       {!answered && order.length > 0 && (
         <button
           type="button"
-          className={cn(secondaryButton, 'self-start')}
+          className={cx(secondaryButton, 'self-start')}
           onClick={() => {
             onChange([...order]);
-            setAnnouncement('Order kept as shown');
+            setAnnouncement(messages.controls.orderKept);
           }}
         >
-          Keep this order
+          {messages.controls.keepOrder}
         </button>
       )}
       <p role="status" className="sr-only">

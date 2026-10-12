@@ -6,6 +6,7 @@ import { parseEnv } from '../config/env.js';
 import { createEventBus } from '../lib/events.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
+import type { DeliveryRequest, WebhookTransport } from '../lib/webhook-transport.js';
 import { createDefaultWebhookDispatcher, type WebhookDispatcher } from '../webhooks/dispatcher.js';
 import { createServer, type FormyxServer } from '../server.js';
 import { testDatabaseUrl, testPrisma } from './database.js';
@@ -43,7 +44,13 @@ export function createTestApp(
     storage = null,
     mailer = createFakeMailer(),
     webhooks,
-  }: { storage?: UploadStorage | null; mailer?: Mailer; webhooks?: WebhookDispatcher } = {},
+    chat = createFakeChatTransport(),
+  }: {
+    storage?: UploadStorage | null;
+    mailer?: Mailer;
+    webhooks?: WebhookDispatcher;
+    chat?: WebhookTransport;
+  } = {},
 ) {
   const parsed = testEnv(env);
   return createApp({
@@ -54,7 +61,18 @@ export function createTestApp(
     storage,
     mailer,
     webhooks: webhooks ?? createTestWebhookDispatcher(parsed),
+    chat,
   });
+}
+
+/** A chat transport that remembers what it was asked to post, and answers 200. */
+export function createFakeChatTransport() {
+  const posts: DeliveryRequest[] = [];
+  const transport = vi.fn<WebhookTransport>((request) => {
+    posts.push(request);
+    return Promise.resolve({ statusCode: 200 });
+  });
+  return Object.assign(transport, { posts });
 }
 
 /** Retries a few milliseconds apart rather than seconds, so tests can wait for them. */
@@ -93,12 +111,14 @@ export async function startTestServer({
   logger = silentLogger,
   storage = null,
   webhookRetryDelaysMs = TEST_RETRY_DELAYS_MS,
+  chat = createFakeChatTransport(),
 }: {
   mailer?: Mailer;
   logger?: typeof silentLogger;
   storage?: UploadStorage | null;
   /** Waits between webhook retries; a test that acts between tries makes them longer. */
   webhookRetryDelaysMs?: readonly number[];
+  chat?: WebhookTransport;
 } = {}): Promise<TestServer> {
   const server = createServer({
     env: testEnv({}),
@@ -107,6 +127,7 @@ export async function startTestServer({
     mailer,
     storage,
     webhooks: createTestWebhookDispatcher(testEnv({}), webhookRetryDelaysMs),
+    chat,
   });
   await new Promise<void>((resolve) => {
     server.httpServer.listen(0, '127.0.0.1', resolve);

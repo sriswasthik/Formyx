@@ -1,5 +1,4 @@
 import {
-  ADDRESS_PART_LABELS,
   isAddressAnswer,
   PIN_CODE_PATTERN,
   pinCodeLookupSchema,
@@ -9,9 +8,10 @@ import {
 } from '@formyx/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiRequestError, apiRequest } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import { inputRadius, textControl } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** States and union territories, offered as suggestions for the state box. */
 const STATES = [
@@ -82,6 +82,7 @@ function AddressControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'address'>>) {
+  const messages = useFormMessages();
   const address = isAddressAnswer(value) ? { ...EMPTY, ...value } : EMPTY;
   const pin = address.pin.trim();
   const complete = PIN_CODE_PATTERN.test(pin);
@@ -142,9 +143,9 @@ function AddressControl({
     const id = part === 'line1' ? controlId : `${controlId}-${part}`;
     const optional = part === 'line2';
     return (
-      <div className={cn('flex min-w-0 flex-col gap-1', className)}>
+      <div className={cx('flex min-w-0 flex-col gap-1', className)}>
         <label htmlFor={id} className="form-text-sm text-(--form-muted)">
-          {ADDRESS_PART_LABELS[part]}
+          {messages.address[part]}
           {optional && ' (optional)'}
         </label>
         <input
@@ -154,7 +155,7 @@ function AddressControl({
           maxLength={part === 'pin' ? 6 : 200}
           autoComplete={AUTOCOMPLETE[part]}
           list={part === 'state' ? `${controlId}-states` : undefined}
-          className={cn(textControl, inputRadius, 'h-11')}
+          className={cx(textControl, inputRadius, 'h-11')}
           value={address[part] ?? ''}
           aria-describedby={
             part === 'pin' ? `${controlId}-pin-status ${describedBy ?? ''}`.trim() : describedBy
@@ -186,11 +187,10 @@ function AddressControl({
         role="status"
         className="form-text-sm text-(--form-muted) empty:hidden @md:col-span-6"
       >
-        {lookup.state === 'looking' && 'Looking up the PIN code…'}
+        {lookup.state === 'looking' && messages.address.lookingUp}
         {lookup.state === 'found' && `PIN code found: ${lookup.place}`}
-        {lookup.state === 'unknown' &&
-          'We could not find this PIN code. Check it, or type the city and state.'}
-        {lookup.state === 'failed' && 'Type the city and state.'}
+        {lookup.state === 'unknown' && messages.address.pinNotFound}
+        {lookup.state === 'failed' && messages.address.typeCityState}
       </p>
     </div>
   );

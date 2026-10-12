@@ -1,6 +1,7 @@
 import type { FieldOfType } from '@formyx/shared';
-import { cn } from '@/lib/utils';
+import { cx } from '@/lib/cx';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** "7.5 kg"; numbers keep the step's decimals so the value does not jump in width. */
 function formatValue(value: number, field: FieldOfType<'slider'>): string {
@@ -21,6 +22,7 @@ function SliderControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'slider'>>) {
+  const messages = useFormMessages();
   const answered = typeof value === 'number';
   const middle = field.min + Math.round((field.max - field.min) / 2 / field.step) * field.step;
   const current = answered ? value : middle;
@@ -32,9 +34,9 @@ function SliderControl({
         <output
           htmlFor={controlId}
           aria-live="polite"
-          className={cn('form-text font-medium tabular-nums', !answered && 'text-(--form-muted)')}
+          className={cx('form-text font-medium tabular-nums', !answered && 'text-(--form-muted)')}
         >
-          {answered ? formatValue(value, field) : 'Drag to answer'}
+          {answered ? formatValue(value, field) : messages.controls.dragToAnswer}
         </output>
       </div>
       <input
@@ -46,7 +48,7 @@ function SliderControl({
         value={current}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
-        aria-valuetext={answered ? formatValue(value, field) : 'Not answered'}
+        aria-valuetext={answered ? formatValue(value, field) : messages.answer.notAnswered}
         data-answered={answered || undefined}
         className="form-range w-full"
         style={{ '--form-range-fill': `${share}%` } as React.CSSProperties}

@@ -2,6 +2,7 @@ import type { AnswerValue, FieldOfType, UploadFieldType } from '@formyx/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isUploadCancelled, uploadErrorMessage } from '@/lib/uploads';
 import { useFileUploads } from '../file-uploads';
+import { useFormMessages } from '../i18n/form-locale';
 
 export type UploadState =
   | { status: 'idle' }
@@ -17,6 +18,7 @@ export function useAnswerUpload(
   field: FieldOfType<UploadFieldType>,
   onChange: (value: AnswerValue) => void,
 ) {
+  const messages = useFormMessages();
   const uploads = useFileUploads();
   const [state, setState] = useState<UploadState>({ status: 'idle' });
   const controllerRef = useRef<AbortController | null>(null);
@@ -36,7 +38,7 @@ export function useAnswerUpload(
       controllerRef.current?.abort();
       onChange(null);
       if (!uploads?.upload) {
-        const message = 'This can’t be saved here.';
+        const message = messages.upload.cannotSave;
         setState({ status: 'failed', message });
         uploads?.reportProblem(fieldId, message);
         return;
@@ -65,7 +67,7 @@ export function useAnswerUpload(
         uploads.setUploading(fieldId, false);
       }
     },
-    [uploads, field, fieldId, onChange],
+    [uploads, field, fieldId, onChange, messages],
   );
 
   const reset = useCallback(() => {

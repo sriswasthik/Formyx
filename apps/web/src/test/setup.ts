@@ -8,6 +8,24 @@ afterEach(() => {
   localStorage.clear();
 });
 
+// `cx` joins classes without resolving conflicts (see src/lib/cx.ts). In tests it also checks
+// there are none: anything tailwind-merge would have dropped is a class that loses at random.
+vi.mock('@/lib/cx', async () => {
+  const { clsx } = await import('clsx');
+  const { cn } = await import('@/lib/utils');
+  return {
+    cx: (...inputs: Parameters<typeof clsx>) => {
+      const joined = clsx(inputs);
+      const kept = new Set(cn(joined).split(' '));
+      const conflicting = joined.split(' ').filter((name) => name && !kept.has(name));
+      if (conflicting.length > 0) {
+        throw new Error(`cx: conflicting classes [${conflicting.join(' ')}] in "${joined}"`);
+      }
+      return joined;
+    },
+  };
+});
+
 // jsdom does not implement these browser APIs that Radix and our theme code rely on.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
