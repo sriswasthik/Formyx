@@ -646,6 +646,12 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/account/delete'],
   ['POST', '/api/invites/token/accept'],
   ['POST', '/api/feedback'],
+  // Admins only; everyone else signed in gets 403 (see admin.test.ts).
+  ['GET', '/api/admin/workspaces'],
+  ['GET', '/api/admin/workspaces/id'],
+  ['POST', '/api/admin/workspaces/id/complimentary'],
+  ['DELETE', '/api/admin/workspaces/id/complimentary'],
+  ['POST', '/api/admin/workspaces/id/extend-trial'],
 ];
 
 /** Public endpoints, and why any of them may go without a limit of its own. */

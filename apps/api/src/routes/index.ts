@@ -5,6 +5,7 @@ import { createApiRateLimiter } from '../middleware/rate-limit.js';
 import { createRequireFeature, type RequireFeature } from '../middleware/require-feature.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createAccountRouter } from './account.js';
+import { createAdminRouter } from './admin.js';
 import { createAnalyticsRouter } from './analytics.js';
 import { createAuthRouter } from './auth.js';
 import { createBillingRouter } from './billing.js';
@@ -58,6 +59,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createFeedbackRouter(deps, guards));
   router.use(createBillingRouter(deps, guards));
   router.use(createRazorpayWebhookRouter(deps));
+  router.use(createAdminRouter(deps, guards));
 
   return router;
 }

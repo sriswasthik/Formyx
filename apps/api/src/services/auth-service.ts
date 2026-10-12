@@ -26,6 +26,7 @@ const meSelect = {
   email: true,
   createdAt: true,
   isDemo: true,
+  isAdmin: true,
   memberships: {
     orderBy: { createdAt: 'asc' },
     select: { role: true, workspace: { select: { id: true, name: true, slug: true } } },
@@ -42,6 +43,7 @@ function toMeResponse(user: MeRecord): MeResponse {
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       isDemo: user.isDemo,
+      ...(user.isAdmin && { isAdmin: true }),
     },
     workspaces: user.memberships.map(({ role, workspace }) => ({ ...workspace, role })),
   };

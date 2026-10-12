@@ -50,6 +50,8 @@ export interface AuthGuards {
    * A form that does not exist gets 404. Must run after `requireAuth`.
    */
   requireFormRole: (minRole: Role) => RequestHandler;
+  /** Formyx's own admins only (`isAdmin`, set from the command line). Must run after `requireAuth`. */
+  requireAdmin: RequestHandler;
 }
 
 export interface FormAccess {
@@ -158,5 +160,14 @@ export function createAuthGuards({
     };
   };
 
-  return { requireAuth, requireRealAccount, requireWorkspaceRole, requireFormRole };
+  const requireAdmin: RequestHandler = async (req, _res, next) => {
+    const user = await prisma.user.findUnique({
+      where: { id: getAuth(req).userId },
+      select: { isAdmin: true },
+    });
+    if (!user?.isAdmin) throw new AppError(403, 'FORBIDDEN', 'You do not have access to this');
+    next();
+  };
+
+  return { requireAuth, requireRealAccount, requireWorkspaceRole, requireFormRole, requireAdmin };
 }

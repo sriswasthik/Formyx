@@ -70,6 +70,8 @@ export const sessionUserSchema = z.object({
   createdAt: z.iso.datetime(),
   /** True for the shared demo account, whose data resets nightly and which has limits. */
   isDemo: z.boolean().optional(),
+  /** Formyx's own admins, who may open /admin. Left out for everyone else. */
+  isAdmin: z.boolean().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

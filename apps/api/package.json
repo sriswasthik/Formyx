@@ -25,7 +25,9 @@
     "keys:new": "tsx src/scripts/new-key.ts",
     "billing:sync-plans": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/sync-razorpay-plans.ts",
     "billing:start-trials": "node --env-file-if-exists=.env dist/scripts/start-trials.js",
-    "db:start-trials": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/start-trials.ts"
+    "db:start-trials": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/start-trials.ts",
+    "admin:grant": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/grant-admin.ts",
+    "admin:grant:dist": "node --env-file-if-exists=.env dist/scripts/grant-admin.js"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
