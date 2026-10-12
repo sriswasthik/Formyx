@@ -92,11 +92,12 @@ test.describe('on large screens', () => {
 
   test('closes the form once its response limit is reached', async ({ page, context }) => {
     const formId = await createFormViaApi(page, 'event_registration');
-    await page.goto(`/app/forms/${formId}/edit`);
-
+    // The limit is a live setting: it applies at once, published or not.
+    await page.goto(`/app/forms/${formId}/settings?section=access`);
     await page.getByRole('textbox', { name: 'Response limit' }).fill('1');
-    await expect(page.getByText('Unsaved changes', { exact: true })).toBeAttached();
-    await expect(page.getByText('Saved', { exact: true })).toBeAttached({ timeout: 10_000 });
+    await expect(page.getByRole('status').getByText('Saved')).toBeVisible();
+
+    await page.goto(`/app/forms/${formId}/edit`);
     await page.getByRole('button', { name: 'Publish' }).click();
     const link = await page
       .getByRole('dialog', { name: 'Your form is live' })

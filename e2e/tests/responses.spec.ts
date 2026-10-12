@@ -60,7 +60,8 @@ test('shows responses as they arrive, exports them and deletes them', async ({
     // The CSV has the question labels as headers and the answer properly quoted.
     await page.getByRole('tab', { name: /Responses/ }).click();
     const download = page.waitForEvent('download');
-    await page.getByRole('link', { name: 'Export CSV' }).click();
+    await page.getByRole('button', { name: 'Export' }).click();
+    await page.getByRole('menuitem', { name: 'CSV' }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^feedback-survey-responses-\d{4}-\d{2}-\d{2}\.csv$/);
     const csv = await readFile(await file.path(), 'utf8');

@@ -88,7 +88,8 @@ test('signs up, builds a form with logic, publishes, gets a live response and ex
 
   // And exports.
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Export CSV' }).click();
+  await page.getByRole('button', { name: 'Export' }).click();
+  await page.getByRole('menuitem', { name: 'CSV' }).click();
   const download = await downloadPromise;
   const csv = await readFile(await download.path(), 'utf8');
   // The export starts with a byte-order mark, for Excel.
