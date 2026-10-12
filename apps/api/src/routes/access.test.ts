@@ -292,11 +292,14 @@ describe('one response per person, by email', () => {
     const again = await submit(form.slug, { answers: ANSWERS, verificationToken: token });
     expect(again.status).toBe(409);
     expect(errorCode(again.body)).toBe('ALREADY_RESPONDED');
-    const code = await request(app)
-      .post(url(form.slug, '/verify'))
-      .send({ email: 'ADA@example.com' })
+    // Asking for a code never says whether an address has responded (anyone could ask);
+    // confirming it does.
+    const code = await requestCode(form.slug, 'ADA@example.com');
+    const check = await request(app)
+      .post(url(form.slug, '/verify/check'))
+      .send({ email: 'ADA@example.com', code })
       .expect(409);
-    expect(errorCode(code.body)).toBe('ALREADY_RESPONDED');
+    expect(errorCode(check.body)).toBe('ALREADY_RESPONDED');
     expect(await prisma.submission.count({ where: { formId: form.id } })).toBe(1);
   });
 

@@ -295,9 +295,18 @@ function LiveForm({
         verify={access.emailStep === 'verify'}
         onSendCode={(email) => sendVerificationCode(form.slug, email)}
         onCheckCode={async (email, code) => {
-          const token = await checkVerificationCode(form.slug, email, code);
-          storeVerifiedEmail(form.slug, { email, token });
-          setRespondent({ email, token });
+          try {
+            const token = await checkVerificationCode(form.slug, email, code);
+            storeVerifiedEmail(form.slug, { email, token });
+            setRespondent({ email, token });
+          } catch (error) {
+            // Confirmed, and it has responded before: say so in full, not as a field error.
+            if (error instanceof ApiRequestError && error.code === 'ALREADY_RESPONDED') {
+              setResponded(true);
+              return;
+            }
+            throw error;
+          }
         }}
         onDone={(email) => {
           setRespondent({ email });

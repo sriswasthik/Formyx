@@ -455,15 +455,9 @@ export function createPublicFormService({
       if (form.settings.access.oneResponsePer !== 'email') {
         throw new AppError(400, 'BAD_REQUEST', 'This form does not confirm email addresses.');
       }
+      // Sent whether or not the address has responded: saying so here would tell anyone who
+      // types an address. Only someone with the code learns it (checkVerification).
       const emailHash = respondentKey(email);
-      const answered = await prisma.submission.findUnique({
-        where: { formId_respondentKey: { formId: form.id, respondentKey: emailHash } },
-        select: { id: true },
-      });
-      if (answered) {
-        throw new AppError(409, 'ALREADY_RESPONDED', 'This email address has already responded.');
-      }
-
       const code = String(randomInt(0, 10 ** VERIFICATION_CODE_LENGTH)).padStart(
         VERIFICATION_CODE_LENGTH,
         '0',
@@ -516,6 +510,13 @@ export function createPublicFormService({
         throw wrong();
       }
       await prisma.respondentVerification.delete({ where: { id: pending.id } });
+      const answered = await prisma.submission.findUnique({
+        where: { formId_respondentKey: { formId: form.id, respondentKey: emailHash } },
+        select: { id: true },
+      });
+      if (answered) {
+        throw new AppError(409, 'ALREADY_RESPONDED', 'This email address has already responded.');
+      }
       return { token: signEmailToken(form.id, normalizeEmail(email), secret) };
     },
 
