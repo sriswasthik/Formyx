@@ -1,6 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { createFormViaApi, publishViaApi } from './helpers.js';
+import { applyPreset, createFormViaApi, openSidebar, publishViaApi } from './helpers.js';
 
 // Automated accessibility checks (axe) on the main pages, in light and dark, at both screen
 // sizes. They catch what machines can: contrast, names, roles, landmarks. Keyboard use and
@@ -30,14 +30,18 @@ async function expectFadedIn(content: Locator) {
 /**
  * Then waits until nothing else is moving (endless animations such as spinners aside) for a few
  * checks in a row, so content still to come in after `content` is not checked half-faded.
+ * Opacity set inline counts as moving while it changes: themed backgrounds keep shapes and
+ * textures part-transparent for good.
  */
 async function waitForPageToSettle(page: Page) {
   await page.evaluate(() => {
-    delete (window as Window & { calmChecks?: number }).calmChecks;
+    const state = window as Window & { calmChecks?: number; lastOpacities?: string };
+    delete state.calmChecks;
+    delete state.lastOpacities;
   });
   await page.waitForFunction(
     () => {
-      const state = window as Window & { calmChecks?: number };
+      const state = window as Window & { calmChecks?: number; lastOpacities?: string };
       const animating = document
         .getAnimations()
         .some(
@@ -45,10 +49,11 @@ async function waitForPageToSettle(page: Page) {
             animation.playState === 'running' &&
             animation.effect?.getTiming().iterations !== Infinity,
         );
-      const fading = [...document.querySelectorAll('[style*="opacity"]')].some((element) => {
-        const opacity = Number(getComputedStyle(element).opacity);
-        return opacity > 0 && opacity < 1;
-      });
+      const opacities = [...document.querySelectorAll('[style*="opacity"]')]
+        .map((element) => getComputedStyle(element).opacity)
+        .join(',');
+      const fading = opacities !== state.lastOpacities;
+      state.lastOpacities = opacities;
       state.calmChecks = animating || fading ? 0 : (state.calmChecks ?? 0) + 1;
       return state.calmChecks >= 3;
     },
@@ -114,6 +119,126 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const heading = page.getByRole('heading', { level: 1 });
       await expect(heading).toBeVisible();
       await expectNoSeriousViolations(page, heading);
+    });
+  });
+}
+
+/** A published form with a few answers in, for the pages that show responses. */
+async function formWithResponses(page: Page): Promise<string> {
+  const formId = await createFormViaApi(page, 'feedback_survey');
+  const path = await publishViaApi(page, formId);
+  const slug = path.replace('/f/', '');
+  const form = (await (await page.request.get(`/api/public/forms/${slug}`)).json()) as {
+    schema: { fields: { id: string; type: string; required?: boolean }[] };
+  };
+  const text = form.schema.fields.find(
+    (field) => field.type === 'short_text' || field.type === 'long_text',
+  );
+  for (const answer of ['Lovely', 'Too long']) {
+    await page.request.post(`/api/public/forms/${slug}/view`);
+    await page.request.post(`/api/public/forms/${slug}/submissions`, {
+      data: { answers: text ? { [text.id]: answer } : {} },
+    });
+  }
+  return formId;
+}
+
+// Phase 2's screens: the Design Studio, logic, settings, integrations, responses with the
+// drop-off funnel, preferences, feedback, the changelog and themed public forms.
+for (const colorScheme of ['light', 'dark'] as const) {
+  test.describe(`Phase 2 screens, ${colorScheme} mode`, () => {
+    test.use({ colorScheme });
+
+    test('Design Studio, every section', async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name === 'mobile', 'The panel layout is the desktop editor');
+      // Six sections, each checked once it settles.
+      test.setTimeout(120_000);
+      const formId = await createFormViaApi(page, 'feedback_survey');
+      await page.goto(`/app/forms/${formId}/edit`);
+      await page.getByRole('tab', { name: 'Design' }).click();
+      for (const section of [
+        'Presets',
+        'Background',
+        'Colours',
+        'Typography',
+        'Components',
+        'Layout',
+      ]) {
+        await page.getByRole('tab', { name: section }).click();
+        const panel = page.getByRole('tabpanel', { name: section });
+        await expect(panel).toBeVisible();
+        await expectNoSeriousViolations(page, panel);
+      }
+    });
+
+    test('Logic panel', async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name === 'mobile', 'The panel layout is the desktop editor');
+      const formId = await createFormViaApi(page, 'feedback_survey');
+      await page.goto(`/app/forms/${formId}/edit`);
+      await page.getByRole('tab', { name: 'Logic' }).click();
+      const panel = page.getByRole('tabpanel', { name: 'Logic' });
+      await expect(panel).toBeVisible();
+      await expectNoSeriousViolations(page, panel);
+    });
+
+    test('form settings and integrations', async ({ page }) => {
+      const formId = await createFormViaApi(page, 'feedback_survey');
+      await page.goto(`/app/forms/${formId}/settings`);
+      const settings = page.getByRole('heading', { level: 2 }).first();
+      await expect(settings).toBeVisible();
+      await expectNoSeriousViolations(page, settings);
+
+      await page.goto(`/app/forms/${formId}/integrations`);
+      const integrations = page.getByRole('heading', { name: 'Integrations', exact: true });
+      await expect(integrations).toBeVisible();
+      await expectNoSeriousViolations(page, page.getByRole('article', { name: /Google Sheets/ }));
+    });
+
+    test('responses with the drop-off funnel', async ({ page }) => {
+      const formId = await formWithResponses(page);
+      await page.goto(`/app/forms/${formId}/responses`);
+      const table = page.getByRole('table').first();
+      await expect(table).toBeVisible();
+      await expectNoSeriousViolations(page, table);
+    });
+
+    test('preferences and the feedback dialog', async ({ page }, testInfo) => {
+      await page.goto('/app/settings');
+      const privacy = page.getByText('Share feature usage');
+      await expect(privacy).toBeVisible();
+      await expectNoSeriousViolations(page, privacy);
+
+      const sidebar = await openSidebar(page, testInfo);
+      await sidebar.getByRole('button', { name: 'Feedback' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+      await expect(dialog).toBeVisible();
+      await expectNoSeriousViolations(page, dialog);
+    });
+
+    test('changelog', async ({ browser }) => {
+      const context = await browser.newContext({
+        colorScheme,
+        storageState: { cookies: [], origins: [] },
+      });
+      const page = await context.newPage();
+      await page.goto('/changelog');
+      const heading = page.getByRole('heading', { level: 1, name: 'Changelog' });
+      await expect(heading).toBeVisible();
+      await expectNoSeriousViolations(page, heading);
+      await context.close();
+    });
+
+    test('public forms with expressive presets', async ({ page }) => {
+      test.setTimeout(120_000);
+      // A mesh with a display font, shapes on a pastel ground, and a dark grid.
+      for (const preset of ['Sunrise mesh', 'Pastel blobs', 'Blueprint grid']) {
+        const formId = await createFormViaApi(page, 'event_registration');
+        await applyPreset(page, formId, preset);
+        await page.goto(await publishViaApi(page, formId));
+        const heading = page.getByRole('heading', { level: 1 });
+        await expect(heading).toBeVisible();
+        await expectNoSeriousViolations(page, heading);
+      }
     });
   });
 }

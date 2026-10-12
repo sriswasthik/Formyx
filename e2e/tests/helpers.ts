@@ -113,3 +113,15 @@ export async function publishViaApi(page: Page, formId: string): Promise<string>
   expect(published.ok()).toBe(true);
   return `/f/${slug}`;
 }
+
+/** Picks a theme preset in the Design Studio (`name` as the preset list shows it). */
+export async function applyPreset(page: Page, formId: string, name: string) {
+  await page.goto(`/app/forms/${formId}/edit`);
+  await page.getByRole('tab', { name: 'Design' }).click();
+  const preset = page.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', {
+    name: new RegExp(`^${name}( Pro)?$`),
+  });
+  await preset.click();
+  await expect(preset).toBeChecked();
+  await expect(page.getByText('Saved', { exact: true })).toBeAttached({ timeout: 10_000 });
+}

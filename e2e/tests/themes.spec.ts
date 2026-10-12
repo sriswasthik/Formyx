@@ -133,3 +133,46 @@ test('builds a layered background in the Design Studio and publishes it', async 
   expect(overflow).toBe(0);
   expect(problems).toEqual([]);
 });
+
+/** Whether the page has downloaded a font of `family` (its CSS family name, unquoted). */
+async function fontLoaded(page: Page, family: string): Promise<boolean> {
+  return page.evaluate(async (name) => {
+    await document.fonts.ready;
+    return [...document.fonts].some(
+      (face) => face.family.replace(/["']/g, '') === name && face.status === 'loaded',
+    );
+  }, family);
+}
+
+test('picks Pro fonts in Typography, and the published form loads them', async ({ page }) => {
+  const problems = trackConsoleProblems(page);
+  const formId = await createFormViaApi(page, 'feedback_survey');
+  await page.goto(`/app/forms/${formId}/edit`);
+
+  await page.getByRole('tab', { name: 'Design' }).click();
+  await page.getByRole('tab', { name: 'Typography' }).click();
+  await page.getByRole('button', { name: 'Headings', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Search headings fonts' }).fill('fraunces');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Text', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Search text fonts' }).fill('space grotesk');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Headings', exact: true })).toContainText(
+    'Fraunces',
+  );
+  await expectSaved(page);
+
+  const publicPath = await publishViaApi(page, formId);
+  await page.goto(publicPath);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const heading = await formVariable(page, '--form-heading-font');
+  const body = await formVariable(page, '--form-body-font');
+  expect(heading).toMatch(/^'?Fraunces/);
+  expect(body).toMatch(/^'?Space Grotesk/);
+  // Both are downloaded for respondents, not just named.
+  await expect
+    .poll(() => fontLoaded(page, heading.split(',')[0]?.replace(/'/g, '') ?? ''))
+    .toBe(true);
+  await expect.poll(() => fontLoaded(page, body.split(',')[0]?.replace(/'/g, '') ?? '')).toBe(true);
+  expect(problems).toEqual([]);
+});

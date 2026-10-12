@@ -87,6 +87,54 @@ test('connects Google Sheets and copies responses as they arrive', async ({ page
   expect(problems).toEqual([]);
 });
 
+test('adds a question as a new column at the end, keeping the others in place', async ({
+  page,
+}) => {
+  const title = `Sheets columns ${Date.now()}`;
+  const { formId, path } = await publishedForm(page, title);
+  await respond(page, path, 'Ada');
+  await connectSheets(page, formId);
+  await expect
+    .poll(async () => (await sheetTitled(page, `${title} responses`))?.rows.length)
+    .toBe(2);
+  const before = (await sheetTitled(page, `${title} responses`))?.rows[0] ?? [];
+
+  // A new question, published: the next response brings its column.
+  const current = (await (await page.request.get(`/api/forms/${formId}`)).json()) as {
+    version: number;
+    draftSchema: { fields: unknown[] };
+  };
+  const saved = await page.request.patch(`/api/forms/${formId}`, {
+    data: {
+      version: current.version,
+      draftSchema: {
+        ...current.draftSchema,
+        fields: [
+          ...current.draftSchema.fields,
+          { id: 'fld_colour', type: 'short_text', label: 'Favourite colour', required: false },
+        ],
+      },
+    },
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+  await publishViaApi(page, formId);
+  const slug = path.replace('/f/', '');
+  const sent = await page.request.post(`/api/public/forms/${slug}/submissions`, {
+    data: { answers: { fld_name: 'Grace', fld_colour: 'Teal' } },
+  });
+  expect(sent.ok(), await sent.text()).toBe(true);
+
+  await expect
+    .poll(async () => (await sheetTitled(page, `${title} responses`))?.rows.length)
+    .toBe(3);
+  const sheet = await sheetTitled(page, `${title} responses`);
+  const header = sheet?.rows[0] ?? [];
+  expect(header.slice(0, before.length)).toEqual(before);
+  expect(header.at(-1)).toBe('Favourite colour');
+  expect(sheet?.rows[2]?.[2]).toBe('Grace');
+  expect(sheet?.rows[2]?.at(-1)).toBe('Teal');
+});
+
 test('asks for a reconnect when Google access ends, then catches up', async ({ page }) => {
   const title = `Sheets reconnect ${Date.now()}`;
   const { formId, path } = await publishedForm(page, title);
