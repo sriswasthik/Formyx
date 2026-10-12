@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { choiceOption, secondaryButton } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** Below this width (the form's, not the screen's) rows become swipeable cards. */
 const TABLE_MIN_WIDTH = 448;
@@ -150,6 +151,7 @@ interface TableProps {
  * card is its own group of radios or checkboxes; picking a single answer moves to the next.
  */
 function MatrixCards({ field, controlId, describedBy, answer, onPick }: TableProps) {
+  const messages = useFormMessages();
   const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const total = field.rows.length;
@@ -233,11 +235,11 @@ function MatrixCards({ field, controlId, describedBy, answer, onPick }: TablePro
             }}
           >
             <ChevronLeft aria-hidden className="size-4" />
-            Previous<span className="sr-only"> row</span>
+            <span className="sr-only">{messages.controls.previousRow}</span>
+            <span aria-hidden>{messages.nav.back}</span>
           </button>
           <span className="form-text-sm text-(--form-muted) tabular-nums" aria-live="polite">
-            <span className="sr-only">Row </span>
-            {index + 1} of {total}
+            {messages.controls.rowOf(index + 1, total)}
           </span>
           <button
             type="button"
@@ -247,7 +249,8 @@ function MatrixCards({ field, controlId, describedBy, answer, onPick }: TablePro
               show(index + 1);
             }}
           >
-            Next<span className="sr-only"> row</span>
+            <span className="sr-only">{messages.controls.nextRow}</span>
+            <span aria-hidden>{messages.nav.next}</span>
             <ChevronRight aria-hidden className="size-4" />
           </button>
         </div>

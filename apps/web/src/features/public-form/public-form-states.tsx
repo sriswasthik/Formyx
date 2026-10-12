@@ -7,14 +7,14 @@ import { isEmbedded } from '@/lib/embed';
 import { cn } from '@/lib/utils';
 
 /** A quiet credit under every public page. Uses the form's colours when inside one. */
-export function MadeWithFormyx() {
+export function MadeWithFormyx({ label = 'Made with Formyx' }: { label?: string }) {
   return (
     <footer className="px-6 pb-8 text-center">
       <Link
         to="/"
         className="rounded-sm text-12 text-(--form-muted,var(--muted-foreground)) underline-offset-4 transition-colors duration-150 ease-standard hover:text-(--form-fg,var(--foreground)) hover:underline"
       >
-        Made with Formyx
+        {label}
       </Link>
     </footer>
   );
@@ -25,8 +25,11 @@ interface PublicFormMessageProps {
   /** Small line above the heading, such as the form's title. */
   eyebrow?: string | undefined;
   title: string;
-  description: string;
+  /** Plain words, or the form's own (rich text) for why it is closed. */
+  description: React.ReactNode;
   action?: React.ReactNode;
+  /** The credit in the form's language. */
+  madeWith?: string | undefined;
 }
 
 /** A full page explaining why there is no form to fill in. */
@@ -36,6 +39,7 @@ export function PublicFormMessage({
   title,
   description,
   action,
+  madeWith,
 }: PublicFormMessageProps) {
   const embedded = isEmbedded();
   return (
@@ -55,10 +59,10 @@ export function PublicFormMessage({
         <h1 className={cn(eyebrow ? 'mt-1' : 'mt-5', 'text-24 font-semibold tracking-tight')}>
           {title}
         </h1>
-        <p className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</p>
+        <div className="mt-2 max-w-sm text-14 text-muted-foreground">{description}</div>
         {action && <div className="mt-6">{action}</div>}
       </main>
-      {!embedded && <MadeWithFormyx />}
+      {!embedded && <MadeWithFormyx label={madeWith} />}
     </div>
   );
 }

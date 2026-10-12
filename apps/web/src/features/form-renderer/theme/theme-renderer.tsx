@@ -24,6 +24,10 @@ interface ThemeRendererProps {
   /** A progress bar along the top or bottom edge, as the theme places it. */
   progress?: React.ReactNode;
   className?: string;
+  /** A font for the form's script, when its language needs one (see `themeVariables`). */
+  scriptFont?: string | undefined;
+  /** The form's language, for screen readers and hyphenation. */
+  lang?: string | undefined;
 }
 
 /** Space around the form when it has no container of its own. */
@@ -142,6 +146,8 @@ export function ThemeRenderer({
   footer,
   progress,
   className,
+  scriptFont,
+  lang,
 }: ThemeRendererProps) {
   useThemeFonts(theme);
   const layout = theme.layout.mode;
@@ -162,7 +168,8 @@ export function ThemeRenderer({
           variant === 'page' && 'min-h-dvh',
           className,
         )}
-        style={themeStyle(theme)}
+        style={themeStyle(theme, scriptFont)}
+        lang={lang}
       >
         {layout === 'split' ? (
           <div

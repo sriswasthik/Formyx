@@ -5,16 +5,18 @@ import {
   type AnswerValue,
   type EndScreen,
   type Field,
+  type FormMessages,
   type FormSchema,
   type SubmissionOutcome,
 } from '@formyx/shared';
-import { Check, CircleCheck, X } from 'lucide-react';
+import { Check, CircleCheck, Copy, X } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import { useFormLocale } from './i18n/form-locale';
 import { RichText } from './rich-text';
-import { formButton, secondaryButton } from './styles';
+import { formButton, inputRadius, secondaryButton, textControl } from './styles';
 import { useFormTheme } from './theme/theme-context';
 
 /** How the end screen arrives, as the theme's page transition says. */
@@ -35,6 +37,8 @@ export interface EndScreenViewProps {
   allowRedirect: boolean;
   /** Offers "Submit another response". */
   onAnotherResponse?: (() => void) | undefined;
+  /** The private link to change the response, when the form gives one. */
+  editUrl?: string | null | undefined;
 }
 
 function isHttps(url: string): boolean {
@@ -46,20 +50,24 @@ function isHttps(url: string): boolean {
 }
 
 /** The right answers to a quiz question, as words. */
-function expectedText(field: Field, expected: readonly string[]): string {
-  if (field.type === 'yes_no')
-    return expected.map((id) => (id === 'yes' ? 'Yes' : 'No')).join(', ');
+function expectedText(field: Field, expected: readonly string[], messages: FormMessages): string {
+  if (field.type === 'yes_no') {
+    return expected
+      .map((id) => (id === 'yes' ? messages.answer.yes : messages.answer.no))
+      .join(', ');
+  }
   if ('options' in field) {
     return expected
       .map((id) => field.options.find((option) => option.id === id)?.label ?? '')
       .filter(Boolean)
       .join(', ');
   }
-  return expected.join(' or ');
+  return expected.join(', ');
 }
 
 /** "Taking you on in 3 seconds", counting down, then going. */
 function Redirect({ url, delaySeconds }: { url: string; delaySeconds: number }) {
+  const { messages } = useFormLocale();
   const [left, setLeft] = useState(delaySeconds);
   const gone = useRef(false);
   useEffect(() => {
@@ -78,18 +86,66 @@ function Redirect({ url, delaySeconds }: { url: string; delaySeconds: number }) 
   }, [left, url]);
   return (
     <p className="form-text-sm text-(--form-muted)" aria-live="polite">
-      {left > 0 ? `Taking you on in ${left} second${left === 1 ? '' : 's'}… ` : 'Taking you on… '}
+      {left > 0 ? messages.end.takingYouOnIn(left) : messages.end.takingYouOn}{' '}
       <a href={url} className="font-medium text-(--form-accent) underline-offset-4 hover:underline">
-        Go now
+        {messages.end.goNow}
       </a>
     </p>
   );
 }
 
+/** The private link to change the response, to keep: shown, and copied in one press. */
+function EditLink({ url }: { url: string }) {
+  const { messages } = useFormLocale();
+  const id = useId();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [copied]);
+
+  return (
+    <div className="flex w-full max-w-md flex-col gap-2 text-left" data-edit-link>
+      <label htmlFor={id} className="form-text-sm font-medium">
+        {messages.end.editLink}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id={id}
+          readOnly
+          value={url}
+          className={cn(textControl, inputRadius, 'h-11 min-w-0 flex-1 form-text-sm')}
+          onFocus={(event) => {
+            event.currentTarget.select();
+          }}
+        />
+        <button
+          type="button"
+          className={secondaryButton}
+          onClick={() => {
+            void navigator.clipboard.writeText(url).then(() => {
+              setCopied(true);
+            });
+          }}
+        >
+          {copied ? <Check aria-hidden className="size-4" /> : <Copy aria-hidden className="size-4" />}
+          <span aria-live="polite">{copied ? messages.end.copied : messages.end.copyLink}</span>
+        </button>
+      </div>
+      <p className="form-text-sm text-(--form-muted)">{messages.end.editLinkHelp}</p>
+    </div>
+  );
+}
+
 /**
  * What respondents see after sending: the end screen the server picked, with answers and
- * values piped in, the quiz score and review where the form shows them, a button, and the
- * redirect.
+ * values piped in, the quiz score and review where the form shows them, a button, the link
+ * to change the response, and the redirect.
  */
 export function EndScreenView({
   schema,
@@ -99,15 +155,19 @@ export function EndScreenView({
   titleAs: Title,
   allowRedirect,
   onAnotherResponse,
+  editUrl,
 }: EndScreenViewProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const theme = useFormTheme();
+  const locale = useFormLocale();
+  const { messages } = locale;
   const fieldById = new Map(schema.fields.map((field) => [field.id, field]));
   const piping = {
     fieldById,
     answers,
     values: outcome.values,
     variables: schema.logic.variables,
+    locale,
   };
   const title = resolvePiping(screen.title, piping).trim();
   const message = resolvePiping(screen.message, piping, { richText: true });
@@ -151,12 +211,12 @@ export function EndScreenView({
           data-quiz-score
         >
           <p className="form-text-lg font-semibold tabular-nums">
-            {quiz.score} out of {quiz.max}
+            {messages.end.score(quiz.score, quiz.max)}
             <span className="font-normal text-(--form-muted)"> ({quiz.percent}%)</span>
           </p>
           {quiz.passed !== null && (
             <p className="form-text-sm text-(--form-muted)">
-              {quiz.passed ? 'You passed.' : 'Not a pass this time.'}
+              {quiz.passed ? messages.end.passed : messages.end.notPassed}
             </p>
           )}
         </div>
@@ -164,14 +224,14 @@ export function EndScreenView({
 
       {quiz?.review && quiz.review.length > 0 && (
         <section
-          aria-label="Your answers"
+          aria-label={messages.end.yourAnswers}
           className="flex w-full max-w-md flex-col gap-3 text-left"
         >
           <ol className="flex flex-col gap-3">
             {quiz.review.map((item) => {
               const field = fieldById.get(item.fieldId);
               if (!field) return null;
-              const given = pipedAnswer(field, answers[item.fieldId]);
+              const given = pipedAnswer(field, answers[item.fieldId], locale);
               return (
                 <li
                   key={item.fieldId}
@@ -184,15 +244,17 @@ export function EndScreenView({
                   )}
                   <div className="flex min-w-0 flex-col gap-1">
                     <p className="form-text font-medium break-words">
-                      {resolvePiping(field.label, piping) || 'Untitled question'}
+                      {resolvePiping(field.label, piping) || '…'}
                     </p>
                     <p className="form-text-sm break-words text-(--form-muted)">
-                      <span className="sr-only">{item.correct ? 'Right. ' : 'Not right. '}</span>
-                      Your answer: {given || 'none'}
+                      <span className="sr-only">
+                        {item.correct ? messages.end.right : messages.end.notRight}{' '}
+                      </span>
+                      {messages.end.yourAnswer(given || messages.answer.none)}
                       {!item.correct && (
                         <>
                           <br />
-                          Right answer: {expectedText(field, item.expected)}
+                          {messages.end.rightAnswer(expectedText(field, item.expected, messages))}
                         </>
                       )}
                     </p>
@@ -209,12 +271,13 @@ export function EndScreenView({
           {button.label}
         </a>
       )}
+      {editUrl && <EditLink url={editUrl} />}
       {redirectUrl && screen.redirect && (
         <Redirect url={redirectUrl} delaySeconds={screen.redirect.delaySeconds} />
       )}
       {onAnotherResponse && !redirectUrl && (
         <button type="button" className={cn(secondaryButton, 'mt-2')} onClick={onAnotherResponse}>
-          Submit another response
+          {messages.nav.anotherResponse}
         </button>
       )}
     </m.div>

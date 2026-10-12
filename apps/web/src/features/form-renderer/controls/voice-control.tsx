@@ -6,6 +6,7 @@ import { formButton, secondaryButton } from '../styles';
 import { useFormTheme } from '../theme/theme-context';
 import type { ControlProps } from '../types';
 import { useAnswerUpload } from './use-answer-upload';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** Formats MediaRecorder may offer, best first: Chrome and Firefox take WebM or Ogg, Safari MP4. */
 const FORMATS = [
@@ -44,6 +45,7 @@ function VoiceControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'voice_note'>>) {
+  const messages = useFormMessages();
   const { components } = useFormTheme();
   const { state, upload, reset } = useAnswerUpload(field, onChange);
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
@@ -84,7 +86,7 @@ function VoiceControl({
     const format = pickFormat();
     // Browsers leave out mediaDevices on insecure (http) pages.
     if (!format || !('mediaDevices' in navigator)) {
-      setPhase({ name: 'error', message: 'This browser cannot record audio.' });
+      setPhase({ name: 'error', message: messages.voice.unsupported });
       return;
     }
     try {
@@ -92,7 +94,7 @@ function VoiceControl({
     } catch {
       setPhase({
         name: 'error',
-        message: 'Allow microphone access to record a voice note.',
+        message: messages.voice.allowMicrophone,
       });
       return;
     }
@@ -143,12 +145,12 @@ function VoiceControl({
             onClick={stop}
           >
             <Square aria-hidden className="size-4" fill="currentColor" />
-            Stop
+            {messages.voice.stop}
           </button>
         ) : phase.name === 'recorded' || saved ? (
           <button id={controlId} type="button" className={secondaryButton} onClick={again}>
             <RotateCcw aria-hidden className="size-4" />
-            Record again
+            {messages.voice.recordAgain}
           </button>
         ) : (
           <button
@@ -160,7 +162,7 @@ function VoiceControl({
             }}
           >
             <Mic aria-hidden className="size-4" />
-            Record
+            {messages.voice.record}
           </button>
         )}
         <span
@@ -175,7 +177,7 @@ function VoiceControl({
               className="mr-1.5 inline-block size-2 rounded-full bg-(--form-danger) motion-safe:animate-pulse"
             />
           )}
-          {recording ? `${clock(elapsed)} of ${clock(limit)}` : `Up to ${clock(limit)}`}
+          {recording ? `${clock(elapsed)} / ${clock(limit)}` : messages.voice.upTo(clock(limit))}
         </span>
       </div>
       {phase.name === 'recorded' && (
@@ -184,14 +186,14 @@ function VoiceControl({
         <audio controls src={phase.url} className="w-full max-w-md" aria-label="Your voice note" />
       )}
       <p role="status" className="form-text-sm text-(--form-muted) empty:hidden">
-        {recording && 'Recording…'}
+        {recording && messages.voice.recording}
         {phase.name === 'error' && phase.message}
-        {state.status === 'uploading' && 'Saving your voice note…'}
+        {state.status === 'uploading' && messages.voice.saving}
         {state.status === 'failed' && state.message}
         {saved && state.status === 'idle' && !recording && (
           <span className="inline-flex items-center gap-1.5">
             <Check aria-hidden className="size-4 text-(--form-accent)" />
-            Voice note saved
+            {messages.voice.saved}
           </span>
         )}
       </p>

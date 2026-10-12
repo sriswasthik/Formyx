@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 const IMAGE_WIDTHS = { small: 'max-w-60', medium: 'max-w-md', full: 'max-w-full' } as const;
 
@@ -38,7 +39,8 @@ export function ImageBlock({ field }: { field: FieldOfType<'image'> }) {
 export function VideoBlock({ field }: { field: FieldOfType<'video'> }) {
   const [playing, setPlaying] = useState(false);
   const video = parseVideoUrl(field.videoUrl);
-  const title = field.label.trim() || 'Video';
+  const messages = useFormMessages();
+  const title = field.label.trim() || messages.controls.video;
 
   return (
     <figure className="flex w-full flex-col gap-2">
@@ -74,7 +76,9 @@ export function VideoBlock({ field }: { field: FieldOfType<'video'> }) {
             <span className="relative flex size-14 items-center justify-center rounded-full bg-(--form-accent) text-(--form-accent-fg) transition-transform duration-150 group-hover:scale-105">
               <Play aria-hidden className="size-6" fill="currentColor" />
             </span>
-            <span className="sr-only">Play {title}</span>
+            <span className="sr-only">
+              {messages.controls.play} {title}
+            </span>
           </button>
         )}
       </div>

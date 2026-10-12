@@ -6,6 +6,7 @@ import { ChoiceList, ScaleButtons } from '../choice-controls';
 import { RichText } from '../rich-text';
 import { controlSurface } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 const focusRing =
   'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--form-accent)';
@@ -85,21 +86,10 @@ function PictureChoice({
   );
 }
 
-const YES_NO = [
-  { id: 'yes', label: 'Yes' },
-  { id: 'no', label: 'No' },
-] as const;
-
 const STYLED_ICONS: Record<'stars' | 'hearts', LucideIcon> = { stars: Star, hearts: Heart };
 
 /** Five faces from unhappy to delighted; three take the ends and the middle. */
-const FACES: { icon: LucideIcon; label: string }[] = [
-  { icon: Angry, label: 'Very unhappy' },
-  { icon: Frown, label: 'Unhappy' },
-  { icon: Meh, label: 'Neutral' },
-  { icon: Smile, label: 'Happy' },
-  { icon: Laugh, label: 'Very happy' },
-];
+const FACE_ICONS: LucideIcon[] = [Angry, Frown, Meh, Smile, Laugh];
 
 /** Stars or hearts filled up to the rating (or the one hovered), or a row of faces. */
 function StyledRating({
@@ -110,11 +100,16 @@ function StyledRating({
   onChange,
 }: ControlProps<FieldOfType<'rating'>>) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const messages = useFormMessages();
+  const allFaces = FACE_ICONS.map((icon, index) => ({
+    icon,
+    label: messages.controls.faces[index] ?? '',
+  }));
   const faces =
     field.ratingStyle === 'faces' && (field.ratingScale === 3 || field.ratingScale === 5)
       ? field.ratingScale === 3
-        ? [FACES[0], FACES[2], FACES[4]]
-        : FACES
+        ? [allFaces[0], allFaces[2], allFaces[4]]
+        : allFaces
       : null;
   const current = typeof value === 'number' ? value : 0;
   const shown = hovered ?? current;
@@ -253,11 +248,21 @@ function range(from: number, to: number): number[] {
 
 export function Control(props: ControlProps) {
   const { field } = props;
+  const messages = useFormMessages();
   switch (field.type) {
     case 'picture_choice':
       return <PictureChoice {...props} field={field} />;
     case 'yes_no':
-      return <ChoiceList {...props} options={YES_NO} multiple={false} />;
+      return (
+        <ChoiceList
+          {...props}
+          options={[
+            { id: 'yes', label: messages.answer.yes },
+            { id: 'no', label: messages.answer.no },
+          ]}
+          multiple={false}
+        />
+      );
     case 'nps':
       return (
         <ScaleButtons

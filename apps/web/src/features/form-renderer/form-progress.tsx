@@ -1,5 +1,6 @@
 import type { FormTheme } from '@formyx/shared';
 import { cn } from '@/lib/utils';
+import { useFormMessages } from './i18n/form-locale';
 
 /** More steps than this read better as a line. */
 export const MAX_STEP_SEGMENTS = 20;
@@ -18,6 +19,7 @@ interface FormProgressProps {
  * or a percentage. A progressbar for assistive technology, whatever it looks like.
  */
 export function FormProgress({ theme, value, total, current }: FormProgressProps) {
+  const messages = useFormMessages();
   const { style, position } = theme.layout.progress;
   if (style === 'none' || total === 0) return null;
   const fraction = Math.min(Math.max(value / total, 0), 1);
@@ -36,12 +38,14 @@ export function FormProgress({ theme, value, total, current }: FormProgressProps
   return (
     <div
       role="progressbar"
-      aria-label="Progress"
+      aria-label={messages.nav.progress}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
       aria-valuetext={
-        current === undefined ? `${percent}% complete` : `Question ${current + 1} of ${total}`
+        current === undefined
+          ? messages.nav.percentComplete(`${percent}%`)
+          : messages.nav.questionOf(current + 1, total)
       }
       data-form-progress={style}
       data-position={position}

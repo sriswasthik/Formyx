@@ -21,6 +21,7 @@ import { fieldIds } from './field-ids';
 import { FieldRenderer } from './field-renderer';
 import { FormButton } from './form-button';
 import { secondaryButton } from './styles';
+import { useFormMessages } from './i18n/form-locale';
 import type { FormResponse } from './use-form-response';
 
 /** How a new page arrives, as the theme's page transition says. */
@@ -79,6 +80,7 @@ export function ClassicForm({
   hiddenFields,
 }: ClassicFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
+  const messages = useFormMessages();
   const { answers, errors, formError, status, path, activeIds, handleChange, checkFields, submit } =
     response;
   const formRef = useRef<HTMLFormElement>(null);
@@ -177,7 +179,7 @@ export function ClassicForm({
       {header}
       {multiPage && (
         <p aria-live="polite" className="sr-only">
-          {`Page ${index + 1} of ${route.length}`}
+          {messages.nav.pageOf(index + 1, route.length)}
         </p>
       )}
       <m.div
@@ -248,15 +250,15 @@ export function ClassicForm({
               }}
             >
               <ChevronLeft aria-hidden />
-              Back
+              {messages.nav.back}
             </button>
           )}
           <FormButton type="submit" busy={busy} disabled={busy}>
-            {isLast ? schema.settings.submitButtonText : 'Next'}
+            {isLast ? schema.settings.submitButtonText : messages.nav.next}
           </FormButton>
           {multiPage && (
             <span aria-hidden className="form-text-sm text-(--form-muted) tabular-nums">
-              Page {index + 1} of {route.length}
+              {messages.nav.pageOf(index + 1, route.length)}
             </span>
           )}
         </div>

@@ -1,5 +1,4 @@
 import {
-  ADDRESS_PART_LABELS,
   isAddressAnswer,
   PIN_CODE_PATTERN,
   pinCodeLookupSchema,
@@ -12,6 +11,7 @@ import { ApiRequestError, apiRequest } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { inputRadius, textControl } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 /** States and union territories, offered as suggestions for the state box. */
 const STATES = [
@@ -82,6 +82,7 @@ function AddressControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'address'>>) {
+  const messages = useFormMessages();
   const address = isAddressAnswer(value) ? { ...EMPTY, ...value } : EMPTY;
   const pin = address.pin.trim();
   const complete = PIN_CODE_PATTERN.test(pin);
@@ -144,7 +145,7 @@ function AddressControl({
     return (
       <div className={cn('flex min-w-0 flex-col gap-1', className)}>
         <label htmlFor={id} className="form-text-sm text-(--form-muted)">
-          {ADDRESS_PART_LABELS[part]}
+          {messages.address[part]}
           {optional && ' (optional)'}
         </label>
         <input
@@ -186,11 +187,10 @@ function AddressControl({
         role="status"
         className="form-text-sm text-(--form-muted) empty:hidden @md:col-span-6"
       >
-        {lookup.state === 'looking' && 'Looking up the PIN code…'}
+        {lookup.state === 'looking' && messages.address.lookingUp}
         {lookup.state === 'found' && `PIN code found: ${lookup.place}`}
-        {lookup.state === 'unknown' &&
-          'We could not find this PIN code. Check it, or type the city and state.'}
-        {lookup.state === 'failed' && 'Type the city and state.'}
+        {lookup.state === 'unknown' && messages.address.pinNotFound}
+        {lookup.state === 'failed' && messages.address.typeCityState}
       </p>
     </div>
   );

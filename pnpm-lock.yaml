@@ -431,6 +431,12 @@ importers:
       '@fontsource/kalam':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fontsource/noto-sans-devanagari':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/noto-sans-telugu':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource/patrick-hand':
         specifier: ^5.3.0
         version: 5.3.0

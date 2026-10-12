@@ -8,10 +8,16 @@ import {
 import { z } from 'zod';
 import { apiRequest, ApiRequestError } from './api';
 
-/** Asks the API to sign one upload. Fails with 503 `UPLOADS_UNAVAILABLE` if uploads are off. */
-export function getUploadSignature(query: UploadSignatureQuery): Promise<UploadSignature> {
+/**
+ * Asks the API to sign one upload. Fails with 503 `UPLOADS_UNAVAILABLE` if uploads are off.
+ * `headers` carry a respondent's unlock token for a password-protected form.
+ */
+export function getUploadSignature(
+  query: UploadSignatureQuery,
+  headers: Record<string, string> = {},
+): Promise<UploadSignature> {
   const params = new URLSearchParams(Object.entries(query));
-  return apiRequest(`/uploads/signature?${params.toString()}`, uploadSignatureSchema);
+  return apiRequest(`/uploads/signature?${params.toString()}`, uploadSignatureSchema, { headers });
 }
 
 /** Why an upload to storage did not finish. */

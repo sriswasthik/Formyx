@@ -7,6 +7,7 @@ import { useFileUploads } from './file-uploads';
 import { acceptAttribute, fileHint } from './file-types';
 import { boxSurface } from './styles';
 import type { ControlProps } from './types';
+import { useFormMessages } from './i18n/form-locale';
 
 type Transfer =
   | { status: 'idle' }
@@ -56,12 +57,13 @@ function FileRow({
 }
 
 function ProgressBar({ name, progress }: { name: string; progress: number }) {
+  const messages = useFormMessages();
   const percent = Math.round(progress * 100);
   return (
     <div className="flex items-center gap-3">
       <div
         role="progressbar"
-        aria-label={`Uploading ${name}`}
+        aria-label={messages.upload.uploading(name)}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
@@ -92,6 +94,7 @@ export function FileControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'file'>>) {
+  const messages = useFormMessages();
   const uploads = useFileUploads();
   const [transfer, setTransfer] = useState<Transfer>({ status: 'idle' });
   const [dragging, setDragging] = useState(false);
@@ -129,7 +132,7 @@ export function FileControl({
     onChange(null);
     const problem = fileProblem(file, { maxSizeMb, allowedTypes });
     if (problem || !uploads?.upload) {
-      const message = problem ?? 'Files can’t be uploaded here.';
+      const message = problem ?? messages.upload.notHere;
       setTransfer({ status: 'idle' });
       setAnnouncement(message);
       uploads?.reportProblem(fieldId, message);
@@ -139,7 +142,7 @@ export function FileControl({
     const controller = new AbortController();
     controllerRef.current = controller;
     setTransfer({ status: 'uploading', file, progress: 0 });
-    setAnnouncement(`Uploading ${file.name}`);
+    setAnnouncement(messages.upload.uploading(file.name));
     uploads.setUploading(fieldId, true);
     try {
       const answer = await uploads.upload(field, file, {
@@ -184,7 +187,7 @@ export function FileControl({
         invalid={invalid}
         actions={
           <button type="button" data-focus-here className={iconButton} onClick={clear}>
-            Cancel
+            {messages.upload.cancel}
           </button>
         }
       >
@@ -209,11 +212,11 @@ export function FileControl({
               }}
             >
               <RotateCw aria-hidden />
-              Try again
+              {messages.upload.tryAgain}
             </button>
             <button
               type="button"
-              aria-label={`Remove ${file.name}`}
+              aria-label={messages.upload.remove(file.name)}
               className={cn(iconButton, 'px-1')}
               onClick={clear}
             >
@@ -233,7 +236,7 @@ export function FileControl({
           <button
             type="button"
             data-focus-here
-            aria-label={`Remove ${value.name}`}
+            aria-label={messages.upload.remove(value.name)}
             className={cn(iconButton, 'px-1')}
             onClick={clear}
           >
@@ -269,9 +272,9 @@ export function FileControl({
         )}
       >
         <Upload aria-hidden className="size-5 text-(--form-muted)" />
-        <span className="form-text font-medium">Choose a file or drag it here</span>
+        <span className="form-text font-medium">{messages.upload.chooseFile}</span>
         <span className="form-text-sm text-(--form-muted)">
-          {fileHint(allowedTypes, maxSizeMb)}
+          {fileHint(allowedTypes, maxSizeMb, messages)}
         </span>
         <input
           id={controlId}

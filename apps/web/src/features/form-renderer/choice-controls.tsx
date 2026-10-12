@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { choiceGroup, choiceOption, inputRadius, ratingOption, textControl } from './styles';
 import { useFormTheme } from './theme/theme-context';
 import type { ControlProps } from './types';
+import { useFormMessages } from './i18n/form-locale';
 
 /** The radio or checkbox drawn beside an option in the list and card styles. */
 function ChoiceIndicator({ multiple, checked }: { multiple: boolean; checked: boolean }) {
@@ -118,6 +119,7 @@ export function DropdownControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'dropdown'>>) {
+  const messages = useFormMessages();
   const current = typeof value === 'string' ? value : '';
 
   return (
@@ -139,7 +141,7 @@ export function DropdownControl({
         }}
       >
         <option value="" disabled={field.required}>
-          {field.placeholder || 'Select an option'}
+          {field.placeholder || messages.controls.selectOption}
         </option>
         {field.options.map((option) => (
           <option key={option.id} value={option.id} className="text-(--form-fg)">

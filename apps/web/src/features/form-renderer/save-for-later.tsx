@@ -2,6 +2,7 @@ import { Mail } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { inputRadius, secondaryButton, textControl } from './styles';
+import { useFormMessages } from './i18n/form-locale';
 
 export interface SaveForLaterProps {
   /** Saves the answers so far and emails `email` a link; rejects with a message to show. */
@@ -13,6 +14,7 @@ export interface SaveForLaterProps {
  * answers back. A form of its own inside the page's form, so Enter sends this one.
  */
 export function SaveForLater({ onSave }: SaveForLaterProps) {
+  const messages = useFormMessages();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [state, setState] = useState<
@@ -34,7 +36,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
         }}
       >
         <Mail aria-hidden className="size-4" />
-        Save and continue later
+        {messages.save.saveForLater}
       </button>
     );
   }
@@ -42,7 +44,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
   if (state.status === 'sent') {
     return (
       <p role="status" className="form-text-sm text-(--form-muted)">
-        We sent a link to {state.to}. It brings your answers back for 30 days.
+        {messages.save.sent(state.to)}
       </p>
     );
   }
@@ -52,7 +54,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
     event.stopPropagation();
     const address = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
-      setState({ status: 'error', message: 'Enter an email address' });
+      setState({ status: 'error', message: messages.save.enterEmail });
       return;
     }
     setState({ status: 'sending' });
@@ -62,7 +64,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
     } catch (error) {
       setState({
         status: 'error',
-        message: error instanceof Error ? error.message : 'Your answers could not be saved.',
+        message: error instanceof Error ? error.message : messages.save.failed,
       });
     }
   };
@@ -72,10 +74,10 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
     <div
       className="flex w-full max-w-md flex-col gap-2"
       role="group"
-      aria-label="Save and continue later"
+      aria-label={messages.save.saveForLater}
     >
       <label htmlFor={inputId} className="form-text-sm font-medium">
-        Email me a link to finish later
+        {messages.save.emailLabel}
       </label>
       <div className="flex gap-2">
         <input
@@ -99,7 +101,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
           disabled={state.status === 'sending'}
           onClick={(event) => void send(event)}
         >
-          {state.status === 'sending' ? 'Sending…' : 'Send link'}
+          {state.status === 'sending' ? messages.save.sending : messages.save.sendLink}
         </button>
       </div>
       <p
@@ -111,7 +113,7 @@ export function SaveForLater({ onSave }: SaveForLaterProps) {
       >
         {state.status === 'error'
           ? state.message
-          : 'Anyone with the link can see your answers. We do not keep your email address.'}
+          : messages.save.privacy}
       </p>
     </div>
   );

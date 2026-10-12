@@ -20,6 +20,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { controlSurface, secondaryButton } from '../styles';
 import type { ControlProps } from '../types';
+import { useFormMessages } from '../i18n/form-locale';
 
 interface RankRowProps {
   id: string;
@@ -37,6 +38,7 @@ const iconButton = cn(
 );
 
 function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
+  const messages = useFormMessages();
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id,
   });
@@ -76,7 +78,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
       <button
         type="button"
         className={iconButton}
-        aria-label={`Move ${name} up`}
+        aria-label={messages.controls.moveUp(name)}
         disabled={rank === 1}
         onClick={() => {
           onMove(rank - 2);
@@ -87,7 +89,7 @@ function RankRow({ id, label, rank, total, ranked, onMove }: RankRowProps) {
       <button
         type="button"
         className={iconButton}
-        aria-label={`Move ${name} down`}
+        aria-label={messages.controls.moveDown(name)}
         disabled={rank === total}
         onClick={() => {
           onMove(rank);
@@ -110,6 +112,7 @@ function RankingControl({
   value,
   onChange,
 }: ControlProps<FieldOfType<'ranking'>>) {
+  const messages = useFormMessages();
   const ids = field.options.map((option) => option.id);
   const answered =
     Array.isArray(value) && value.length === ids.length && value.every((id) => ids.includes(id));
@@ -141,7 +144,7 @@ function RankingControl({
     <div className="flex flex-col gap-2" id={controlId} aria-describedby={describedBy}>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
-          <ol className="flex flex-col gap-2" aria-label="Your order, first at the top">
+          <ol className="flex flex-col gap-2" aria-label={messages.controls.rankingHelp}>
             {order.map((id, index) => (
               <RankRow
                 key={id}
@@ -164,10 +167,10 @@ function RankingControl({
           className={cn(secondaryButton, 'self-start')}
           onClick={() => {
             onChange([...order]);
-            setAnnouncement('Order kept as shown');
+            setAnnouncement(messages.controls.orderKept);
           }}
         >
-          Keep this order
+          {messages.controls.keepOrder}
         </button>
       )}
       <p role="status" className="sr-only">
