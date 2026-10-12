@@ -12,6 +12,7 @@ import {
 } from './features.js';
 import {
   effectivePlan,
+  hasComplimentaryPlan,
   planIncludes,
   planSchema,
   planStatusSchema,
@@ -43,8 +44,15 @@ export const entitlementsSchema = z.object({
   mode: entitlementsModeSchema,
   /** The plan the workspace is on, as stored. */
   plan: planSchema,
+  /** The plan it gets right now (see `effectivePlan`), whatever the mode. */
+  effectivePlan: planSchema,
   planStatus: planStatusSchema,
   trialEndsAt: z.iso.datetime().nullable(),
+  /** When a PAST_DUE plan falls back to FREE. */
+  graceEndsAt: z.iso.datetime().nullable(),
+  /** A plan given by an admin, while it lasts. */
+  complimentaryPlan: planSchema.nullable(),
+  complimentaryUntil: z.iso.datetime().nullable(),
   features: z.record(featureIdSchema, z.boolean()),
   limits: z.record(limitIdSchema, z.number().int().nullable()),
 });
@@ -59,12 +67,18 @@ export function resolveEntitlements(
   mode: EntitlementsMode,
   now: Date = new Date(),
 ): Entitlements {
-  const plan = mode === 'all_unlocked' ? TOP_PLAN : effectivePlan(billing, now);
+  const effective = effectivePlan(billing, now);
+  const plan = mode === 'all_unlocked' ? TOP_PLAN : effective;
+  const complimentary = hasComplimentaryPlan(billing, now);
   return {
     mode,
     plan: billing.plan,
+    effectivePlan: effective,
     planStatus: billing.planStatus,
     trialEndsAt: billing.trialEndsAt?.toISOString() ?? null,
+    graceEndsAt: billing.graceEndsAt?.toISOString() ?? null,
+    complimentaryPlan: complimentary ? (billing.complimentaryPlan ?? null) : null,
+    complimentaryUntil: complimentary ? (billing.complimentaryUntil?.toISOString() ?? null) : null,
     features: Object.fromEntries(
       FEATURE_IDS.map((featureId) => [featureId, hasFeature(plan, featureId)]),
     ) as Record<FeatureId, boolean>,
