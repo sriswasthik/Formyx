@@ -76,6 +76,7 @@ export interface SettingEntry {
 }
 
 export const SETTINGS: SettingEntry[] = [
+  { id: 'title', section: 'general', label: 'Title', keywords: 'name rename heading' },
   { id: 'submit-text', section: 'general', label: 'Submit button text', keywords: 'button send' },
   { id: 'password', section: 'access', label: 'Password', keywords: 'lock protect private secret' },
   {
