@@ -58,6 +58,13 @@ describe('FormView', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
   });
 
+  it('says a response is being changed, and saves the changes from the last button', () => {
+    renderForm(undefined, { editing: true });
+    expect(screen.getByText('Changing your response')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
+  });
+
   it('shows follow-up questions only when their conditions hold', async () => {
     const user = renderForm();
     expect(screen.queryByRole('textbox', { name: /Your email/ })).not.toBeInTheDocument();

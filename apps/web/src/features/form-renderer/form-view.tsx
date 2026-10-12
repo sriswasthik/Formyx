@@ -202,6 +202,17 @@ export function FormView({
 
   // The form as this respondent sees it: their order, answers piped in.
   const ordered = useMemo(() => displayOrder(schema, seed), [schema, seed]);
+  // Changing a response: the last button saves the changes, whatever the form calls it.
+  const sendingSchema = useMemo(
+    () =>
+      editing
+        ? {
+            ...schema,
+            settings: { ...schema.settings, submitButtonText: messages.access.saveChanges },
+          }
+        : schema,
+    [editing, schema, messages],
+  );
   const fieldById = useMemo(
     () => new Map(schema.fields.map((field) => [field.id, field])),
     [schema.fields],
@@ -391,7 +402,7 @@ export function FormView({
     body = conversationalModule ? (
       <conversationalModule.ConversationalForm
         key={attempt}
-        schema={schema}
+        schema={sendingSchema}
         fields={presented}
         theme={theme}
         response={response}
@@ -411,7 +422,7 @@ export function FormView({
     body = (
       <ClassicForm
         key={attempt}
-        schema={schema}
+        schema={sendingSchema}
         fields={presented}
         response={response}
         idPrefix={idPrefix}
