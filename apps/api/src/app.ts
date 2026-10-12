@@ -4,6 +4,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import type { Env } from './config/env.js';
+import type { JobQueue } from './jobs/queue.js';
 import type { EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
@@ -27,6 +28,8 @@ export interface AppDependencies {
   mailer: Mailer;
   /** Delivers webhook events; routes use it for test events. */
   webhooks: WebhookDispatcher;
+  /** Background jobs; routes send some (retrying a failed job, copying responses to a sheet). */
+  jobs: JobQueue;
   /** Posts to Slack and Discord incoming webhooks (new responses, test messages). */
   chat: WebhookTransport;
 }

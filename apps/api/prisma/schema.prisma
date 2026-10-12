@@ -42,6 +42,7 @@ model User {
   invitesSent     Invite[]
   webhooks        Webhook[]
   brandKits       BrandKit[]
+  integrations    Integration[]
 
   @@map("users")
 }
@@ -202,6 +203,8 @@ model Form {
   autoreplies             AutoresponderSend[]
   subscriptions           FormSubscription[]
   webhooks                Webhook[]
+  integrations            Integration[]
+  jobFailures             JobFailure[]
 
   // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
   @@index([workspaceId, updatedAt(sort: Desc)])
@@ -211,27 +214,28 @@ model Form {
 }
 
 model Submission {
-  id               String    @id @default(cuid())
-  formId           String    @map("form_id")
+  id                 String              @id @default(cuid())
+  formId             String              @map("form_id")
   /// Answers keyed by field id, validated and normalised with the published schema.
-  answers          Json
+  answers            Json
   /// Milliseconds from opening the form to submitting it, as measured by the browser.
-  completionTimeMs Int?      @map("completion_time_ms")
+  completionTimeMs   Int?                @map("completion_time_ms")
   /// Client details: user agent and referrer. IP addresses are never stored.
-  metadata         Json
+  metadata           Json
   /// Route, values, quiz mark and end screen, worked out by the server (never the client).
   /// Null for responses from before Sprint 13.
-  outcome          Json?
+  outcome            Json?
   /// The address given before the questions, when the form asks for one.
-  respondentEmail  String?   @map("respondent_email")
+  respondentEmail    String?             @map("respondent_email")
   /// SHA-256 of the verified, normalised address, for one response per person. Unique per
   /// form; null when the form does not verify addresses.
-  respondentKey    String?   @map("respondent_key")
+  respondentKey      String?             @map("respondent_key")
   /// SHA-256 of the token in the private link that changes this response.
-  editTokenHash    String?   @unique @map("edit_token_hash")
-  editedAt         DateTime? @map("edited_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  form             Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  editTokenHash      String?             @unique @map("edit_token_hash")
+  editedAt           DateTime?           @map("edited_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  form               Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
+  integrationRecords IntegrationRecord[]
 
   @@unique([formId, respondentKey])
   // Responses are counted per form and listed newest first.
@@ -371,4 +375,88 @@ model AutoresponderSend {
 
   @@index([formId, emailHash, createdAt])
   @@map("autoresponder_sends")
+}
+
+enum IntegrationKind {
+  GOOGLE_SHEETS
+  NOTION
+}
+
+/// CONNECTING until the first copy is made; NEEDS_RECONNECT when the account's access was
+/// revoked or expired; ERROR while writes keep failing (they are retried).
+enum IntegrationStatus {
+  CONNECTING
+  ACTIVE
+  PAUSED
+  ERROR
+  NEEDS_RECONNECT
+}
+
+/// A place a form's responses are copied to as they arrive: a Google Sheet, a Notion
+/// database. One of each kind per form.
+model Integration {
+  id                   String              @id @default(cuid())
+  formId               String              @map("form_id")
+  kind                 IntegrationKind
+  status               IntegrationStatus   @default(CONNECTING)
+  /// Who connected it. Its access is theirs: if they leave, it needs connecting again.
+  connectedById        String?             @map("connected_by_id")
+  /// The account it writes as, for people to recognise ("ada@example.com").
+  accountLabel         String?             @map("account_label")
+  /// OAuth tokens, sealed with ENCRYPTION_KEYS (see lib/encryption.ts). Never sent to browsers.
+  credentialsEncrypted String?             @map("credentials_encrypted")
+  /// Where responses go and how questions map to its columns or properties (see
+  /// packages/shared/src/integrations).
+  config               Json                @default("{}")
+  lastSyncedAt         DateTime?           @map("last_synced_at")
+  lastError            String?             @map("last_error")
+  lastErrorAt          DateTime?           @map("last_error_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  form                 Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
+  connectedBy          User?               @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+  records              IntegrationRecord[]
+  failures             JobFailure[]
+
+  @@unique([formId, kind])
+  @@map("integrations")
+}
+
+/// Where a response went in an integration (a sheet row's response id, a Notion page id), so
+/// a changed response updates its copy instead of adding another.
+model IntegrationRecord {
+  integrationId String      @map("integration_id")
+  submissionId  String      @map("submission_id")
+  externalId    String      @map("external_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  submission    Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@id([integrationId, submissionId])
+  @@map("integration_records")
+}
+
+/// A background job that ran out of tries (or failed for good), for the failed-jobs list. It
+/// keeps the job's data, so Retry sends it again exactly.
+model JobFailure {
+  id            String       @id @default(cuid())
+  /// The queue it ran on, e.g. "webhook.deliver".
+  queue         String
+  jobId         String       @map("job_id")
+  formId        String?      @map("form_id")
+  integrationId String?      @map("integration_id")
+  webhookId     String?      @map("webhook_id")
+  /// What the job was for, in a sentence.
+  summary       String
+  error         String
+  attempts      Int
+  data          Json
+  createdAt     DateTime     @default(now()) @map("created_at")
+  /// Retried or dismissed; resolved failures leave the list.
+  resolvedAt    DateTime?    @map("resolved_at")
+  form          Form?        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([formId, resolvedAt, createdAt(sort: Desc)])
+  @@map("job_failures")
 }

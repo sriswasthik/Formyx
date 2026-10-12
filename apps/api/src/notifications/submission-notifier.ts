@@ -2,31 +2,35 @@ import { formResponsesPath, normalizeEmail, readLiveSettings } from '@formyx/sha
 import type { Logger } from 'pino';
 import type { Env } from '../config/env.js';
 import type { EventBus } from '../lib/events.js';
-import type { Mailer } from '../lib/mailer.js';
+import type { JobQueue } from '../jobs/queue.js';
+import type { Encryption } from '../lib/encryption.js';
 import type { Database } from '../lib/prisma.js';
 import { createNotificationService } from '../services/notification-service.js';
 import { createSubmissionService } from '../services/submission-service.js';
+import { queueEmails } from './email-jobs.js';
 import { renderSubmissionEmail } from './submission-email.js';
 
 interface NotifierDependencies {
   env: Pick<Env, 'APP_URL'>;
   logger: Logger;
   prisma: Database;
-  mailer: Mailer;
+  jobs: JobQueue;
+  encryption: Encryption;
   events: EventBus;
 }
 
 /**
  * Emails members who asked for it, and any other addresses the form lists, about each new
- * response, unless the form sends a daily digest instead (see `jobs/digests.ts`). Runs after
- * the response is saved and answered, so a slow or failing email service never touches the
- * respondent; failures are logged.
+ * response, unless the form sends a daily digest instead (see `jobs/jobs.ts`). The emails are
+ * queued once the response is saved and answered, so a slow or failing email service never
+ * touches the respondent, and sending is retried (see notifications/email-jobs.ts).
  */
 export function registerSubmissionNotifier({
   env,
   logger,
   prisma,
-  mailer,
+  jobs,
+  encryption,
   events,
 }: NotifierDependencies): () => void {
   const notifications = createNotificationService(prisma);
@@ -56,14 +60,16 @@ export function registerSubmissionNotifier({
         responseUrl: `${env.APP_URL}${formResponsesPath(formId, { responseId: submission.id })}`,
         settingsUrl: `${env.APP_URL}${formResponsesPath(formId)}`,
       });
-      await mailer.send(
-        recipients.map((to) => ({ to, ...email })),
-        { idempotencyKey: `submission-created/${submission.id}` },
-      );
+      await queueEmails(jobs, encryption, {
+        formId,
+        kind: 'response',
+        messages: recipients.map((to) => ({ to, ...email })),
+        idempotencyKey: `submission-created/${submission.id}`,
+      });
       // Counts only: addresses stay out of the logs.
-      logger.info({ ...context, recipients: recipients.length }, 'Sent new response emails');
+      logger.info({ ...context, recipients: recipients.length }, 'Queued new response emails');
     } catch (error) {
-      logger.error({ ...context, err: error }, 'Could not send new response emails');
+      logger.error({ ...context, err: error }, 'Could not queue new response emails');
     }
   });
 }

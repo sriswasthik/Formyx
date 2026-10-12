@@ -1,5 +1,6 @@
 import { entitlementsModeSchema } from '@formyx/shared';
 import { z } from 'zod';
+import { KeyRingError, parseKeyRing } from '../lib/encryption.js';
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 
@@ -42,6 +43,31 @@ const optionalSecret = z
   .trim()
   .optional()
   .transform((value) => value || undefined);
+
+/** An http(s) base URL without a trailing slash, for services tests replace with fakes. */
+const serviceUrl = (fallback: string) =>
+  z
+    .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
+    .default(fallback)
+    .transform((url) => url.replace(/\/+$/, ''));
+
+/** `ENCRYPTION_KEYS`: `<id>:<base64 32-byte key>`, comma-separated, newest first. */
+const keyRing = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value, context) => {
+    if (!value) return undefined;
+    try {
+      return parseKeyRing(value);
+    } catch (error) {
+      context.addIssue({
+        code: 'custom',
+        message: error instanceof KeyRingError ? error.message : 'Could not read the keys',
+      });
+      return z.NEVER;
+    }
+  });
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -114,6 +140,46 @@ export const envSchema = z.object({
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
     .default('https://api.cloudinary.com')
     .transform((url) => url.replace(/\/+$/, '')),
+  /**
+   * Keys that seal secrets at rest: integration tokens, webhook secrets, chat webhook URLs.
+   * `<id>:<base64 32-byte key>`, comma-separated, newest first; make one with
+   * `pnpm --filter @formyx/api keys:new`. Without it, a key is derived from JWT_SECRET, which
+   * is fine for development but ties every stored secret to the session secret.
+   */
+  ENCRYPTION_KEYS: keyRing,
+  /**
+   * Runs background jobs (webhooks, emails, integrations, hourly upkeep) in this process.
+   * `off` for an API that only queues them, when a separate `pnpm jobs:worker` runs them.
+   */
+  WORKERS: z
+    .enum(['on', 'off'], { error: 'Use on or off' })
+    .default('on')
+    .transform((value) => value === 'on'),
+  /**
+   * Where the job queue connects. Defaults to DIRECT_URL, then DATABASE_URL: a direct
+   * connection, since connection poolers in transaction mode can't hold its locks.
+   */
+  DIRECT_URL: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || undefined)
+    .pipe(
+      z
+        .url({ protocol: /^postgres(ql)?$/, error: 'Must be a postgres:// connection string' })
+        .optional(),
+    ),
+  /** Google OAuth client, for Google Sheets. Without both, Sheets can't be connected. */
+  GOOGLE_CLIENT_ID: optionalSecret,
+  GOOGLE_CLIENT_SECRET: optionalSecret,
+  /** Google's sign-in and APIs. Only changed for end-to-end tests (a fake Google). */
+  GOOGLE_OAUTH_URL: serviceUrl('https://accounts.google.com'),
+  GOOGLE_TOKEN_URL: serviceUrl('https://oauth2.googleapis.com'),
+  GOOGLE_SHEETS_URL: serviceUrl('https://sheets.googleapis.com'),
+  /** Notion public integration, for Notion. Without both, Notion can't be connected. */
+  NOTION_CLIENT_ID: optionalSecret,
+  NOTION_CLIENT_SECRET: optionalSecret,
+  NOTION_API_URL: serviceUrl('https://api.notion.com'),
   /** Looks up Indian PIN codes for address questions (India Post's public API). */
   PINCODE_API_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

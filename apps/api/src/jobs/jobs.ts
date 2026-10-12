@@ -7,7 +7,7 @@ import {
   type SubmissionRecord,
 } from '@formyx/shared';
 import type { Logger } from 'pino';
-import type { Mailer } from '../lib/mailer.js';
+import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { Database } from '../lib/prisma.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
 import { DIGEST_RESPONSE_LIMIT, renderDigestEmail } from '../notifications/digest-email.js';
@@ -30,6 +30,15 @@ const RETENTION_BATCH = 500;
 export interface JobDependencies {
   prisma: Database;
   mailer: Mailer;
+  /**
+   * Queues a digest instead of sending it now (the hourly upkeep job does, so a failing email
+   * service is retried and shows on the form's Integrations page).
+   */
+  queueEmail?: (email: {
+    formId: string;
+    messages: EmailMessage[];
+    idempotencyKey: string;
+  }) => Promise<void>;
   storage: UploadStorage | null;
   logger: Logger;
   appUrl: string;
@@ -51,6 +60,7 @@ export function hourIn(timeZone: string, now: Date): number {
 export async function sendDigests({
   prisma,
   mailer,
+  queueEmail,
   logger,
   appUrl,
   now = new Date(),
@@ -104,11 +114,11 @@ export async function sendDigests({
       responsesUrl: `${appUrl}${formResponsesPath(form.id)}`,
       settingsUrl: `${appUrl}/app/forms/${form.id}/settings?section=notifications`,
     });
+    const messages = recipients.map((to) => ({ to, ...email }));
+    const idempotencyKey = `digest/${form.id}/${now.toISOString().slice(0, 13)}`;
     try {
-      await mailer.send(
-        recipients.map((to) => ({ to, ...email })),
-        { idempotencyKey: `digest/${form.id}/${now.toISOString().slice(0, 13)}` },
-      );
+      if (queueEmail) await queueEmail({ formId: form.id, messages, idempotencyKey });
+      else await mailer.send(messages, { idempotencyKey });
       sent += 1;
     } catch (error) {
       logger.error({ formId: form.id, err: error }, 'Could not send a digest');

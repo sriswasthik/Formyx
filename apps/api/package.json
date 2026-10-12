@@ -19,8 +19,10 @@
     "demo:reset": "node --env-file-if-exists=.env dist/demo/reset-demo.js",
     "jobs:run": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/jobs/run-jobs.ts",
     "jobs": "node --env-file-if-exists=.env dist/jobs/run-jobs.js",
+    "jobs:worker": "node --env-file-if-exists=.env dist/jobs/worker.js",
     "db:migrate-forms": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/migrate-forms.ts",
-    "forms:migrate": "node --env-file-if-exists=.env dist/scripts/migrate-forms.js"
+    "forms:migrate": "node --env-file-if-exists=.env dist/scripts/migrate-forms.js",
+    "keys:new": "tsx src/scripts/new-key.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
@@ -38,6 +40,7 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "pg-boss": "^12.37.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "resend": "^6.31.0",

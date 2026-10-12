@@ -27,8 +27,14 @@ describe('parseEnv', () => {
       CLOUDINARY_FOLDER: 'formyx',
       CLOUDINARY_API_URL: 'https://api.cloudinary.com',
       PINCODE_API_URL: 'https://api.postalpincode.in/pincode',
+      WORKERS: true,
+      GOOGLE_OAUTH_URL: 'https://accounts.google.com',
+      GOOGLE_TOKEN_URL: 'https://oauth2.googleapis.com',
+      GOOGLE_SHEETS_URL: 'https://sheets.googleapis.com',
+      NOTION_API_URL: 'https://api.notion.com',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
+    expect(parseEnv(REQUIRED).ENCRYPTION_KEYS).toBeUndefined();
   });
 
   it('unlocks every feature unless entitlements are enforced', () => {

@@ -1,4 +1,6 @@
 import { EnvError, parseEnv, type Env } from './config/env.js';
+import { createJobQueue } from './jobs/create-queue.js';
+import { scheduleNextUpkeep } from './jobs/upkeep.js';
 import { createLogger } from './lib/logger.js';
 import { createMailer } from './lib/mailer.js';
 import { createPrismaClient } from './lib/prisma.js';
@@ -26,20 +28,32 @@ if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
 if (env.NODE_ENV === 'production' && env.WEBHOOK_ALLOW_PRIVATE_URLS) {
   logger.warn('WEBHOOK_ALLOW_PRIVATE_URLS is on: webhooks can reach private networks');
 }
+if (env.NODE_ENV === 'production' && !env.ENCRYPTION_KEYS) {
+  logger.warn('ENCRYPTION_KEYS is not set: stored secrets are sealed with a key from JWT_SECRET');
+}
 const storage = createUploadStorage(env);
 if (!storage) logger.info('Cloudinary is not configured: file uploads are switched off');
+const jobs = createJobQueue({ env, prisma, logger });
 const server = createServer({
   env,
   logger,
   prisma,
   mailer: createMailer(env, logger),
   storage,
+  jobs,
 });
 
 server.httpServer.once('error', (error) => {
   logger.fatal({ err: error }, 'Failed to start server');
   process.exit(1);
 });
+try {
+  await jobs.start();
+  if (env.WORKERS) await scheduleNextUpkeep(jobs);
+} catch (error) {
+  logger.fatal({ err: error }, 'Could not start the job queue');
+  process.exit(1);
+}
 server.httpServer.listen(env.PORT, () => {
   logger.info(`API listening on http://localhost:${env.PORT}`);
 });
@@ -57,6 +71,11 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   } catch (error) {
     logger.error({ err: error }, 'Error while closing server');
     exitCode = 1;
+  }
+  try {
+    await jobs.stop();
+  } catch (error) {
+    logger.error({ err: error }, 'Error while stopping the job queue');
   }
   try {
     await prisma.$disconnect();

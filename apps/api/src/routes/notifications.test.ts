@@ -7,7 +7,6 @@ import {
   submissionResponseSchema,
   type FormSchema,
 } from '@formyx/shared';
-import { pino } from 'pino';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -16,6 +15,7 @@ import {
   startTestServer,
   type TestServer,
 } from '../test/create-test-app.js';
+import { JOB_POLICIES } from '../jobs/job-types.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
 import { createPublishedForm } from '../test/responses.js';
 import { createTeam, requestAs, type Team } from '../test/team.js';
@@ -143,28 +143,29 @@ describe('emails about new responses', () => {
     expect(mailer.send).not.toHaveBeenCalled();
   });
 
-  it('still takes the response when email fails, and logs the failure', async () => {
-    const logs: { msg: string; formId?: string }[] = [];
-    const logger = pino(
-      { level: 'error' },
-      {
-        write: (line: string) => {
-          logs.push(JSON.parse(line) as { msg: string; formId?: string });
-        },
-      },
-    );
+  it('still takes the response when email fails, retries, then lists the failure', async () => {
     const mailer = { send: vi.fn(() => Promise.reject(new Error('Resend is down'))) };
-    server = await startTestServer({ mailer, logger });
+    server = await startTestServer({ mailer });
     const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
     await subscribe(team.users.EDITOR, form.id);
 
     await respond(form.slug, { [name.id]: 'Ada' });
 
-    await vi.waitFor(() => {
-      expect(logs).toContainEqual(
-        expect.objectContaining({ msg: 'Could not send new response emails', formId: form.id }),
-      );
+    const tries = JOB_POLICIES['email.send'].attempts;
+    await vi.waitFor(async () => {
+      expect(await prisma.jobFailure.findMany({ where: { formId: form.id } })).toEqual([
+        expect.objectContaining({
+          queue: 'email.send',
+          attempts: tries,
+          error: 'Resend is down',
+          summary: 'Send the new response email',
+        }),
+      ]);
     });
+    expect(mailer.send).toHaveBeenCalledTimes(tries);
+    // Every try is the same email, so the email service can drop repeats.
+    const keys = mailer.send.mock.calls.map((call) => (call as unknown[])[1]);
+    expect(new Set(keys.map((options) => JSON.stringify(options))).size).toBe(1);
     expect(await prisma.submission.count({ where: { formId: form.id } })).toBe(1);
   });
 });

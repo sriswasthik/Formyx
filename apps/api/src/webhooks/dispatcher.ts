@@ -10,7 +10,9 @@ import {
 import type { Logger } from 'pino';
 import type { Env } from '../config/env.js';
 import type { Database } from '../lib/prisma.js';
-import { createSecretBox, signWebhookBody, type SecretBox } from '../lib/webhook-signature.js';
+import { PermanentJobError } from '../jobs/queue.js';
+import { encryptionFromEnv, type Encryption } from '../lib/encryption.js';
+import { signWebhookBody } from '../lib/webhook-signature.js';
 import {
   createWebhookTransport,
   DeliveryError,
@@ -18,40 +20,27 @@ import {
 } from '../lib/webhook-transport.js';
 
 /*
- * Delivers webhook events from an in-process queue, retrying failures with exponential
- * backoff.
- *
- * LIMITATION: the queue lives in this process's memory. Events waiting for a retry are lost
- * if the API restarts, and running several API instances means each retries only what it
- * sent itself. A durable queue (a jobs table, or Redis with BullMQ) would fix both; the
- * dispatcher's interface would stay the same.
+ * Delivers webhook events: one signed POST per attempt, each logged for the webhook's
+ * delivery log. Retries are the job queue's (see jobs/queue.ts): a failed attempt throws, and
+ * the queue tries again later with backoff, sending exactly the same signed body. Jobs live in
+ * Postgres, so retries survive restarts and are shared between API instances.
  */
 
-/** Waits before each retry: three retries, doubling each time. */
-export const RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 8_000];
-/** Requests in flight at once, across all webhooks. */
-const CONCURRENCY = 4;
-
 export interface WebhookDispatcher {
-  /** Queues `payload` for one webhook. It is sent soon and retried in the background. */
-  enqueue(webhookId: string, payload: WebhookPayload): void;
   /** Sends once, now, without retries, and returns the logged attempt ("Send test event"). */
   sendNow(webhookId: string, payload: WebhookPayload): Promise<WebhookDelivery | null>;
-  /** Resolves once nothing is queued, waiting to retry or in flight. */
-  idle(): Promise<void>;
-  /** Drops pending retries (shutdown). Requests already in flight finish. */
-  close(): void;
+  /** One attempt of a queued delivery; throws when it should be tried again. */
+  deliver(job: DeliveryJob): Promise<void>;
 }
 
 interface DispatcherOptions {
   prisma: Database;
   logger: Logger;
-  secrets: SecretBox;
+  secrets: Encryption;
   transport: WebhookTransport;
-  retryDelaysMs?: readonly number[];
 }
 
-interface Job {
+export interface DeliveryJob {
   webhookId: string;
   payload: WebhookPayload;
   /** Serialised once, so every attempt sends (and signs) exactly the same bytes. */
@@ -89,24 +78,7 @@ export function createWebhookDispatcher({
   logger,
   secrets,
   transport,
-  retryDelaysMs = RETRY_DELAYS_MS,
 }: DispatcherOptions): WebhookDispatcher {
-  const queue: Job[] = [];
-  const timers = new Set<NodeJS.Timeout>();
-  let active = 0;
-  /** Jobs that are queued, in flight or waiting for a retry. */
-  let pending = 0;
-  let closed = false;
-  let idleWaiters: (() => void)[] = [];
-
-  function settle() {
-    pending -= 1;
-    if (pending === 0) {
-      for (const resolve of idleWaiters) resolve();
-      idleWaiters = [];
-    }
-  }
-
   /** Keeps the newest deliveries of a webhook for its log and drops the rest. */
   async function trimLog(webhookId: string) {
     await prisma.$executeRaw`
@@ -124,7 +96,9 @@ export function createWebhookDispatcher({
    * Sends one attempt and logs it. Returns the logged delivery and whether trying again
    * could help; `null` when the webhook no longer exists.
    */
-  async function attempt(job: Job): Promise<{ delivery: WebhookDelivery; retry: boolean } | null> {
+  async function attempt(
+    job: DeliveryJob,
+  ): Promise<{ delivery: WebhookDelivery; retry: boolean } | null> {
     const webhook = await prisma.webhook.findUnique({
       where: { id: job.webhookId },
       select: { url: true, secretEncrypted: true },
@@ -138,6 +112,13 @@ export function createWebhookDispatcher({
     let secret: string | null = null;
     try {
       secret = secrets.decrypt(webhook.secretEncrypted);
+      // Sealed under an older key: store it under the current one.
+      if (secrets.needsReseal(webhook.secretEncrypted)) {
+        await prisma.webhook.update({
+          where: { id: job.webhookId },
+          data: { secretEncrypted: secrets.encrypt(secret) },
+        });
+      }
     } catch {
       error = 'The signing secret can’t be read. Remove the webhook and add it again.';
       retry = false;
@@ -187,48 +168,7 @@ export function createWebhookDispatcher({
     return { delivery: toDelivery(record), retry: retry && !succeeded };
   }
 
-  async function run(job: Job) {
-    let next: Job | null = null;
-    try {
-      const result = await attempt(job);
-      const delay = retryDelaysMs[job.attempt - 1];
-      if (result?.retry && delay !== undefined && !closed) {
-        next = { ...job, attempt: job.attempt + 1 };
-        const retryJob = next;
-        const timer = setTimeout(() => {
-          timers.delete(timer);
-          queue.push(retryJob);
-          pump();
-        }, delay);
-        timers.add(timer);
-      }
-    } catch (error) {
-      logger.error({ err: error, webhookId: job.webhookId }, 'Webhook delivery crashed');
-    } finally {
-      active -= 1;
-      // A retry stays pending until it, too, is done.
-      if (!next) settle();
-      pump();
-    }
-  }
-
-  function pump() {
-    while (active < CONCURRENCY && queue.length > 0) {
-      const job = queue.shift();
-      if (!job) break;
-      active += 1;
-      void run(job);
-    }
-  }
-
   return {
-    enqueue(webhookId, payload) {
-      if (closed) return;
-      pending += 1;
-      queue.push({ webhookId, payload, body: JSON.stringify(payload), attempt: 1 });
-      pump();
-    },
-
     async sendNow(webhookId, payload) {
       const result = await attempt({
         webhookId,
@@ -239,20 +179,13 @@ export function createWebhookDispatcher({
       return result?.delivery ?? null;
     },
 
-    idle() {
-      if (pending === 0) return Promise.resolve();
-      return new Promise((resolve) => {
-        idleWaiters.push(resolve);
-      });
-    },
-
-    close() {
-      closed = true;
-      for (const timer of timers) {
-        clearTimeout(timer);
-        settle();
-      }
-      timers.clear();
+    async deliver(job) {
+      const result = await attempt(job);
+      // Removed meanwhile: nothing left to deliver to.
+      if (!result || result.delivery.succeeded) return;
+      const { statusCode, error } = result.delivery;
+      const reason = error ?? `The webhook answered ${statusCode ?? 'nothing'}`;
+      throw result.retry ? new Error(reason) : new PermanentJobError(reason);
     },
   };
 }
@@ -262,18 +195,15 @@ export function createDefaultWebhookDispatcher({
   env,
   prisma,
   logger,
-  retryDelaysMs,
 }: {
-  env: Pick<Env, 'JWT_SECRET' | 'WEBHOOK_ALLOW_PRIVATE_URLS'>;
+  env: Pick<Env, 'JWT_SECRET' | 'ENCRYPTION_KEYS' | 'WEBHOOK_ALLOW_PRIVATE_URLS'>;
   prisma: Database;
   logger: Logger;
-  retryDelaysMs?: readonly number[];
 }): WebhookDispatcher {
   return createWebhookDispatcher({
     prisma,
     logger,
-    secrets: createSecretBox(env.JWT_SECRET),
+    secrets: encryptionFromEnv(env),
     transport: createWebhookTransport({ allowPrivate: env.WEBHOOK_ALLOW_PRIVATE_URLS }),
-    ...(retryDelaysMs && { retryDelaysMs }),
   });
 }
