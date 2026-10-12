@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @formyx/api --filter @formyx/web run dev",
     "build": "pnpm -r run build",
-    "lint": "eslint .",
+    "lint": "node --max-old-space-size=6144 node_modules/eslint/bin/eslint.js .",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @formyx/e2e run e2e",
