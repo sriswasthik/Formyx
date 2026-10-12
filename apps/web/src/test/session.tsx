@@ -1,10 +1,11 @@
-import type { MeResponse } from '@formyx/shared';
+import { createDefaultAccountPreferences, type MeResponse } from '@formyx/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type * as React from 'react';
 import { vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
+import { accountKeys } from '@/features/account/account-api';
 import { meQueryKey } from '@/features/auth/session-cache';
 
 export const ADA: MeResponse = {
@@ -21,14 +22,15 @@ export const ADA: MeResponse = {
 };
 
 /**
- * A query client for tests. Pass `me` to start signed in (`null` for signed out); leave it
- * out to let the "me" query hit the (stubbed) network.
+ * A query client for tests. Pass `me` to start signed in (`null` for signed out), with the
+ * default account preferences; leave it out to let the "me" query hit the (stubbed) network.
  */
 export function createTestQueryClient(me?: MeResponse | null): QueryClient {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } },
   });
   if (me !== undefined) queryClient.setQueryData(meQueryKey, me);
+  if (me) queryClient.setQueryData(accountKeys.preferences, createDefaultAccountPreferences());
   return queryClient;
 }
 

@@ -3,6 +3,7 @@ import { LucideProvider } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useState } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
+import { MOTION_CONFIG, useMotionStore } from '@/features/motion/motion-preference';
 import { useThemeSync } from '@/features/theme/theme-store';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { AppErrorBoundary } from './app-error-boundary';
@@ -20,12 +21,13 @@ const Toaster = lazy(() =>
 export function App() {
   const [queryClient] = useState(createQueryClient);
   useThemeSync();
+  const motion = useMotionStore((state) => state.preference);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* reducedMotion="user" drops transform animations when the OS asks for less motion. */}
+      {/* Drops transform animations when the OS (or the person's preference) asks for less. */}
       <MotionConfig
-        reducedMotion="user"
+        reducedMotion={MOTION_CONFIG[motion]}
         transition={{ duration: DURATION.base, ease: EASE_STANDARD }}
       >
         <LucideProvider size={16} strokeWidth={1.75}>

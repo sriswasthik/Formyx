@@ -1,11 +1,18 @@
 import { RotateCw } from 'lucide-react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { ErrorState } from '@/components/error-state';
+import { useAccountPreferencesSync } from '@/features/account/use-account-preferences';
 import { Button } from '@/components/ui/button';
 import { redirectStateFor } from './redirect';
 import { SessionContext } from './session-context';
 import { SessionSkeleton } from './session-skeleton';
 import { useMe } from './use-session';
+
+/** Applies and saves the account's look and motion while signed in. */
+function AccountPreferencesSync() {
+  useAccountPreferencesSync();
+  return null;
+}
 
 /** Renders its child routes only for signed-in users; everyone else is sent to /login. */
 export function ProtectedRoute() {
@@ -42,6 +49,7 @@ export function ProtectedRoute() {
 
   return (
     <SessionContext.Provider value={me}>
+      <AccountPreferencesSync />
       <Outlet />
     </SessionContext.Provider>
   );

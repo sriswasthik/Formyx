@@ -38,7 +38,7 @@ const HOURS: Option<string>[] = Array.from({ length: 24 }, (_, hour) => ({
 }));
 
 /** Addresses to email about each response, beyond the members who asked. */
-function EmailList({
+export function EmailList({
   emails,
   onChange,
 }: {

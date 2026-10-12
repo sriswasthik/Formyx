@@ -9,8 +9,12 @@ import { InvitesCard } from './invites-card';
 import { MembersCard } from './members-card';
 import { WorkspaceDangerZone } from './workspace-danger-zone';
 import { WorkspaceNameCard } from './workspace-name-card';
+import { WorkspacePreferencesCard } from './workspace-preferences-card';
 
-/** The active workspace: its name, members, invites, brand kits, and leaving or deleting it. */
+/**
+ * The active workspace: its name, preferences, members, invites, brand kits (with the default
+ * one), and leaving or deleting it.
+ */
 export function WorkspaceSettingsPage() {
   const workspace = useActiveWorkspace();
   const [creating, setCreating] = useState(false);
@@ -42,6 +46,7 @@ export function WorkspaceSettingsPage() {
     // Remounted per workspace, so nothing typed for one shows up in another.
     <div key={workspace.id} className="flex flex-col gap-6">
       <WorkspaceNameCard workspace={workspace} />
+      <WorkspacePreferencesCard workspace={workspace} />
       <MembersCard workspace={workspace} />
       {workspace.role === 'OWNER' && <InvitesCard workspace={workspace} />}
       <BrandKitsCard workspace={workspace} />

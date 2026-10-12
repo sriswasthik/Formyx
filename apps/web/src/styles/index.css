@@ -34,6 +34,30 @@
     @slot;
   }
 }
+/*
+ * Reduced motion follows the device unless the person chose otherwise in their preferences,
+ * which sets `data-motion` on <html> (see motion-preference.ts).
+ */
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    &:where(:root:not([data-motion='full']) *) {
+      @slot;
+    }
+  }
+  &:where([data-motion='reduce'] *) {
+    @slot;
+  }
+}
+@custom-variant motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    &:where(:root:not([data-motion='reduce']) *) {
+      @slot;
+    }
+  }
+  &:where([data-motion='full'] *) {
+    @slot;
+  }
+}
 
 /* ------------------------------------------------------------------------ */
 /* Design tokens                                                             */
@@ -425,11 +449,14 @@
   animation: row-arrived 2000ms ease-out;
 }
 
+/* No fade: the tint simply stays while the row counts as new. */
 @media (prefers-reduced-motion: reduce) {
-  /* No fade: the tint simply stays while the row counts as new. */
-  .row-arrived > td {
+  :root:not([data-motion='full']) .row-arrived > td {
     background-color: var(--color-row-arrived);
   }
+}
+[data-motion='reduce'] .row-arrived > td {
+  background-color: var(--color-row-arrived);
 }
 
 /* Suppresses transitions for one frame while the theme switches. */
@@ -439,12 +466,20 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  ::before,
-  ::after {
+  :root:not([data-motion='full']) *,
+  :root:not([data-motion='full']) ::before,
+  :root:not([data-motion='full']) ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+[data-motion='reduce'] *,
+[data-motion='reduce'] ::before,
+[data-motion='reduce'] ::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
