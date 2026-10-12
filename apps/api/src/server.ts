@@ -10,6 +10,7 @@ import { encryptionFromEnv } from './lib/encryption.js';
 import { createEventBus, type EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
+import { createProductAnalytics, type ProductAnalytics } from './lib/product-analytics.js';
 import type { UploadStorage } from './lib/upload-storage.js';
 import { createWebhookTransport, type WebhookTransport } from './lib/webhook-transport.js';
 import { registerAutoresponder } from './notifications/autoresponder-notifier.js';
@@ -32,6 +33,8 @@ export interface ServerDependencies {
   webhooks?: WebhookDispatcher;
   /** Defaults to real HTTPS requests; tests pass one that records them. */
   chat?: WebhookTransport;
+  /** Defaults to PostHog (sending nothing unless POSTHOG_KEY is set). */
+  analytics?: ProductAnalytics;
 }
 
 export interface FormyxServer {
@@ -41,6 +44,7 @@ export interface FormyxServer {
   io: RealtimeServer;
   events: EventBus;
   jobs: JobQueue;
+  analytics: ProductAnalytics;
   /** Disconnects sockets and stops accepting connections. The job queue is stopped apart. */
   close(): Promise<void>;
 }
@@ -56,7 +60,8 @@ export function createServer(deps: ServerDependencies): FormyxServer {
   const webhooks = deps.webhooks ?? createDefaultWebhookDispatcher(deps);
   // Chat webhooks only ever go to Slack's and Discord's own hosts.
   const chat = deps.chat ?? createWebhookTransport({ allowPrivate: false });
-  const app = createApp({ ...deps, events, webhooks, chat });
+  const analytics = deps.analytics ?? createProductAnalytics(deps);
+  const app = createApp({ ...deps, events, webhooks, chat, analytics });
   const httpServer = createHttpServer(app);
   const io = attachRealtime(httpServer, { ...deps, events });
   const background = { ...deps, events, encryption };
@@ -74,6 +79,7 @@ export function createServer(deps: ServerDependencies): FormyxServer {
     io,
     events,
     jobs: deps.jobs,
+    analytics,
     close: () =>
       new Promise((resolve, reject) => {
         // Closes the HTTP server too.

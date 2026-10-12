@@ -2,6 +2,7 @@ import { EnvError, parseEnv, type Env } from './config/env.js';
 import { createJobQueue } from './jobs/create-queue.js';
 import { scheduleNextUpkeep } from './jobs/upkeep.js';
 import { createLogger } from './lib/logger.js';
+import { startMonitoring, stopMonitoring } from './lib/monitoring.js';
 import { createMailer } from './lib/mailer.js';
 import { createPrismaClient } from './lib/prisma.js';
 import { createUploadStorage } from './lib/upload-storage.js';
@@ -21,6 +22,7 @@ function loadEnv(): Env {
 
 const env = loadEnv();
 const logger = createLogger(env);
+if (startMonitoring(env)) logger.info('Reporting errors to Sentry');
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
 if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
   logger.warn('RESEND_API_KEY is not set: notification emails will be logged, not sent');
@@ -77,6 +79,8 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   } catch (error) {
     logger.error({ err: error }, 'Error while stopping the job queue');
   }
+  await server.analytics.flush();
+  await stopMonitoring();
   try {
     await prisma.$disconnect();
   } catch (error) {

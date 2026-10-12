@@ -8,6 +8,7 @@ import type { JobQueue } from './jobs/queue.js';
 import type { EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
 import type { Database } from './lib/prisma.js';
+import type { ProductAnalytics } from './lib/product-analytics.js';
 import type { UploadStorage } from './lib/upload-storage.js';
 import type { WebhookTransport } from './lib/webhook-transport.js';
 import type { WebhookDispatcher } from './webhooks/dispatcher.js';
@@ -32,6 +33,8 @@ export interface AppDependencies {
   jobs: JobQueue;
   /** Posts to Slack and Discord incoming webhooks (new responses, test messages). */
   chat: WebhookTransport;
+  /** Product events (a form published, a premium font used), when PostHog is set up. */
+  analytics: ProductAnalytics;
 }
 
 export function createApp(deps: AppDependencies): Express {

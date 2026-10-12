@@ -185,6 +185,19 @@ export const envSchema = z.object({
   NOTION_CLIENT_ID: optionalSecret,
   NOTION_CLIENT_SECRET: optionalSecret,
   NOTION_API_URL: serviceUrl('https://api.notion.com'),
+  /** Sentry project DSN for the API. Empty: errors are only logged. */
+  SENTRY_DSN: optionalSecret.pipe(z.url({ error: 'Must be a Sentry DSN URL' }).optional()),
+  /** The release errors are filed under; Render sets RENDER_GIT_COMMIT for every deploy. */
+  RENDER_GIT_COMMIT: optionalSecret,
+  /**
+   * PostHog project API key for product analytics (a few server-side events, see
+   * lib/product-analytics.ts). Empty: nothing is sent.
+   */
+  POSTHOG_KEY: optionalSecret,
+  /** PostHog's ingestion host: https://eu.i.posthog.com (EU) or https://us.i.posthog.com. */
+  POSTHOG_HOST: serviceUrl('https://eu.i.posthog.com'),
+  /** Where feedback from the app is emailed. Empty: it is only stored. */
+  FEEDBACK_EMAIL: optionalSecret.pipe(z.email({ error: 'Must be an email address' }).optional()),
   /** Looks up Indian PIN codes for address questions (India Post's public API). */
   PINCODE_API_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

@@ -149,3 +149,58 @@ export function FormDefaultsCard() {
     </Card>
   );
 }
+
+/** Whether this person's use of Formyx counts in product analytics. */
+export function PrivacyCard() {
+  const preferences = useAccountPreferences();
+  const update = useUpdateAccountPreferences();
+  const analyticsId = useId();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Privacy</CardTitle>
+        <CardDescription>What Formyx learns from how you use it.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {preferences.data ? (
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor={analyticsId}>Share feature usage</Label>
+              <p className="text-13 text-muted-foreground">
+                Counts which features you use, such as publishing or a premium font, under an id
+                that can’t be traced back to you, so we learn what to improve. Never your name,
+                email, forms or responses.
+              </p>
+            </div>
+            <Switch
+              id={analyticsId}
+              checked={preferences.data.productAnalytics}
+              onCheckedChange={(productAnalytics) => {
+                update.mutate(
+                  { productAnalytics },
+                  {
+                    onSuccess: () => {
+                      toast.success('Preference saved');
+                    },
+                    onError: (error) => {
+                      toast.error('Could not save the preference', {
+                        description: changeErrorMessage(error),
+                      });
+                    },
+                  },
+                );
+              }}
+            />
+          </div>
+        ) : preferences.isError ? (
+          <p role="alert" className="text-14 text-danger-text">
+            Could not load your preferences. Reload the page to try again.
+          </p>
+        ) : (
+          <Skeleton className="h-9 w-full" aria-busy="true" aria-label="Loading preferences" />
+        )}
+      </CardContent>
+    </Card>
+  );
+}

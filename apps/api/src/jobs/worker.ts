@@ -3,6 +3,7 @@
 // WORKERS=on the API runs them itself and this isn't needed.
 import { parseEnv } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
+import { startMonitoring, stopMonitoring } from '../lib/monitoring.js';
 import { createMailer } from '../lib/mailer.js';
 import { createPrismaClient } from '../lib/prisma.js';
 import { createUploadStorage } from '../lib/upload-storage.js';
@@ -15,6 +16,7 @@ const WORKER_IDLE_POLL_MS = 5000;
 
 const env = parseEnv(process.env);
 const logger = createLogger(env);
+startMonitoring(env);
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
 const jobs = createJobQueue({ env, prisma, logger, work: true, idlePollMs: WORKER_IDLE_POLL_MS });
 
@@ -37,6 +39,7 @@ async function shutdown(signal: NodeJS.Signals) {
     logger.error({ err: error }, 'Could not stop the job queue cleanly');
   });
   await prisma.$disconnect();
+  await stopMonitoring();
   process.exit(0);
 }
 process.once('SIGINT', (signal) => void shutdown(signal));

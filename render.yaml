@@ -72,6 +72,16 @@ services:
         sync: false
       - key: NOTION_CLIENT_SECRET
         sync: false
+      # Monitoring and product analytics; leave empty to switch them off.
+      - key: SENTRY_DSN
+        sync: false
+      - key: POSTHOG_KEY
+        sync: false
+      - key: POSTHOG_HOST
+        value: https://eu.i.posthog.com
+      # Where feedback sent from the app is emailed (it is always stored).
+      - key: FEEDBACK_EMAIL
+        sync: false
 
   # Puts the shared demo account back to its starting point every night at 03:00 UTC.
   - type: cron

@@ -27,7 +27,7 @@ import type { Guards } from './index.js';
  * redirect rather than answer JSON), pausing, re-syncing and disconnecting.
  */
 export function createIntegrationsRouter(
-  { env, prisma, jobs, logger, mailer, chat }: AppDependencies,
+  { env, prisma, jobs, logger, mailer, chat, analytics }: AppDependencies,
   { requireAuth, requireRealAccount, requireFormRole, requireFeature }: Guards,
 ): Router {
   const router = Router();
@@ -112,6 +112,12 @@ export function createIntegrationsRouter(
         { code: query('code'), state: query('state'), error: query('error') },
         userId,
       );
+      if (formId && !error) {
+        analytics.track(
+          { name: 'integration_connected', properties: { kind } },
+          { userId, formId },
+        );
+      }
       const page = formId
         ? `${env.APP_URL}/app/forms/${encodeURIComponent(formId)}/integrations`
         : `${env.APP_URL}/app/forms`;

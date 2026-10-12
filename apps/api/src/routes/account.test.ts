@@ -39,7 +39,13 @@ describe('account preferences', () => {
     const initial = await agent.get('/api/account/preferences').expect(200);
     expect(accountPreferencesSchema.parse(initial.body)).toEqual(createDefaultAccountPreferences());
 
-    const saved = { theme: 'dark', reducedMotion: 'reduce', language: 'te', emailOnNewForms: true };
+    const saved = {
+      theme: 'dark',
+      reducedMotion: 'reduce',
+      language: 'te',
+      emailOnNewForms: true,
+      productAnalytics: false,
+    };
     await agent.put('/api/account/preferences').send(saved).expect(200);
     expect((await agent.get('/api/account/preferences').expect(200)).body).toEqual(saved);
     await agent

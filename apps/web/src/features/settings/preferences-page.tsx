@@ -4,10 +4,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { parseThemePreference } from '@/features/theme/theme';
 import { useThemeStore } from '@/features/theme/theme-store';
 import { THEME_OPTIONS } from '@/features/theme/theme-options';
-import { FormDefaultsCard, MotionCard } from './account/account-preferences-cards';
+import { FormDefaultsCard, MotionCard, PrivacyCard } from './account/account-preferences-cards';
 import { DeleteAccountCard, PasswordCard } from './account/account-security-cards';
 
-/** The signed-in person's own settings: look, motion, new forms, password and account. */
+/** The signed-in person's own settings: look, motion, new forms, privacy, password, account. */
 export function PreferencesPage() {
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
@@ -44,6 +44,7 @@ export function PreferencesPage() {
       </Card>
       <MotionCard />
       <FormDefaultsCard />
+      <PrivacyCard />
       <PasswordCard />
       <DeleteAccountCard />
     </div>

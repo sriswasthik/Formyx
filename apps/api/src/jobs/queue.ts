@@ -1,5 +1,6 @@
 import { PgBoss, type Job } from 'pg-boss';
 import type { Logger } from 'pino';
+import { isProgrammingError, reportError } from '../lib/monitoring.js';
 import { JOB_POLICIES, type JobName, type JobPayloads, type JobPolicy } from './job-types.js';
 
 /*
@@ -109,6 +110,8 @@ export async function runAttempt<N extends JobName>({
       return 'retry';
     }
     logger.error({ ...context, err: error, permanent }, 'Job failed for good');
+    // Failures outside Formyx (a receiver down) show under Failed jobs; bugs go to Sentry too.
+    if (isProgrammingError(error)) reportError(error, { job: name, attempts: attempt });
     try {
       await onFailed({ name, jobId, data, attempts: attempt, error: describeError(error) });
     } catch (recordError) {

@@ -5,6 +5,7 @@ import { createApp } from '../app.js';
 import { parseEnv } from '../config/env.js';
 import { createEventBus } from '../lib/events.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
+import { createRecordingAnalytics, type ProductAnalytics } from '../lib/product-analytics.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
 import type { DeliveryRequest, WebhookTransport } from '../lib/webhook-transport.js';
 import { createFailureRecorder } from '../jobs/failures.js';
@@ -50,12 +51,14 @@ export function createTestApp(
     webhooks,
     chat = createFakeChatTransport(),
     jobs = createTestQueue(),
+    analytics = createRecordingAnalytics(),
   }: {
     storage?: UploadStorage | null;
     mailer?: Mailer;
     webhooks?: WebhookDispatcher;
     chat?: WebhookTransport;
     jobs?: TestQueue;
+    analytics?: ProductAnalytics;
   } = {},
 ) {
   const parsed = testEnv(env);
@@ -69,6 +72,7 @@ export function createTestApp(
     webhooks: webhooks ?? createTestWebhookDispatcher(parsed),
     chat,
     jobs,
+    analytics,
   });
 }
 

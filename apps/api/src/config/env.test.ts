@@ -33,6 +33,7 @@ describe('parseEnv', () => {
       GOOGLE_TOKEN_URL: 'https://oauth2.googleapis.com',
       GOOGLE_SHEETS_URL: 'https://sheets.googleapis.com',
       NOTION_API_URL: 'https://api.notion.com',
+      POSTHOG_HOST: 'https://eu.i.posthog.com',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
     expect(parseEnv(REQUIRED).ENCRYPTION_KEYS).toBeUndefined();
