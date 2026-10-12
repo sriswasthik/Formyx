@@ -13,9 +13,13 @@ export function SiteFooter() {
           <span className="tabular-nums">© {new Date().getFullYear()} Formyx</span>
         </div>
         <nav aria-label="Footer" className="flex gap-6">
-          <a href="#features" className={linkClass}>
+          {/* A plain link: the browser scrolls to the section, from any page. */}
+          <a href="/#features" className={linkClass}>
             Features
           </a>
+          <Link to="/changelog" className={linkClass}>
+            Changelog
+          </Link>
           <Link to="/login" className={linkClass}>
             Log in
           </Link>

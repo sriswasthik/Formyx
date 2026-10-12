@@ -70,13 +70,13 @@ export function createPublicFormsRouter({
   });
 
   // Link previews: read by the site's edge function and by chat apps fetching the image.
-  router.get('/:slug/meta', async (req, res) => {
+  router.get('/:slug/meta', limit.meta, async (req, res) => {
     const body: FormMeta = await meta.meta(routeParam(req, 'slug'));
     res.set('Cache-Control', 'public, max-age=60');
     res.json(body);
   });
 
-  router.get('/:slug/og.png', async (req, res) => {
+  router.get('/:slug/og.png', limit.previewImage, async (req, res) => {
     const image = await meta.image(routeParam(req, 'slug'));
     if ('redirect' in image) {
       res.redirect(302, image.redirect);
@@ -86,7 +86,7 @@ export function createPublicFormsRouter({
     res.send(image.png);
   });
 
-  router.get('/:slug', async (req, res) => {
+  router.get('/:slug', limit.load, async (req, res) => {
     const form: PublicFormResponse = await forms.get(routeParam(req, 'slug'), accessTokenOf(req));
     res.json(form);
   });

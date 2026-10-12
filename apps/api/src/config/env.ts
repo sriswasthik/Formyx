@@ -1,5 +1,6 @@
 import { entitlementsModeSchema } from '@formyx/shared';
 import { z } from 'zod';
+import { KeyRingError, parseKeyRing } from '../lib/encryption.js';
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 
@@ -43,6 +44,31 @@ const optionalSecret = z
   .optional()
   .transform((value) => value || undefined);
 
+/** An http(s) base URL without a trailing slash, for services tests replace with fakes. */
+const serviceUrl = (fallback: string) =>
+  z
+    .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
+    .default(fallback)
+    .transform((url) => url.replace(/\/+$/, ''));
+
+/** `ENCRYPTION_KEYS`: `<id>:<base64 32-byte key>`, comma-separated, newest first. */
+const keyRing = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value, context) => {
+    if (!value) return undefined;
+    try {
+      return parseKeyRing(value);
+    } catch (error) {
+      context.addIssue({
+        code: 'custom',
+        message: error instanceof KeyRingError ? error.message : 'Could not read the keys',
+      });
+      return z.NEVER;
+    }
+  });
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
@@ -61,6 +87,11 @@ export const envSchema = z.object({
   SUBMISSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   /** Allowed invite emails (new or sent again) per user per 15 minutes. */
   INVITE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
+  /**
+   * Allowed API requests per signed-in user (or per IP when signed out) per 15 minutes, for
+   * everything outside the public form endpoints. A ceiling for floods, far above normal use.
+   */
+  API_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(3000),
   /**
    * Lets webhooks use plain http and reach localhost and private networks. For development
    * only: on a server it would let anyone with a form send requests inside your network.
@@ -114,6 +145,59 @@ export const envSchema = z.object({
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
     .default('https://api.cloudinary.com')
     .transform((url) => url.replace(/\/+$/, '')),
+  /**
+   * Keys that seal secrets at rest: integration tokens, webhook secrets, chat webhook URLs.
+   * `<id>:<base64 32-byte key>`, comma-separated, newest first; make one with
+   * `pnpm --filter @formyx/api keys:new`. Without it, a key is derived from JWT_SECRET, which
+   * is fine for development but ties every stored secret to the session secret.
+   */
+  ENCRYPTION_KEYS: keyRing,
+  /**
+   * Runs background jobs (webhooks, emails, integrations, hourly upkeep) in this process.
+   * `off` for an API that only queues them, when a separate `pnpm jobs:worker` runs them.
+   */
+  WORKERS: z
+    .enum(['on', 'off'], { error: 'Use on or off' })
+    .default('on')
+    .transform((value) => value === 'on'),
+  /**
+   * Where the job queue connects. Defaults to DIRECT_URL, then DATABASE_URL: a direct
+   * connection, since connection poolers in transaction mode can't hold its locks.
+   */
+  DIRECT_URL: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || undefined)
+    .pipe(
+      z
+        .url({ protocol: /^postgres(ql)?$/, error: 'Must be a postgres:// connection string' })
+        .optional(),
+    ),
+  /** Google OAuth client, for Google Sheets. Without both, Sheets can't be connected. */
+  GOOGLE_CLIENT_ID: optionalSecret,
+  GOOGLE_CLIENT_SECRET: optionalSecret,
+  /** Google's sign-in and APIs. Only changed for end-to-end tests (a fake Google). */
+  GOOGLE_OAUTH_URL: serviceUrl('https://accounts.google.com'),
+  GOOGLE_TOKEN_URL: serviceUrl('https://oauth2.googleapis.com'),
+  GOOGLE_SHEETS_URL: serviceUrl('https://sheets.googleapis.com'),
+  /** Notion public integration, for Notion. Without both, Notion can't be connected. */
+  NOTION_CLIENT_ID: optionalSecret,
+  NOTION_CLIENT_SECRET: optionalSecret,
+  NOTION_API_URL: serviceUrl('https://api.notion.com'),
+  /** Sentry project DSN for the API. Empty: errors are only logged. */
+  SENTRY_DSN: optionalSecret.pipe(z.url({ error: 'Must be a Sentry DSN URL' }).optional()),
+  /** The release errors are filed under; Render sets RENDER_GIT_COMMIT for every deploy. */
+  RENDER_GIT_COMMIT: optionalSecret,
+  /**
+   * PostHog project API key for product analytics (a few server-side events, see
+   * lib/product-analytics.ts). Empty: nothing is sent.
+   */
+  POSTHOG_KEY: optionalSecret,
+  /** PostHog's ingestion host: https://eu.i.posthog.com (EU) or https://us.i.posthog.com. */
+  POSTHOG_HOST: serviceUrl('https://eu.i.posthog.com'),
+  /** Where feedback from the app is emailed. Empty: it is only stored. */
+  FEEDBACK_EMAIL: optionalSecret.pipe(z.email({ error: 'Must be an email address' }).optional()),
   /** Looks up Indian PIN codes for address questions (India Post's public API). */
   PINCODE_API_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })

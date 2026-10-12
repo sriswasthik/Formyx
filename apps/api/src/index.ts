@@ -1,5 +1,8 @@
 import { EnvError, parseEnv, type Env } from './config/env.js';
+import { createJobQueue } from './jobs/create-queue.js';
+import { scheduleNextUpkeep } from './jobs/upkeep.js';
 import { createLogger } from './lib/logger.js';
+import { startMonitoring, stopMonitoring } from './lib/monitoring.js';
 import { createMailer } from './lib/mailer.js';
 import { createPrismaClient } from './lib/prisma.js';
 import { createUploadStorage } from './lib/upload-storage.js';
@@ -19,6 +22,7 @@ function loadEnv(): Env {
 
 const env = loadEnv();
 const logger = createLogger(env);
+if (startMonitoring(env)) logger.info('Reporting errors to Sentry');
 const prisma = createPrismaClient(env.DATABASE_URL, logger);
 if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
   logger.warn('RESEND_API_KEY is not set: notification emails will be logged, not sent');
@@ -26,20 +30,32 @@ if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
 if (env.NODE_ENV === 'production' && env.WEBHOOK_ALLOW_PRIVATE_URLS) {
   logger.warn('WEBHOOK_ALLOW_PRIVATE_URLS is on: webhooks can reach private networks');
 }
+if (env.NODE_ENV === 'production' && !env.ENCRYPTION_KEYS) {
+  logger.warn('ENCRYPTION_KEYS is not set: stored secrets are sealed with a key from JWT_SECRET');
+}
 const storage = createUploadStorage(env);
 if (!storage) logger.info('Cloudinary is not configured: file uploads are switched off');
+const jobs = createJobQueue({ env, prisma, logger });
 const server = createServer({
   env,
   logger,
   prisma,
   mailer: createMailer(env, logger),
   storage,
+  jobs,
 });
 
 server.httpServer.once('error', (error) => {
   logger.fatal({ err: error }, 'Failed to start server');
   process.exit(1);
 });
+try {
+  await jobs.start();
+  if (env.WORKERS) await scheduleNextUpkeep(jobs);
+} catch (error) {
+  logger.fatal({ err: error }, 'Could not start the job queue');
+  process.exit(1);
+}
 server.httpServer.listen(env.PORT, () => {
   logger.info(`API listening on http://localhost:${env.PORT}`);
 });
@@ -58,6 +74,13 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     logger.error({ err: error }, 'Error while closing server');
     exitCode = 1;
   }
+  try {
+    await jobs.stop();
+  } catch (error) {
+    logger.error({ err: error }, 'Error while stopping the job queue');
+  }
+  await server.analytics.flush();
+  await stopMonitoring();
   try {
     await prisma.$disconnect();
   } catch (error) {

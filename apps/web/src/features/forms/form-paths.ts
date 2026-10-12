@@ -24,3 +24,8 @@ export function formSettingsPath(
   const query = params.toString();
   return `/app/forms/${formId}/settings${query ? `?${query}` : ''}`;
 }
+
+/** A form's Integrations page. */
+export function formIntegrationsPath(formId: string): string {
+  return `/app/forms/${formId}/integrations`;
+}

@@ -10,7 +10,7 @@ import { createAuthRateLimiters } from '../middleware/rate-limit.js';
 import { createAuthService } from '../services/auth-service.js';
 
 export function createAuthRouter(
-  { env, prisma }: AppDependencies,
+  { env, prisma, analytics }: AppDependencies,
   { requireAuth }: AuthGuards,
 ): Router {
   const router = Router();
@@ -36,6 +36,10 @@ export function createAuthRouter(
   router.post('/register', limit.register, async (req, res) => {
     const me = await auth.register(registerInputSchema.parse(req.body));
     await signIn(res, me.user.id);
+    analytics.track(
+      { name: 'signed_up' },
+      { userId: me.user.id, workspaceId: me.workspaces[0]?.id },
+    );
     res.status(201).json(me);
   });
 

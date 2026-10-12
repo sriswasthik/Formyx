@@ -1,9 +1,9 @@
-# Render Blueprint for the API and the nightly demo reset. In the Render dashboard choose
+# Render Blueprint for the API (which also runs background jobs) and the nightly demo reset. In the Render dashboard choose
 # New > Blueprint, pick this repository, then fill in every value marked `sync: false`.
 # The web app is deployed separately, on Vercel (see "Deployment" in the README).
 
 envVarGroups:
-  # Shared by the API and the cron job. With Neon, DATABASE_URL is the pooled connection
+  # Shared by the API and the demo cron job. With Neon, DATABASE_URL is the pooled connection
   # string and DIRECT_URL the direct one, which migrations use.
   - name: formyx-database
     envVars:
@@ -59,6 +59,29 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # Seals stored secrets (integration tokens, webhook secrets). Make one with
+      # `pnpm --filter @formyx/api keys:new` and keep it safe: losing it means reconnecting.
+      - key: ENCRYPTION_KEYS
+        sync: false
+      # Google Sheets and Notion integrations; leave empty to hide them.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: NOTION_CLIENT_ID
+        sync: false
+      - key: NOTION_CLIENT_SECRET
+        sync: false
+      # Monitoring and product analytics; leave empty to switch them off.
+      - key: SENTRY_DSN
+        sync: false
+      - key: POSTHOG_KEY
+        sync: false
+      - key: POSTHOG_HOST
+        value: https://eu.i.posthog.com
+      # Where feedback sent from the app is emailed (it is always stored).
+      - key: FEEDBACK_EMAIL
+        sync: false
 
   # Puts the shared demo account back to its starting point every night at 03:00 UTC.
   - type: cron
@@ -77,47 +100,3 @@ services:
       - fromGroup: formyx-database
       - key: NODE_ENV
         value: production
-
-  # Every hour: daily digests of new responses (each form at its own hour, in its workspace's
-  # time zone) and deleting responses older than a form keeps them. Safe to run again.
-  - type: cron
-    name: formyx-jobs
-    runtime: node
-    region: frankfurt
-    plan: starter
-    schedule: '5 * * * *'
-    buildCommand: >-
-      corepack enable &&
-      pnpm install --frozen-lockfile &&
-      pnpm --filter @formyx/shared build &&
-      pnpm --filter @formyx/api build
-    startCommand: pnpm --filter @formyx/api jobs
-    envVars:
-      - fromGroup: formyx-database
-      - key: NODE_ENV
-        value: production
-      - key: JWT_SECRET
-        fromService:
-          type: web
-          name: formyx-api
-          envVarKey: JWT_SECRET
-      - key: CORS_ORIGIN
-        fromService:
-          type: web
-          name: formyx-api
-          envVarKey: CORS_ORIGIN
-      - key: APP_URL
-        fromService:
-          type: web
-          name: formyx-api
-          envVarKey: APP_URL
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false

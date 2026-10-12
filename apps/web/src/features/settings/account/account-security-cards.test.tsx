@@ -118,7 +118,10 @@ describe('DeleteAccountCard', () => {
     await user.type(screen.getByLabelText('Your password'), 'my password');
     await user.click(screen.getByRole('button', { name: 'Delete account' }));
 
-    expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument();
+    // Signing out re-renders the router, which takes a moment when the whole suite runs.
+    expect(
+      await screen.findByRole('heading', { name: 'Home' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(requests).toEqual([{ path: '/api/account/delete', body: { password: 'my password' } }]);
     expect(queryClient.getQueryData(meQueryKey)).toBeNull();
   });

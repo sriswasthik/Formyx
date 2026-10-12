@@ -12,5 +12,9 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Test files share one Postgres database and empty it between tests.
     fileParallelism: false,
+    // OpenTelemetry's ESM build (picked by the `module` condition above), which pg-boss and
+    // Sentry import, leaves file extensions off, which only a bundler resolves: let Vite
+    // transform them.
+    server: { deps: { inline: ['pg-boss', /@sentry\//, /@opentelemetry\//] } },
   },
 });

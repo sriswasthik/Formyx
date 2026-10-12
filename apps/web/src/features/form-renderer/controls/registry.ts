@@ -1,11 +1,13 @@
-import type { FieldType, FormSchema } from '@formyx/shared';
+import type { FormSchema } from '@formyx/shared';
 import { useEffect, useState, type ComponentType } from 'react';
 import type { ControlProps } from '../types';
+import { controlChunk, type ControlChunkId } from './control-chunks';
 
 /*
  * The controls for Sprint 12's question types live in chunks of their own, so a form only
  * downloads the ones it uses. The public form preloads them while its skeleton shows (like
  * its fonts), so they draw at once; elsewhere a placeholder holds their place for a moment.
+ * Which chunk draws which type is in control-chunks.ts.
  */
 
 /** What every control chunk exports: the control for any of its types. */
@@ -24,44 +26,7 @@ const LOADERS = {
   voice: () => import('./voice-control'),
   file: () => import('./file-chunk'),
   blocks: () => import('./content-blocks'),
-} satisfies Record<string, () => Promise<ControlChunk>>;
-
-export type ControlChunkId = keyof typeof LOADERS;
-
-/** Which chunk draws a type; types without one are drawn by the main renderer. */
-const CHUNK_BY_TYPE: Partial<Record<FieldType, ControlChunkId>> = {
-  picture_choice: 'choices',
-  yes_no: 'choices',
-  nps: 'choices',
-  opinion_scale: 'choices',
-  consent: 'choices',
-  slider: 'slider',
-  ranking: 'ranking',
-  matrix: 'matrix',
-  address: 'address',
-  phone: 'inputs',
-  time: 'inputs',
-  date_range: 'inputs',
-  url: 'inputs',
-  currency: 'inputs',
-  color: 'inputs',
-  signature: 'signature',
-  voice_note: 'voice',
-  file: 'file',
-  image: 'blocks',
-  video: 'blocks',
-};
-
-/** The chunk a field's control is in, if it is not in the main renderer. */
-export function controlChunk(field: {
-  type: FieldType;
-  ratingStyle?: string;
-}): ControlChunkId | null {
-  // Plain number ratings are drawn by the main renderer; stars, hearts and faces load.
-  if (field.type === 'rating')
-    return field.ratingStyle && field.ratingStyle !== 'numbers' ? 'choices' : null;
-  return CHUNK_BY_TYPE[field.type] ?? null;
-}
+} satisfies Record<ControlChunkId, () => Promise<ControlChunk>>;
 
 const loaded = new Map<ControlChunkId, ControlChunk>();
 const loading = new Map<ControlChunkId, Promise<ControlChunk>>();

@@ -3,10 +3,9 @@ import { ArrowRight } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { FormField } from '@/components/form-field';
 import { Textarea } from '@/components/ui/textarea';
-import { formSettingsPath } from '@/features/forms/form-paths';
+import { formIntegrationsPath, formSettingsPath } from '@/features/forms/form-paths';
 import { useDraftIssues } from '../draft-issues';
 import { useEditorStore } from '../editor-store-context';
-import { WebhooksSection } from '../webhooks/webhooks-section';
 import { SettingsSection } from './settings-section';
 
 /** Settings for the form as a whole, shown while no question is selected. */
@@ -54,7 +53,18 @@ export function FormSettingsPanel() {
           <ArrowRight aria-hidden />
         </Link>
       </SettingsSection>
-      <WebhooksSection />
+      <SettingsSection title="Integrations">
+        <p className="text-13 text-muted-foreground">
+          Webhooks, Google Sheets, Notion, Slack and Discord.
+        </p>
+        <Link
+          to={formIntegrationsPath(formId)}
+          className="inline-flex items-center gap-1.5 self-start rounded-sm text-14 text-accent underline-offset-4 hover:underline"
+        >
+          Open Integrations
+          <ArrowRight aria-hidden />
+        </Link>
+      </SettingsSection>
     </div>
   );
 }

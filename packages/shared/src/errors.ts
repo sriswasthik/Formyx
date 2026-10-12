@@ -30,6 +30,8 @@ export const ERROR_CODES = [
   'LAST_OWNER',
   /** File uploads are not set up on this server. */
   'UPLOADS_UNAVAILABLE',
+  /** An integration (Google Sheets, Notion) is not set up on this server. */
+  'INTEGRATION_UNAVAILABLE',
   'DRAFTS_OFF',
   /** Switched off for the shared demo account: it would reach outside Formyx or change the workspace. */
   'DEMO_RESTRICTED',

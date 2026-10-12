@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { Logo } from '@/components/logo';
+import { SidebarExtras } from './sidebar-extras';
 import { SidebarNav } from './sidebar-nav';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -29,6 +30,9 @@ export function Sidebar({ id, onNavigate }: SidebarProps) {
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <SidebarNav id={id} onNavigate={onNavigate} />
+      </div>
+      <div className="px-3 pb-3">
+        <SidebarExtras onNavigate={onNavigate} />
       </div>
       <div className="border-t p-2">
         <UserMenu onNavigate={onNavigate} />

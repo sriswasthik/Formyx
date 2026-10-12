@@ -1,5 +1,6 @@
 import {
   brandKitFromTheme,
+  createDefaultLiveSettings,
   createDefaultTheme,
   createEmptyForm,
   createField,
@@ -10,6 +11,7 @@ import request from 'supertest';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createSecretBox } from '../lib/webhook-signature.js';
 import { createTestApp, TEST_JWT_SECRET } from '../test/create-test-app.js';
+import { matchesRoute, recordRoutes } from '../test/route-inventory.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
 import { createFakeCloudinary } from '../test/fake-cloudinary.js';
 import { createPublishedForm, createSubmission } from '../test/responses.js';
@@ -19,10 +21,17 @@ import { closedPort } from '../test/webhook-receiver.js';
 /*
  * Who may call what: every endpoint that needs an account, called by each kind of caller.
  * Members need at least the endpoint's role; everyone else in the workspace gets 403, people
- * outside it get 403 and signed-out visitors 401. Adding an endpoint means adding a row here.
+ * outside it get 403 and signed-out visitors 401. Adding an endpoint means adding a row here,
+ * or to SIGNED_IN or PUBLIC below: the last test fails for an endpoint in none of them.
  */
 
-const app = createTestApp({}, { storage: createFakeCloudinary().storage });
+const { result: app, routes } = recordRoutes(() =>
+  createTestApp(
+    // Configured, so connecting reaches the point of sending people to Google.
+    { GOOGLE_CLIENT_ID: 'google-client', GOOGLE_CLIENT_SECRET: 'google-secret' },
+    { storage: createFakeCloudinary().storage },
+  ),
+);
 
 interface Fixture {
   workspaceId: string;
@@ -34,6 +43,8 @@ interface Fixture {
   brandKitId: string;
   /** A viewer whose role can be changed, or who can be removed, without side effects. */
   memberId: string;
+  integrationId: string;
+  failureId: string;
 }
 
 type Requester = ReturnType<typeof requestAs>;
@@ -49,6 +60,7 @@ interface Endpoint {
 }
 
 const defaultTheme = createDefaultTheme();
+const SLACK = 'https://hooks.slack.com/services/T000/B000/abcdef123456';
 const forms = (f: Fixture) => `/api/forms/${f.formId}`;
 const workspace = (f: Fixture) => `/api/workspaces/${f.workspaceId}`;
 
@@ -154,6 +166,113 @@ const ENDPOINTS: Endpoint[] = [
     ok: 200,
     call: (as, f) => as.put(`${forms(f)}/notifications`, { emailOnSubmission: true }),
   },
+  {
+    name: 'export responses to Excel',
+    minRole: 'VIEWER',
+    ok: 200,
+    call: (as, f) => as.get(`${forms(f)}/submissions/export.xlsx`),
+  },
+  {
+    name: 'delete every response',
+    minRole: 'EDITOR',
+    ok: 200,
+    // createPublishedForm's title.
+    call: (as, f) => as.post(`${forms(f)}/submissions/delete-all`, { confirm: 'Customer survey' }),
+  },
+  // Form settings
+  {
+    name: 'read form settings',
+    minRole: 'VIEWER',
+    ok: 200,
+    call: (as, f) => as.get(`${forms(f)}/settings`),
+  },
+  {
+    name: 'change form settings',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.patch(`${forms(f)}/settings`, { data: { retentionDays: 30 } }),
+  },
+  {
+    name: 'set a form password',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.put(`${forms(f)}/settings/password`, { password: 'open-sesame-1' }),
+  },
+  {
+    name: 'connect a chat webhook',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.put(`${forms(f)}/settings/chat`, { service: 'slack', url: SLACK }),
+  },
+  {
+    name: 'send a test chat message',
+    minRole: 'EDITOR',
+    ok: 204,
+    prepare: (f) =>
+      prisma.form.update({
+        where: { id: f.formId },
+        data: { slackWebhookEncrypted: createSecretBox(TEST_JWT_SECRET).encrypt(SLACK) },
+      }),
+    call: (as, f) => as.post(`${forms(f)}/settings/chat/test`, { service: 'slack' }),
+  },
+  {
+    name: 'change the form’s link',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.put(`${forms(f)}/slug`, { slug: 'renamed-form' }),
+  },
+  {
+    name: 'send a test autoresponder',
+    minRole: 'EDITOR',
+    ok: 202,
+    call: (as, f) =>
+      as.post(`${forms(f)}/settings/autoresponder/test`, {
+        autoresponder: createDefaultLiveSettings().autoresponder,
+      }),
+  },
+  // Integrations
+  {
+    name: 'list integrations',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.get(`${forms(f)}/integrations`),
+  },
+  {
+    name: 'connect Google Sheets',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.post(`${forms(f)}/integrations/google_sheets/connect`),
+  },
+  {
+    name: 'pause an integration',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.patch(`${forms(f)}/integrations/${f.integrationId}`, { paused: true }),
+  },
+  {
+    name: 'copy every response again',
+    minRole: 'EDITOR',
+    ok: 202,
+    call: (as, f) => as.post(`${forms(f)}/integrations/${f.integrationId}/resync`),
+  },
+  {
+    name: 'disconnect an integration',
+    minRole: 'EDITOR',
+    ok: 204,
+    call: (as, f) => as.delete(`${forms(f)}/integrations/${f.integrationId}`),
+  },
+  {
+    name: 'retry a failed job',
+    minRole: 'EDITOR',
+    ok: 202,
+    call: (as, f) => as.post(`${forms(f)}/job-failures/${f.failureId}/retry`),
+  },
+  {
+    name: 'dismiss a failed job',
+    minRole: 'EDITOR',
+    ok: 204,
+    call: (as, f) => as.delete(`${forms(f)}/job-failures/${f.failureId}`),
+  },
   // Webhooks
   {
     name: 'list webhooks',
@@ -186,6 +305,29 @@ const ENDPOINTS: Endpoint[] = [
     call: (as, f) => as.post(`${forms(f)}/webhooks/${f.webhookId}/test`),
   },
   // Workspaces, members and invites
+  {
+    name: 'read the plan’s entitlements',
+    minRole: 'VIEWER',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/entitlements`),
+  },
+  {
+    name: 'read workspace preferences',
+    minRole: 'VIEWER',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/preferences`),
+  },
+  {
+    name: 'change workspace preferences',
+    minRole: 'OWNER',
+    ok: 200,
+    call: (as, f) =>
+      as.put(`${workspace(f)}/preferences`, {
+        timeZone: 'Europe/London',
+        dateFormat: 'dmy',
+        defaultNotifications: { frequency: 'instant', emails: [] },
+      }),
+  },
   {
     name: 'rename the workspace',
     minRole: 'OWNER',
@@ -322,6 +464,27 @@ beforeEach(async () => {
   const brandKit = await prisma.brandKit.create({
     data: { workspaceId: team.workspaceId, name: 'Kit', kit: brandKitFromTheme(defaultTheme) },
   });
+  const integration = await prisma.integration.create({
+    data: {
+      formId: form.id,
+      kind: 'GOOGLE_SHEETS',
+      status: 'ACTIVE',
+      connectedById: team.users.OWNER,
+      accountLabel: 'sheets@example.com',
+    },
+  });
+  const failure = await prisma.jobFailure.create({
+    data: {
+      queue: 'integration.sync',
+      jobId: 'job-1',
+      formId: form.id,
+      integrationId: integration.id,
+      summary: 'Add a new response',
+      error: 'Google said no',
+      attempts: 8,
+      data: { formId: form.id, integrationId: integration.id, submissionId: submission.id },
+    },
+  });
   const { version } = await prisma.form.findUniqueOrThrow({
     where: { id: form.id },
     select: { version: true },
@@ -337,6 +500,8 @@ beforeEach(async () => {
     webhookId: webhook.id,
     brandKitId: brandKit.id,
     memberId: member.id,
+    integrationId: integration.id,
+    failureId: failure.id,
   };
 });
 
@@ -363,5 +528,113 @@ describe.each(ENDPOINTS)('$name (needs $minRole)', (endpoint) => {
     const res = await endpoint.call(as, fixture);
 
     expect(res.status).toBe(expectedStatus(endpoint, caller));
+  });
+});
+
+/*
+ * Endpoints outside the matrix: those for the signed-in person themselves (signed-out
+ * visitors get 401), and public ones, which must have a rate limit of their own.
+ */
+const SIGNED_IN: [method: string, url: string][] = [
+  ['GET', '/api/auth/me'],
+  ['GET', '/api/realtime/token'],
+  ['POST', '/api/workspaces'],
+  ['GET', '/api/account/preferences'],
+  ['PUT', '/api/account/preferences'],
+  ['POST', '/api/account/password'],
+  ['POST', '/api/account/delete'],
+  ['POST', '/api/invites/token/accept'],
+  ['POST', '/api/feedback'],
+];
+
+/** Public endpoints, and why any of them may go without a limit of its own. */
+const PUBLIC: [method: string, url: string, unlimited?: string][] = [
+  ['GET', '/api/health', 'answers uptime checks and touches nothing'],
+  ['POST', '/api/auth/register'],
+  ['POST', '/api/auth/login'],
+  ['POST', '/api/auth/demo'],
+  ['POST', '/api/auth/logout', 'only clears a cookie'],
+  ['GET', '/api/invites/token'],
+  [
+    'GET',
+    '/api/uploads/signature',
+    'limits respondents in its first handler, and needs a session for everything else',
+  ],
+  ['GET', '/api/public/pincodes/500001'],
+  ['GET', '/api/integrations/google/callback'],
+  ['GET', '/api/integrations/notion/callback'],
+  ...(
+    [
+      ['GET', ''],
+      ['GET', '/meta'],
+      ['GET', '/og.png'],
+      ['POST', '/unlock'],
+      ['POST', '/verify'],
+      ['POST', '/verify/check'],
+      ['POST', '/view'],
+      ['POST', '/progress'],
+      ['POST', '/drafts'],
+      ['POST', '/drafts/resume'],
+      ['POST', '/edit'],
+      ['POST', '/submissions'],
+    ] as const
+  ).map(([method, path]): [string, string] => [method, `/api/public/forms/slug${path}`]),
+];
+
+/** The method and URL each matrix row calls, found by calling it with a recorder. */
+function matrixCalls(): [string, string][] {
+  const calls: [string, string][] = [];
+  const stub = new Proxy({}, { get: () => () => stub }) as request.Test;
+  const record = (method: string) => (url: string) => {
+    calls.push([method, url]);
+    return stub;
+  };
+  const recorder: Requester = {
+    get: record('GET'),
+    post: record('POST'),
+    patch: record('PATCH'),
+    put: record('PUT'),
+    delete: record('DELETE'),
+  };
+  const ids = new Proxy({}, { get: () => 'id' }) as Fixture;
+  for (const endpoint of ENDPOINTS) endpoint.call(recorder, ids);
+  return calls;
+}
+
+describe('the endpoint inventory', () => {
+  const listed = [...matrixCalls(), ...SIGNED_IN, ...PUBLIC];
+  const covers = (route: (typeof routes)[number]) =>
+    listed.some(([method, url]) => method === route.method && matchesRoute(route.path, url));
+
+  it('finds the routes', () => {
+    expect(routes.length).toBeGreaterThan(80);
+  });
+
+  it('has every endpoint in the matrix, SIGNED_IN or PUBLIC', () => {
+    const missing = routes.filter((route) => !covers(route));
+    expect(missing.map(({ method, path }) => `${method} ${path}`)).toEqual([]);
+  });
+
+  it('turns signed-out visitors away from SIGNED_IN endpoints', async () => {
+    for (const [method, url] of SIGNED_IN) {
+      const res = await request(app)[method.toLowerCase() as 'get'](url);
+      expect(res.status, `${method} ${url}`).toBe(401);
+    }
+  });
+
+  it('gives every public endpoint a rate limit of its own, or a reason not to', () => {
+    const unlimited = routes.filter(
+      (route) =>
+        !route.limited &&
+        PUBLIC.some(
+          ([method, url, reason]) =>
+            !reason && method === route.method && matchesRoute(route.path, url),
+        ),
+    );
+    expect(unlimited.map(({ method, path }) => `${method} ${path}`)).toEqual([]);
+  });
+
+  it('puts everything outside public forms and health under the API-wide limit', () => {
+    expect(routes.filter((route) => !route.apiWide)).toEqual([]);
   });
 });

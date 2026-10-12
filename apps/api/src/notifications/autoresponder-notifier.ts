@@ -4,10 +4,12 @@ import { z } from 'zod';
 import type { Env } from '../config/env.js';
 import { isDemoForm } from '../demo/restrictions.js';
 import type { EventBus } from '../lib/events.js';
-import type { Mailer } from '../lib/mailer.js';
+import type { JobQueue } from '../jobs/queue.js';
+import type { Encryption } from '../lib/encryption.js';
 import type { Database } from '../lib/prisma.js';
 import { parsePublishedSchema, parsePublishedTheme } from '../services/form-service.js';
 import { respondentKey } from '../services/public-form-service.js';
+import { queueEmails } from './email-jobs.js';
 
 /** How many autoresponder emails one address gets from one form in a day, at most. */
 export const AUTORESPONDER_DAILY_LIMIT = 3;
@@ -19,7 +21,8 @@ interface AutoresponderDependencies {
   env: Pick<Env, 'APP_URL'>;
   logger: Logger;
   prisma: Database;
-  mailer: Mailer;
+  jobs: JobQueue;
+  encryption: Encryption;
   events: EventBus;
 }
 
@@ -33,7 +36,8 @@ export function registerAutoresponder({
   env,
   logger,
   prisma,
-  mailer,
+  jobs,
+  encryption,
   events,
 }: AutoresponderDependencies): () => void {
   return events.on(
@@ -92,12 +96,15 @@ export function registerAutoresponder({
           locale: formLocale(schema.settings, FORM_MESSAGES[schema.settings.language]),
         });
         await prisma.autoresponderSend.create({ data: { formId, emailHash } });
-        await mailer.send([{ to: to.data, ...rendered, replyTo: autoresponder.replyTo }], {
+        await queueEmails(jobs, encryption, {
+          formId,
+          kind: 'autoresponder',
+          messages: [{ to: to.data, ...rendered, replyTo: autoresponder.replyTo }],
           idempotencyKey: `autoresponder/${submission.id}`,
         });
-        logger.info(context, 'Sent an autoresponder email');
+        logger.info(context, 'Queued an autoresponder email');
       } catch (error) {
-        logger.error({ ...context, err: error }, 'Could not send an autoresponder email');
+        logger.error({ ...context, err: error }, 'Could not queue an autoresponder email');
       }
     },
   );

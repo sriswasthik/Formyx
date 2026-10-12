@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Eye,
   Inbox,
+  Plug,
   Settings2,
   Share2,
   SquarePen,
@@ -22,9 +23,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
-import { formOpenPath, formSettingsPath } from './form-paths';
+import { formIntegrationsPath, formOpenPath, formSettingsPath } from './form-paths';
 
-export type FormSection = 'edit' | 'responses' | 'settings';
+export type FormSection = 'edit' | 'responses' | 'integrations' | 'settings';
 
 /** Below this width the sections fold into a menu, leaving the top bar room for the title. */
 export const INLINE_FORM_NAV_QUERY = '(min-width: 768px)';
@@ -43,9 +44,15 @@ function sections(formId: string, canEdit: boolean): Section[] {
       ? { id: 'edit', label: 'Edit', to: formOpenPath(formId, true), icon: SquarePen }
       : { id: 'edit', label: 'Overview', to: formOpenPath(formId, false), icon: Eye },
     { id: 'responses', label: 'Responses', to: formResponsesPath(formId), icon: Inbox },
-    // Settings change how the form works for everyone, so they are for editors.
+    // Integrations and settings change how the form works for everyone: editors only.
     ...(canEdit
       ? [
+          {
+            id: 'integrations' as const,
+            label: 'Integrations',
+            to: formIntegrationsPath(formId),
+            icon: Plug,
+          },
           {
             id: 'settings' as const,
             label: 'Settings',
@@ -160,7 +167,7 @@ function MenuNav({ formId, current, canEdit, published, onShare }: FormNavProps)
   );
 }
 
-/** A form's sections (Edit, Responses) and its Share action, for the form's top bar. */
+/** A form's sections (Edit, Responses, Integrations, Settings) and Share, for its top bar. */
 export function FormNav(props: FormNavProps) {
   const inline = useMediaQuery(INLINE_FORM_NAV_QUERY);
   return inline ? <InlineNav {...props} /> : <MenuNav {...props} />;

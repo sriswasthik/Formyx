@@ -32,6 +32,14 @@ export const routes: RouteObject[] = [
           return { Component: LandingPage };
         },
       },
+      {
+        path: 'changelog',
+        handle: { title: 'Changelog' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ChangelogPage } = await import('@/features/changelog/changelog-page');
+          return { Component: ChangelogPage };
+        },
+      },
       // Log in and sign up: signed-in visitors are sent on to the app.
       {
         lazy: async () => {
@@ -133,6 +141,16 @@ export const routes: RouteObject[] = [
             lazy: async () => {
               const { ResponsesPage } = await import('@/features/responses/responses-page');
               return { Component: ResponsesPage };
+            },
+          },
+          {
+            path: 'forms/:formId/integrations',
+            // Replaced by "Integrations · <form title>" once the form loads.
+            handle: { title: 'Integrations' } satisfies RouteHandle,
+            lazy: async () => {
+              const { IntegrationsPage } =
+                await import('@/features/integrations/integrations-page');
+              return { Component: IntegrationsPage };
             },
           },
           {

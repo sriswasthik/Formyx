@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportError } from '@/lib/report-error';
 import { CrashScreen } from './crash-screen';
 
 interface State {
@@ -21,6 +22,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, State> 
     // Kept for the browser console and error monitoring; people see the screen below.
     // eslint-disable-next-line no-console -- the one place an unexpected crash is reported
     console.error('Formyx crashed', error, info.componentStack);
+    reportError(error, { boundary: 'app' });
   }
 
   override render() {

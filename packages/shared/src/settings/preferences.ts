@@ -74,11 +74,22 @@ export const accountPreferencesSchema = z.object({
   language: formLanguageSchema,
   /** Subscribe me to emails about responses to forms I create (each can be changed). */
   emailOnNewForms: z.boolean(),
+  /**
+   * Count my use of features (creating, publishing, premium looks) in product analytics,
+   * under an id that can't be traced back to me. Off: nothing about me is sent.
+   */
+  productAnalytics: z.boolean(),
 });
 export type AccountPreferences = z.infer<typeof accountPreferencesSchema>;
 
 export function createDefaultAccountPreferences(): AccountPreferences {
-  return { theme: 'system', reducedMotion: 'system', language: 'en', emailOnNewForms: false };
+  return {
+    theme: 'system',
+    reducedMotion: 'system',
+    language: 'en',
+    emailOnNewForms: false,
+    productAnalytics: true,
+  };
 }
 
 export function readAccountPreferences(stored: unknown): AccountPreferences {

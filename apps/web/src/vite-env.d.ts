@@ -5,6 +5,10 @@ interface ImportMetaEnv {
   readonly VITE_REALTIME_URL?: string;
   /** "true" shows "Try the demo" on the landing page; the API needs DEMO_ENABLED as well. */
   readonly VITE_DEMO_ENABLED?: string;
+  /** Sentry project DSN for the web app. Empty: errors stay in the browser console. */
+  readonly VITE_SENTRY_DSN?: string;
+  /** The release errors are filed under, e.g. the commit being deployed. */
+  readonly VITE_SENTRY_RELEASE?: string;
 }
 
 interface ImportMeta {

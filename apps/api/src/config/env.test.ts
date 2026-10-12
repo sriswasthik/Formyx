@@ -17,6 +17,7 @@ describe('parseEnv', () => {
       TRUST_PROXY: false,
       BCRYPT_COST: 12,
       AUTH_RATE_LIMIT_MAX: 10,
+      API_RATE_LIMIT_MAX: 3000,
       SUBMISSION_RATE_LIMIT_MAX: 10,
       INVITE_RATE_LIMIT_MAX: 20,
       WEBHOOK_ALLOW_PRIVATE_URLS: false,
@@ -27,8 +28,15 @@ describe('parseEnv', () => {
       CLOUDINARY_FOLDER: 'formyx',
       CLOUDINARY_API_URL: 'https://api.cloudinary.com',
       PINCODE_API_URL: 'https://api.postalpincode.in/pincode',
+      WORKERS: true,
+      GOOGLE_OAUTH_URL: 'https://accounts.google.com',
+      GOOGLE_TOKEN_URL: 'https://oauth2.googleapis.com',
+      GOOGLE_SHEETS_URL: 'https://sheets.googleapis.com',
+      NOTION_API_URL: 'https://api.notion.com',
+      POSTHOG_HOST: 'https://eu.i.posthog.com',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
+    expect(parseEnv(REQUIRED).ENCRYPTION_KEYS).toBeUndefined();
   });
 
   it('unlocks every feature unless entitlements are enforced', () => {

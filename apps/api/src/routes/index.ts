@@ -1,15 +1,18 @@
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { createAuthGuards, type AuthGuards } from '../middleware/auth.js';
+import { createApiRateLimiter } from '../middleware/rate-limit.js';
 import { createRequireFeature, type RequireFeature } from '../middleware/require-feature.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createAccountRouter } from './account.js';
 import { createAnalyticsRouter } from './analytics.js';
 import { createAuthRouter } from './auth.js';
 import { createBrandKitsRouter } from './brand-kits.js';
+import { createFeedbackRouter } from './feedback.js';
 import { createFormSettingsRouter } from './form-settings.js';
 import { createFormsRouter } from './forms.js';
-import { healthRouter } from './health.js';
+import { createIntegrationsRouter } from './integrations.js';
+import { createHealthRouter } from './health.js';
 import { createNotificationsRouter } from './notifications.js';
 import { createPinCodesRouter } from './pin-codes.js';
 import { createPublicFormsRouter } from './public-forms.js';
@@ -32,7 +35,8 @@ export function createApiRouter(deps: AppDependencies): Router {
     requireFeature: createRequireFeature(entitlements),
   };
 
-  router.use('/health', healthRouter);
+  router.use(createApiRateLimiter(deps.env));
+  router.use('/health', createHealthRouter());
   router.use('/auth', createAuthRouter(deps, guards));
   router.use('/realtime', createRealtimeRouter(deps, guards));
   router.use('/public/forms', createPublicFormsRouter(deps));
@@ -48,6 +52,8 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createAccountRouter(deps, guards));
   router.use(createBrandKitsRouter(deps, guards));
   router.use(createWebhooksRouter(deps, guards));
+  router.use(createIntegrationsRouter(deps, guards));
+  router.use(createFeedbackRouter(deps, guards));
 
   return router;
 }

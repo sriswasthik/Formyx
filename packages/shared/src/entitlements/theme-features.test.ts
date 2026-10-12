@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultTheme } from '../theme/migrate.js';
 import type { BackgroundLayer, FormTheme } from '../theme/schema.js';
-import { requiredFeatures } from './theme-features.js';
+import { premiumAssetsUsed, requiredFeatures } from './theme-features.js';
 
 const base = createDefaultTheme();
 const common = { opacity: 1, blendMode: 'normal' } as const;
@@ -123,5 +123,32 @@ describe('requiredFeatures', () => {
       branding: { showFormyxBadge: false },
     };
     expect(requiredFeatures(theme)).toEqual(['premium_fonts', 'custom_shapes', 'remove_branding']);
+  });
+});
+
+describe('premiumAssetsUsed', () => {
+  it('names the assets behind each feature, each once', () => {
+    const theme: FormTheme = {
+      ...withLayer(shapes('blob')),
+      background: {
+        layers: [
+          ...withLayer(shapes('blob')).background.layers,
+          { id: 't', type: 'texture', assetId: 'paper', scale: 1, ...common },
+          { id: 'g', type: 'texture', assetId: 'grain', scale: 1, ...common },
+        ],
+      },
+      typography: { ...base.typography, headingFont: 'fraunces', bodyFont: 'fraunces' },
+      layout: { ...base.layout, mode: 'conversational' },
+    };
+    expect(premiumAssetsUsed(theme)).toEqual([
+      { feature: 'premium_fonts', assets: ['fraunces'] },
+      { feature: 'premium_textures', assets: ['paper'] },
+      { feature: 'custom_shapes', assets: ['blob'] },
+      { feature: 'conversational_layout', assets: ['conversational'] },
+    ]);
+  });
+
+  it('is empty for the default theme', () => {
+    expect(premiumAssetsUsed(base)).toEqual([]);
   });
 });

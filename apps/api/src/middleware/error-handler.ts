@@ -7,6 +7,7 @@ import {
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '../lib/app-error.js';
+import { reportError } from '../lib/monitoring.js';
 
 export interface ErrorResponse {
   status: number;
@@ -75,7 +76,7 @@ export function toErrorResponse(error: unknown): ErrorResponse {
   return { status: 500, body: createApiError('INTERNAL_ERROR', 'Something went wrong') };
 }
 
-export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, next) => {
+export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, next) => {
   if (res.headersSent) {
     next(error);
     return;
@@ -85,6 +86,12 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
   if (status >= 500) {
     // pino-http attaches `res.err` to the request log line, including the stack.
     res.err = error instanceof Error ? error : new Error(String(error));
+    // The route's pattern, not its URL, which can hold ids and tokens.
+    const route = req.route as { path?: unknown } | undefined;
+    reportError(error, {
+      method: req.method,
+      route: `${req.baseUrl}${typeof route?.path === 'string' ? route.path : ''}`,
+    });
   }
   res.status(status).json(body);
 };

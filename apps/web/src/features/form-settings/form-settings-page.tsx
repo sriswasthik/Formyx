@@ -1,27 +1,10 @@
-import {
-  hasRole,
-  qrCodeColors,
-  isSameFormSchema,
-  isSameJson,
-  type FormDetail,
-} from '@formyx/shared';
+import { isSameFormSchema, isSameJson, type FormDetail } from '@formyx/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  FileQuestion,
-  LoaderCircle,
-  Lock,
-  Search,
-  Upload,
-} from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Search, Upload } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { usePageTitle } from '@/app/page-title';
-import { ActionTooltip } from '@/components/action-tooltip';
-import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,19 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSession } from '@/features/auth/session-context';
-import { FormNav, INLINE_FORM_NAV_QUERY } from '@/features/forms/form-nav';
-import { FormStatusBadge } from '@/features/forms/form-status-badge';
+import { EditorFormPage, FORM_PAGE_PADDING } from '@/features/forms/editor-form-page';
+import { FormTopBar } from '@/features/forms/form-top-bar';
 import { formKeys } from '@/features/forms/form-list-cache';
 import { publishForm } from '@/features/forms/forms-api';
-import { ShareDialog } from '@/features/forms/share/share-dialog';
 import { ApiRequestError } from '@/lib/api';
-import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { SaveQueueProvider, type DescribeError } from './save-queue';
-import { useSaveQueue } from './save-queue-context';
 import { AccessSection } from './sections/access-section';
 import { AutoresponderSection } from './sections/autoresponder-section';
 import { DataSection } from './sections/data-section';
@@ -60,9 +38,8 @@ import {
   settingAnchor,
   type SettingsSection,
 } from './settings-index';
-import { useFormDetailQuery, useFormSettingsQuery } from './use-settings';
-
-const PAGE_PADDING = 'px-4 sm:px-6 md:px-8 lg:px-10';
+import { SaveStatus } from './save-status';
+import { useFormSettingsQuery } from './use-settings';
 
 const describeSaveError: DescribeError = (error) => {
   if (error instanceof ApiRequestError) {
@@ -73,37 +50,6 @@ const describeSaveError: DescribeError = (error) => {
   }
   return 'Something went wrong';
 };
-
-/** Saving…, Saved, or what went wrong with a way to try again. */
-function SaveStatus() {
-  const { status, error, retry } = useSaveQueue();
-  return (
-    <div role="status" aria-live="polite" className="flex items-center gap-2 text-13">
-      {status === 'saving' && (
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <LoaderCircle aria-hidden className="motion-safe:animate-spin" />
-          Saving…
-        </span>
-      )}
-      {status === 'saved' && (
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Check aria-hidden />
-          Saved
-        </span>
-      )}
-      {status === 'error' && (
-        <span className="flex items-center gap-1.5 text-danger-text">
-          <AlertCircle aria-hidden />
-          <span className="hidden sm:inline">Couldn&apos;t save{error ? `: ${error}` : ''}</span>
-          <span className="sm:hidden">Couldn&apos;t save</span>
-          <Button variant="ghost" size="sm" onClick={retry}>
-            Retry
-          </Button>
-        </span>
-      )}
-    </div>
-  );
-}
 
 /** Finds a setting by name, and goes to it. */
 function SettingsSearch({ onPick }: { onPick: (section: SettingsSection, id: string) => void }) {
@@ -284,10 +230,6 @@ function SettingsWorkspace({ form }: { form: FormDetail }) {
   const requested = params.get('section');
   const section: SettingsSection = isSettingsSection(requested) ? requested : 'general';
   const target = params.get('setting');
-  const [shareOpen, setShareOpen] = useState(false);
-  const shareButton = useRef<HTMLButtonElement>(null);
-  const inlineNav = useMediaQuery(INLINE_FORM_NAV_QUERY);
-  const published = form.publishedSchema !== null;
   usePageTitle(`Settings · ${form.title}`);
 
   const go = (next: SettingsSection, setting?: string) => {
@@ -370,34 +312,11 @@ function SettingsWorkspace({ form }: { form: FormDetail }) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-3">
-        <ActionTooltip label="All forms">
-          <Button asChild variant="ghost" size="icon-sm">
-            <Link to="/app/forms" aria-label="Back to all forms">
-              <ArrowLeft aria-hidden />
-            </Link>
-          </Button>
-        </ActionTooltip>
-        <Separator orientation="vertical" className="h-5" />
-        <div className="flex min-w-0 flex-1 items-center gap-3 pl-1">
-          <h1 className="truncate text-14 font-semibold tracking-tight">{form.title}</h1>
-          <FormStatusBadge status={form.status} className="hidden sm:inline-flex" />
-        </div>
+      <FormTopBar form={form} current="settings">
         <SaveStatus />
-        <Separator orientation="vertical" className="mx-1 hidden h-5 sm:block" />
-        <FormNav
-          formId={form.id}
-          current="settings"
-          canEdit
-          published={published}
-          shareRef={shareButton}
-          onShare={() => {
-            setShareOpen(true);
-          }}
-        />
-      </header>
+      </FormTopBar>
 
-      <main id="main-content" className={`flex-1 py-6 lg:py-8 ${PAGE_PADDING}`}>
+      <main id="main-content" className={`flex-1 py-6 lg:py-8 ${FORM_PAGE_PADDING}`}>
         <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10">
           <aside className="flex flex-col gap-4 lg:sticky lg:top-22 lg:self-start">
             <SettingsSearch onPick={go} />
@@ -440,110 +359,19 @@ function SettingsWorkspace({ form }: { form: FormDetail }) {
           </div>
         </div>
       </main>
-
-      {published && (
-        <ShareDialog
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          slug={form.slug}
-          closed={form.status === 'CLOSED'}
-          justPublished={false}
-          qrColors={qrCodeColors((form.publishedTheme ?? form.theme).colors)}
-          {...(inlineNav && { returnFocusTo: shareButton })}
-        />
-      )}
-    </div>
-  );
-}
-
-function PageSkeleton() {
-  return (
-    <div role="status" aria-label="Loading settings" className="flex min-h-dvh flex-col">
-      <div className="flex h-14 items-center gap-3 border-b px-3">
-        <Skeleton className="size-8" />
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="ml-auto h-8 w-56" />
-      </div>
-      <div
-        className={`mx-auto grid w-full max-w-6xl gap-10 py-8 lg:grid-cols-[14rem_1fr] ${PAGE_PADDING}`}
-      >
-        <Skeleton className="h-64" />
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-48 rounded-xl" />
-        </div>
-      </div>
     </div>
   );
 }
 
 /** A form's settings, a section at a time, saved as they change. Editors and owners only. */
 export function FormSettingsPage() {
-  const { formId = '' } = useParams();
-  const { workspaces } = useSession();
-  const formQuery = useFormDetailQuery(formId);
-
-  if (formQuery.isPending) return <PageSkeleton />;
-
-  if (formQuery.isError) {
-    const status = formQuery.error instanceof ApiRequestError ? formQuery.error.status : 0;
-    return (
-      <main className="flex min-h-dvh items-center justify-center px-6">
-        {status === 404 || status === 403 ? (
-          <EmptyState
-            className="w-full max-w-md border-none"
-            icon={status === 404 ? FileQuestion : Lock}
-            title={status === 404 ? 'Form not found' : "You don't have access to this form"}
-            description={
-              status === 404
-                ? 'It may have been deleted, or the link is wrong.'
-                : 'It belongs to a workspace you are not a member of.'
-            }
-            action={
-              <Button asChild variant="secondary">
-                <Link to="/app/forms">Back to forms</Link>
-              </Button>
-            }
-          />
-        ) : (
-          <ErrorState
-            className="w-full max-w-md border-none"
-            title="Could not load this form"
-            description="Check your connection and try again."
-            action={
-              <Button disabled={formQuery.isFetching} onClick={() => void formQuery.refetch()}>
-                Try again
-              </Button>
-            }
-          />
-        )}
-      </main>
-    );
-  }
-
-  const form = formQuery.data;
-  const role = workspaces.find((workspace) => workspace.id === form.workspaceId)?.role;
-  if (!role || !hasRole(role, 'EDITOR')) {
-    return (
-      <main className="flex min-h-dvh items-center justify-center px-6">
-        <EmptyState
-          className="w-full max-w-md border-none"
-          icon={Lock}
-          title="Settings are for editors"
-          description="Ask an owner of the workspace to make you an editor."
-          action={
-            <Button asChild variant="secondary">
-              <Link to="/app/forms">Back to forms</Link>
-            </Button>
-          }
-        />
-      </main>
-    );
-  }
-
   return (
-    <SaveQueueProvider describeError={describeSaveError}>
-      <SettingsWorkspace form={form} />
-    </SaveQueueProvider>
+    <EditorFormPage deniedTitle="Settings are for editors">
+      {(form) => (
+        <SaveQueueProvider describeError={describeSaveError}>
+          <SettingsWorkspace form={form} />
+        </SaveQueueProvider>
+      )}
+    </EditorFormPage>
   );
 }

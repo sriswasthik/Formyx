@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { defaultClientConditions, defineConfig, loadEnv } from 'vite';
 import { fontPreload } from './build/font-preload.ts';
+import { formAssetPreload } from './build/form-asset-preload.ts';
 import { formMetaDev } from './build/form-meta-dev.ts';
 import { routePreload } from './build/route-preload.ts';
 import { vercelOutput } from './build/vercel-output.ts';
@@ -30,12 +31,20 @@ export default defineConfig(({ mode }) => {
         name: 'formyx:app-url',
         transformIndexHtml: (html) => html.replaceAll('%APP_URL%', appUrl),
       },
-      // Inter, Latin letters: the font almost every page needs first.
-      fontPreload(/^assets\/inter-latin-wght-normal-[\w-]+\.woff2$/),
+      // Inter, Latin letters: the font almost every page needs first. A public form preloads
+      // its theme's fonts instead (below).
+      fontPreload(/^assets\/inter-latin-wght-normal-[\w-]+\.woff2$/, '/f/'),
       // Public forms are the page most often opened cold, on any connection.
       routePreload([
         { pathPrefix: '/f/', module: 'src/features/public-form/public-form-page.tsx' },
       ]),
+      // And its fonts and question controls, as soon as the form says which they are.
+      formAssetPreload({
+        route: 'src/features/public-form/public-form-page.tsx',
+        fontLoaders: 'src/features/form-renderer/theme/font-loaders.ts',
+        controlsDir: 'src/features/form-renderer/controls',
+        conversational: 'src/features/form-renderer/conversational/conversational-form.tsx',
+      }),
       // Only on Vercel: routes, the /api proxy, security headers and the edge function that
       // gives each public form its own link preview (see build/vercel-output.ts).
       vercelOutput(),

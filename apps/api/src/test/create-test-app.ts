@@ -5,8 +5,12 @@ import { createApp } from '../app.js';
 import { parseEnv } from '../config/env.js';
 import { createEventBus } from '../lib/events.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
+import { createRecordingAnalytics, type ProductAnalytics } from '../lib/product-analytics.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
 import type { DeliveryRequest, WebhookTransport } from '../lib/webhook-transport.js';
+import { createFailureRecorder } from '../jobs/failures.js';
+import { JOB_POLICIES, type JobName, type JobPolicy } from '../jobs/job-types.js';
+import { createMemoryQueue } from '../jobs/queue.js';
 import { createDefaultWebhookDispatcher, type WebhookDispatcher } from '../webhooks/dispatcher.js';
 import { createServer, type FormyxServer } from '../server.js';
 import { testDatabaseUrl, testPrisma } from './database.js';
@@ -27,6 +31,7 @@ function testEnv(env: Record<string, string>) {
     AUTH_RATE_LIMIT_MAX: '1000',
     SUBMISSION_RATE_LIMIT_MAX: '1000',
     INVITE_RATE_LIMIT_MAX: '1000',
+    API_RATE_LIMIT_MAX: '100000',
     // Test receivers listen on 127.0.0.1.
     WEBHOOK_ALLOW_PRIVATE_URLS: 'true',
     APP_URL: 'https://app.formyx.test',
@@ -45,11 +50,15 @@ export function createTestApp(
     mailer = createFakeMailer(),
     webhooks,
     chat = createFakeChatTransport(),
+    jobs = createTestQueue(),
+    analytics = createRecordingAnalytics(),
   }: {
     storage?: UploadStorage | null;
     mailer?: Mailer;
     webhooks?: WebhookDispatcher;
     chat?: WebhookTransport;
+    jobs?: TestQueue;
+    analytics?: ProductAnalytics;
   } = {},
 ) {
   const parsed = testEnv(env);
@@ -62,8 +71,29 @@ export function createTestApp(
     mailer,
     webhooks: webhooks ?? createTestWebhookDispatcher(parsed),
     chat,
+    jobs,
+    analytics,
   });
 }
+
+/** Every kind of job with its real number of tries, but no wait between them. */
+export const TEST_JOB_POLICIES = Object.fromEntries(
+  Object.entries(JOB_POLICIES).map(([name, policy]) => [name, { ...policy, firstRetrySeconds: 0 }]),
+) as Record<JobName, JobPolicy>;
+
+/**
+ * Jobs in memory, retried at once, failures recorded as in production. `autoRun` runs each as
+ * soon as it is sent; otherwise call `drain()`.
+ */
+export function createTestQueue({ autoRun = false }: { autoRun?: boolean } = {}) {
+  return createMemoryQueue({
+    logger: silentLogger,
+    policies: TEST_JOB_POLICIES,
+    onFailed: createFailureRecorder(testPrisma),
+    autoRun,
+  });
+}
+export type TestQueue = ReturnType<typeof createTestQueue>;
 
 /** A chat transport that remembers what it was asked to post, and answers 200. */
 export function createFakeChatTransport() {
@@ -75,19 +105,8 @@ export function createFakeChatTransport() {
   return Object.assign(transport, { posts });
 }
 
-/** Retries a few milliseconds apart rather than seconds, so tests can wait for them. */
-export const TEST_RETRY_DELAYS_MS = [5, 10, 20];
-
-export function createTestWebhookDispatcher(
-  env = testEnv({}),
-  retryDelaysMs: readonly number[] = TEST_RETRY_DELAYS_MS,
-): WebhookDispatcher {
-  return createDefaultWebhookDispatcher({
-    env,
-    prisma: testPrisma,
-    logger: silentLogger,
-    retryDelaysMs,
-  });
+export function createTestWebhookDispatcher(env = testEnv({})): WebhookDispatcher {
+  return createDefaultWebhookDispatcher({ env, prisma: testPrisma, logger: silentLogger });
 }
 
 /** A mailer that remembers what it was asked to send. */
@@ -103,6 +122,7 @@ export function createFakeMailer() {
 export interface TestServer extends FormyxServer {
   /** e.g. `http://127.0.0.1:53123`. */
   url: string;
+  jobs: TestQueue;
 }
 
 /** The whole API (app, sockets, notifications) listening on a free port. Close it after use. */
@@ -110,28 +130,33 @@ export async function startTestServer({
   mailer = createFakeMailer(),
   logger = silentLogger,
   storage = null,
-  webhookRetryDelaysMs = TEST_RETRY_DELAYS_MS,
   chat = createFakeChatTransport(),
+  autoRunJobs = true,
+  env = {},
 }: {
   mailer?: Mailer;
   logger?: typeof silentLogger;
   storage?: UploadStorage | null;
-  /** Waits between webhook retries; a test that acts between tries makes them longer. */
-  webhookRetryDelaysMs?: readonly number[];
   chat?: WebhookTransport;
+  /** Run jobs as soon as they are sent (the default), or only on `server.jobs.drain()`. */
+  autoRunJobs?: boolean;
+  /** Settings on top of the test defaults (fake Google's address, say). */
+  env?: Record<string, string>;
 } = {}): Promise<TestServer> {
+  const jobs = createTestQueue({ autoRun: autoRunJobs });
   const server = createServer({
-    env: testEnv({}),
+    env: testEnv(env),
     logger,
     prisma: testPrisma,
     mailer,
     storage,
-    webhooks: createTestWebhookDispatcher(testEnv({}), webhookRetryDelaysMs),
+    webhooks: createTestWebhookDispatcher(testEnv({})),
     chat,
+    jobs,
   });
   await new Promise<void>((resolve) => {
     server.httpServer.listen(0, '127.0.0.1', resolve);
   });
   const { port } = server.httpServer.address() as AddressInfo;
-  return { ...server, url: `http://127.0.0.1:${port}` };
+  return { ...server, jobs, url: `http://127.0.0.1:${port}` };
 }

@@ -47,6 +47,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Known high or critical advisories in any dependency, tooling included. Fix them with
+      # an update or an override in pnpm-workspace.yaml.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
       - name: Check formatting
         run: pnpm format:check
 
@@ -115,5 +120,59 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
+
+  visual:
+    name: Visual regression (Playwright screenshots)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: formyx
+          POSTGRES_PASSWORD: formyx
+          POSTGRES_DB: formyx
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U formyx -d formyx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://formyx:formyx@localhost:5432/formyx
+      JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else
+      E2E_VISUAL: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:deploy
+
+      - name: Install Playwright browser
+        run: pnpm --filter @formyx/e2e exec playwright install --with-deps chromium
+
+      # Every theme preset against e2e/tests/__screenshots__. Until baselines are committed
+      # (from the "Visual baselines" workflow), the screenshot tests skip themselves.
+      - name: Compare preset screenshots
+        run: pnpm test:visual
+
+      - name: Upload the differences
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-report
           path: e2e/playwright-report
           retention-days: 7

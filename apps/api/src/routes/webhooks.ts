@@ -9,7 +9,7 @@ import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { AppError } from '../lib/app-error.js';
 import { routeParam } from '../lib/route-param.js';
-import { createSecretBox } from '../lib/webhook-signature.js';
+import { encryptionFromEnv } from '../lib/encryption.js';
 import { webhookUrlProblem } from '../lib/webhook-transport.js';
 import { getAuth, type AuthGuards } from '../middleware/auth.js';
 import { createWebhookTestRateLimiter } from '../middleware/rate-limit.js';
@@ -22,7 +22,7 @@ export function createWebhooksRouter(
   { requireAuth, requireRealAccount, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
-  const webhooks = createWebhookService(prisma, createSecretBox(env.JWT_SECRET));
+  const webhooks = createWebhookService(prisma, encryptionFromEnv(env));
   const limitTests = createWebhookTestRateLimiter();
   const guards = [requireAuth, requireFormRole('EDITOR')];
   // Webhooks send requests to any URL: not for the shared demo account.

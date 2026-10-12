@@ -12,6 +12,7 @@ import {
 } from '@formyx/shared';
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
+import { publishEvents } from '../lib/product-analytics.js';
 import { routeParam } from '../lib/route-param.js';
 import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createBrandKitService } from '../services/brand-kit-service.js';
@@ -24,7 +25,7 @@ import { createUploadChecks } from '../services/upload-checks.js';
  * Routes are declared with full paths because they span two resources.
  */
 export function createFormsRouter(
-  { prisma, env, storage }: AppDependencies,
+  { prisma, env, storage, analytics }: AppDependencies,
   { requireAuth, requireWorkspaceRole, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
@@ -89,10 +90,11 @@ export function createFormsRouter(
     requireWorkspaceRole('EDITOR'),
     async (req, res) => {
       const input = createFormInputSchema.parse(req.body ?? {});
-      const form: FormDetail = await forms.create(
-        getMembership(req).workspaceId,
-        getAuth(req).userId,
-        input,
+      const { userId } = getAuth(req);
+      const form: FormDetail = await forms.create(getMembership(req).workspaceId, userId, input);
+      analytics.track(
+        { name: 'form_created', properties: { source: 'template', template: input.templateId } },
+        { userId, workspaceId: form.workspaceId },
       );
       res.status(201).json(form);
     },
@@ -116,9 +118,11 @@ export function createFormsRouter(
     requireAuth,
     requireFormRole('EDITOR'),
     async (req, res) => {
-      const form: FormDetail = await forms.duplicate(
-        routeParam(req, 'formId'),
-        getAuth(req).userId,
+      const { userId } = getAuth(req);
+      const form: FormDetail = await forms.duplicate(routeParam(req, 'formId'), userId);
+      analytics.track(
+        { name: 'form_created', properties: { source: 'duplicate' } },
+        { userId, workspaceId: form.workspaceId },
       );
       res.status(201).json(form);
     },
@@ -136,6 +140,9 @@ export function createFormsRouter(
     async (req, res) => {
       const input = publishFormInputSchema.parse(req.body ?? {});
       const form: FormDetail = await forms.publish(routeParam(req, 'formId'), input);
+      for (const event of publishEvents(form)) {
+        analytics.track(event, { userId: getAuth(req).userId, workspaceId: form.workspaceId });
+      }
       res.json(form);
     },
   );

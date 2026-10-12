@@ -28,7 +28,8 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 - **Responses.** A live summary (views, completion rate, time to complete, responses per day, a drop-off funnel, per-question charts), a searchable table, a detail view with each response's end screen, quiz mark and values, bulk delete, CSV and Excel export, and responses changed by their respondents updating live.
 - **Live updates.** New responses appear on the dashboard as they arrive, over Socket.IO.
 - **Teams.** Workspaces with owner, editor and viewer roles, and email invites.
-- **Integrations.** Signed webhooks with retries and a delivery log, response emails through Resend, and file uploads straight to Cloudinary.
+- **Integrations.** An Integrations page per form: Google Sheets (a row per response, kept in step as responses arrive and change), Notion (a typed database), Slack and Discord (formatted messages with a link to the response), and signed webhooks, each with its status, last error and a reconnect flow, plus failed jobs to retry. Response emails go through Resend and uploads straight to Cloudinary.
+- **Background jobs.** Webhooks, response emails, chat posts, integrations and hourly upkeep run as durable jobs in Postgres (pg-boss) with retries and backoff.
 - **Quality.** Light and dark modes, WCAG 2.2 AA checked with axe, reduced motion respected, and a public form that loads in under a second on desktop.
 
 ## Architecture
@@ -81,7 +82,9 @@ flowchart LR
 
 **First-party cookies, short-lived socket tokens.** Sessions are httpOnly, `SameSite=Lax` cookies. In production Vercel proxies `/api/*` to the API, so the cookie belongs to the site itself and third-party cookie blocking never applies. Vercel cannot proxy WebSockets, so the live-updates socket connects to the API directly, where the cookie is not sent. Instead, the page asks `GET /api/realtime/token` (through the proxy, with the cookie) for a 60-second token with its own issuer and audience, and hands it over in the handshake. Socket tokens are refused as sessions and sessions are refused by the socket. The cost is one extra request per connection.
 
-**Signed webhooks.** Each webhook has its own secret, shown once and stored encrypted (AES-256-GCM). Every delivery carries `X-Formyx-Signature: sha256=<HMAC of the raw body>`, so receivers can check it came from Formyx and was not changed; retries reuse the same body and signature. URLs must be public `https` addresses, checked again at connection time against the resolved IP, so webhooks cannot reach private networks. The retry queue is in memory: deliveries waiting for a retry are lost on restart (see the roadmap).
+**Signed webhooks.** Each webhook has its own secret, shown once and stored encrypted (AES-256-GCM). Every delivery carries `X-Formyx-Signature: sha256=<HMAC of the raw body>`, so receivers can check it came from Formyx and was not changed; retries reuse the same body and signature. URLs must be public `https` addresses, checked again at connection time against the resolved IP, so webhooks cannot reach private networks.
+
+**Jobs in Postgres, not Redis.** Background work is queued with pg-boss in the database the app already has: no new service, jobs survive restarts and are shared between instances. pg-boss's own timers are off and a small loop polls instead: every second while there is work, then not at all until a job is sent or a delayed one (a retry, the next hourly upkeep) comes due, so a quiet site sends Neon no queries and its compute can suspend.
 
 **The server decides outcomes.** Navigation, calculations, quiz marking and the choice of end screen are pure functions in `packages/shared/src/logic`. The browser runs them to show the route and piped values as people answer; the server runs them again on every submission and stores the result. Correct quiz answers never leave the server (`toPublicSchema` strips them), so the browser cannot mark a quiz, and totals sent by a client are never read. The cost: an end screen that depends on the quiz mark waits for the server's reply, which it does anyway.
 
@@ -89,7 +92,7 @@ flowchart LR
 
 **One shared demo account.** "Try the demo" signs everyone in to the same account, reset every night, rather than creating a sandbox per visitor. It costs nothing per visit and the data always looks lived-in. Anything that would reach outside Formyx (emails, invites, webhooks, uploads) or change the workspace itself is refused for that account.
 
-**One API instance.** Rate limits, Socket.IO rooms and the webhook retry queue live in memory. That keeps the stack to two services and a database; running several API instances needs Redis (rate limit store, Socket.IO adapter) and a durable job queue.
+**One API instance.** Rate limits and Socket.IO rooms live in memory. That keeps the stack to two services and a database; running several API instances needs Redis (rate limit store, Socket.IO adapter). The job queue is already shared (see above), and `WORKERS=off` with `pnpm --filter @formyx/api jobs:worker` moves jobs to a process of their own.
 
 ## Getting started
 
@@ -121,6 +124,7 @@ To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DE
 | `pnpm test`                      | Vitest in every package: shared logic, API routes against a real Postgres (Supertest), and web components (React Testing Library)                |
 | `pnpm test:e2e`                  | Playwright on desktop and phone viewports: sign-up to CSV export, the editor, logic, publishing, live responses, teams, themes, webhooks, embeds |
 | `pnpm --filter @formyx/web size` | The gzip size of every route, failing if the public form passes its budget                                                                       |
+| `pnpm --filter @formyx/e2e perf` | How fast a public form paints on a throttled phone, in six themes (see below)                                                                    |
 
 - API tests need the `formyx_test` database (see [Database](#database)); every run empties it, and the setup refuses any database whose name does not end in `_test`.
 - `e2e/tests/journey.spec.ts` is the whole story in one test: sign up, create a form from a template, add a question with a condition, publish, answer the form as a respondent on a phone in a second browser, see the response arrive live, and export it as CSV.
@@ -128,6 +132,7 @@ To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DE
 - `e2e/tests/embed.spec.ts` embeds a form in a page served from another origin and checks resizing and the `formyx:submitted` event.
 - `e2e/tests/new-fields.spec.ts` fills in a three-page form with every newer question type, including a typed signature, a voice note recorded from Chromium's fake microphone and the PIN look-up, and checks the stored answers and the response drawer. `e2e/scripts/fake-cloudinary.mjs` stands in for Cloudinary and India Post (Playwright starts it), so the tests make no outside calls.
 - `e2e/tests/logic.spec.ts` takes a quiz with a jump to an end screen as three respondents, checks the server's mark, a redirect carrying an answer and the drop-off funnel, then saves answers in the browser and by an emailed link, and finishes the form from the link in another browser.
+- `e2e/perf/public-form.perf.ts` loads a published form cold, three times in each of six themes (the plain one, then textures, mesh gradients, blurred shapes and display fonts), on an emulated Moto G4 with a 4x slower CPU, 150 ms round trips and 1.6 Mbps down, applied to the real browser rather than simulated as Lighthouse does. It serves the production build as Vercel does (HTTP/2, Brotli; `e2e/perf/serve-h2.mjs`), asks for no layout shift (CLS under 0.1) and Largest Contentful Paint under 2.5 s, and writes `e2e/perf/results/public-form.json`. Its servers use ports 4104 and 4174; set `DATABASE_URL` and `DIRECT_URL` to a local database before running it. Results in October 2026: no layout shift in any theme; LCP 2.8 to 3.6 s (median of three), so the paint budget is not met yet (see the roadmap).
 - To run the tests beside dev servers on the usual ports, move them: `E2E_WEB_PORT`, `E2E_API_PORT` and `E2E_FAKE_PORT` (defaults 5173, 4000 and 4590).
 - Before the first `pnpm test:e2e`, install the browser once with `pnpm --filter @formyx/e2e exec playwright install chromium`. End-to-end tests sign up throwaway users in the development database, and reuse dev servers that are already running.
 
@@ -143,11 +148,11 @@ Create a Neon project and copy two connection strings from its dashboard: the **
 
 ### 2. API: Render
 
-1. In Render, choose **New > Blueprint** and pick this repository. `render.yaml` creates the `formyx-api` web service, two cron jobs (`formyx-demo-reset` at 03:00 UTC every night, and `formyx-jobs` every hour for daily digests and deleting old responses) and a `formyx-database` environment group they share.
+1. In Render, choose **New > Blueprint** and pick this repository. `render.yaml` creates the `formyx-api` web service (which also runs background jobs, the hourly upkeep included), a `formyx-demo-reset` cron job (03:00 UTC every night) and a `formyx-database` environment group they share. Set `ENCRYPTION_KEYS` (`pnpm --filter @formyx/api keys:new` makes one) before connecting any integration, and keep it safe: without it, stored tokens and secrets can't be opened.
 2. Fill in the values Render asks for: `DATABASE_URL` and `DIRECT_URL` in the group; `CORS_ORIGIN` and `APP_URL` (your Vercel address, which you can add after step 3); and, optionally, `RESEND_API_KEY`, `EMAIL_FROM` and the three `CLOUDINARY_*` values. `JWT_SECRET` is generated for you.
 3. Every deploy builds `packages/shared` and the API, runs `prisma migrate deploy` (the pre-deploy command; a failed migration stops the deploy and the previous version keeps running), then starts the server. Render waits for `/api/health` before sending traffic.
 
-Pre-deploy commands and cron jobs need a paid instance type. On the free plan, start the API with `pnpm --filter @formyx/api db:deploy && pnpm --filter @formyx/api start` instead, and run the scheduled work from somewhere else: for example a GitHub Actions workflow on `schedule: - cron: '5 * * * *'` that installs, builds `packages/shared` and the API, and runs `pnpm --filter @formyx/api jobs` with the API's `DATABASE_URL`, `JWT_SECRET`, `APP_URL`, `CORS_ORIGIN`, `RESEND_API_KEY`, `EMAIL_FROM` and `CLOUDINARY_*` as secrets (and a nightly one running `pnpm --filter @formyx/api db:seed:demo`). The jobs are safe to run twice or late: a digest covers everything since the last one. Free instances also sleep when idle, so the first request after a while is slow.
+Pre-deploy commands and cron jobs need a paid instance type. On the free plan, start the API with `pnpm --filter @formyx/api db:deploy && pnpm --filter @formyx/api start` instead, and reset the demo from somewhere else (for example a nightly GitHub Actions job running `pnpm --filter @formyx/api db:seed:demo` with `DATABASE_URL` as a secret). Free instances sleep when idle, so the first request after a while is slow, and background jobs wait while it sleeps: they run when it wakes, in order, none lost. To keep digests on time on the free plan, call `pnpm --filter @formyx/api jobs` hourly from a GitHub Actions schedule (with the API's environment as secrets); it is safe to run twice or late.
 
 ### 3. Web: Vercel
 
@@ -185,8 +190,7 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 
 ## Roadmap
 
-- **Server-render or prerender public forms.** Desktop Lighthouse scores 99 for performance, but on a simulated slow phone the client-rendered page scores 75 to 83, because nothing shows until JavaScript runs. Rendering the form's HTML on the server would bring first paint forward by about two seconds.
-- **A durable webhook queue** (a jobs table or Redis with BullMQ), so retries survive restarts.
+- **Server-render or prerender public forms.** On a throttled phone a public form paints after 2.8 to 3.6 s, because nothing shows until its JavaScript (about 200 KB) has downloaded and run. Its code, fonts and question controls already start loading together within the first second (`apps/web/build/route-preload.ts` and `form-asset-preload.ts`); what remains is the connection and the CPU. Rendering the form's first screen at the edge, identical to ThemeRenderer's, would bring first paint under 2.5 s.
 - **Several API instances**: Redis for rate limits and the Socket.IO adapter.
 - **A signed header from the proxy**, so the API trusts forwarded client IPs only from Vercel.
 - **Partial responses**: keeping the answers of visits that never send, beside the drop-off counts.
@@ -460,12 +464,11 @@ Every change in this table is refused for the demo account.
 
 ## Webhooks
 
-Editors manage a form's webhooks from its settings in the editor (Webhooks › Manage webhooks): add up to 10 endpoints, send a test event, read the last 20 deliveries and remove them.
+Editors manage a form's webhooks on its Integrations page: add up to 10 endpoints, send a test event, read the last 20 deliveries and remove them.
 
 - **Requests.** Each new response is `POST`ed as JSON (`event`, `form`, `submission` with each answer's label, raw value and readable text, and its `outcome`: end screen, values and quiz mark) with `X-Formyx-Event`, `X-Formyx-Delivery` (one id per event, shared by its retries) and `X-Formyx-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed with the webhook's secret>`. Verify by computing the same over the raw bytes and comparing in constant time.
-- **Secrets** are shown once, when the webhook is added. They are stored encrypted (AES-256-GCM with a key derived from `JWT_SECRET`), so changing `JWT_SECRET` means adding webhooks again.
-- **Retries.** No response, or anything but 2xx, is retried three times, after 2, 4 and 8 seconds, with the same body and signature. Requests time out after 10 seconds.
-- **Limitation: the queue is in memory.** Deliveries waiting for a retry are lost if the API restarts, and with several API instances each retries only its own. A durable queue (a jobs table, or Redis with BullMQ) would remove this; `apps/api/src/webhooks/dispatcher.ts` keeps the same interface either way.
+- **Secrets** are shown once, when the webhook is added. They are stored sealed with `ENCRYPTION_KEYS` (see Integrations and background jobs).
+- **Retries.** No response, or anything but 2xx, is tried again five more times, about 30 seconds, 1, 2, 4 and 8 minutes apart, with the same body and signature; a delivery that still fails is listed under Failed jobs, where it can be sent again. Requests time out after 10 seconds. Deliveries are jobs in Postgres, so they survive restarts.
 - **Private networks.** Endpoints must be public `https` URLs. Loopback, private, link-local (including cloud metadata addresses) and other non-public addresses are refused when the URL is added and again when connecting, through the socket's own DNS lookup, so a name that later resolves somewhere private is caught. `WEBHOOK_ALLOW_PRIVATE_URLS=true` lifts this for local development; never set it on a server. Webhook URLs never appear in logs, since some carry tokens.
 
 ## Settings, access and languages
@@ -476,7 +479,21 @@ Editors manage a form's webhooks from its settings in the editor (Webhooks › M
 
 **Languages.** `packages/shared/src/i18n` has a catalog per language (English, Telugu, Hindi) for everything a form says itself: buttons, checks, dates and numbers, upload and voice controls, emails to respondents. What creators write stays as they wrote it. Telugu and Hindi load only for forms in those languages, with their Noto fonts. The Telugu and Hindi catalogs were written for this project and should be reviewed by native speakers before launch.
 
-**Jobs.** `pnpm --filter @formyx/api jobs` sends daily digests (each form at its chosen hour, in its workspace's time zone), deletes responses past a form's retention (with their uploaded files) and clears expired codes. Run it hourly (see Deployment).
+**Hourly upkeep.** A job a few minutes past each hour sends daily digests (each form at its chosen hour, in its workspace's time zone), deletes responses past a form's retention (with their uploaded files) and clears expired codes. It queues the next one itself; `pnpm --filter @formyx/api jobs` runs the same work once by hand.
+
+## Integrations and background jobs
+
+**The Integrations page** (`/app/forms/:id/integrations`, editors) lists everything a form's responses go to besides Formyx, each with its status (copying, up to date, paused, not syncing, needs reconnecting), the account it writes as, when it last copied, and its last error. Failed jobs (an email, a delivery, a row) are listed with Retry and Dismiss.
+
+**Google Sheets.** Connecting goes through Google's sign-in with the `drive.file` scope only (Formyx can open the files it creates and nothing else, which keeps Google's app verification light). Formyx makes "_Form_ responses" in the account's Drive, writes a header row and every response so far, then a row for each new response and rewrites a response's row when its respondent changes it. Columns never move: a new question gets a new column at the end, a renamed one keeps its column, a removed one keeps its column and past answers (`planSheetColumns` in `packages/shared/src/integrations`). The first column is the response id, so a row is found however the sheet is sorted, and retries never add a row twice. Values are written raw, so an answer that looks like a formula stays text; dates become real dates. Pausing stops copying and resuming catches up; Re-sync rewrites every row; disconnecting gives up the account's access and leaves the sheet. If the account's access ends, the integration asks to be reconnected; reconnecting catches up and retries what failed.
+
+**Notion** works the same way with a public integration: during consent people share a page, Formyx makes a database there with a typed property per question (selects, multi-selects, dates, emails, numbers) and a page per response. It is set up with `NOTION_CLIENT_ID` and `NOTION_CLIENT_SECRET`, and hidden without them.
+
+**Slack and Discord** messages show the form, the answers (short ones side by side), who and when, the quiz score, and a button to the response, for new responses and changed ones.
+
+**Tokens and secrets** (OAuth tokens, webhook signing secrets, chat webhook URLs) are sealed with AES-256-GCM under `ENCRYPTION_KEYS`, a list of keys with ids, newest first. To rotate, put a new key first: new values use it, older ones still open and are sealed again when next used, after which the old key can go. Values sealed before the key ring (keyed from `JWT_SECRET`) still open and are resealed the same way. OAuth `state` is signed, expires in 15 minutes and must come back to the person who started it.
+
+**Jobs** (`apps/api/src/jobs`) are typed: each kind has a payload and a retry policy (tries, first wait, longest wait, how many run at once). A handler that throws is retried with exponential backoff; one that throws `PermanentJobError` (revoked access, a deleted sheet) stops at once. A job that fails for good is recorded in `job_failures` with its data, so Retry sends exactly the same job (an email keeps its idempotency key). Email payloads are sealed, since an autoresponder can hold a respondent's private edit link. Jobs run in the API by default; `WORKERS=off` makes the API only queue them, for a separate `jobs:worker`.
 
 ## Scripts
 
@@ -496,7 +513,9 @@ Run from the repository root:
 | `pnpm db:studio`                                  | Opens Prisma Studio                                                                                                  |
 | `pnpm --filter @formyx/e2e render:textures`       | Renders the paper, linen and concrete WebP textures                                                                  |
 | `pnpm --filter @formyx/api db:seed:demo`          | Sets up or resets the demo account                                                                                   |
-| `pnpm --filter @formyx/api jobs:run`              | Runs the hourly jobs once in development (`jobs` after a build)                                                      |
+| `pnpm --filter @formyx/api jobs:run`              | Runs the hourly upkeep once in development (`jobs` after a build)                                                    |
+| `pnpm --filter @formyx/api jobs:worker`           | Runs background jobs in their own process, for an API started with `WORKERS=off` (after a build)                     |
+| `pnpm --filter @formyx/api keys:new`              | Prints a new key for `ENCRYPTION_KEYS`                                                                               |
 | `pnpm --filter @formyx/api db:migrate-forms`      | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
 | `pnpm --filter @formyx/web size`                  | Reports the gzip size of every route                                                                                 |
 | `node apps/web/scripts/font-fallback-metrics.mjs` | Works out resized local fallbacks for newly added fonts (run after adding one, then Prettier)                        |

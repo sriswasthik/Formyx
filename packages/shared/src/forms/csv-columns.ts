@@ -15,10 +15,20 @@ import type { StoredOutcome } from './responses.js';
 export type CsvCell = string | number | null;
 
 export interface CsvColumn {
+  /**
+   * Stays the same when the question is renamed (`<field id>`, or `<field id>:<row or part>`),
+   * so a Google Sheet keeps each answer in its column.
+   */
+  key: string;
+  /** Which kind of value it holds, for spreadsheets that format columns. */
+  kind: 'text' | 'number' | 'date';
   header: string;
   /** This column's cell for one response's answers. */
   cell: (answers: Readonly<Record<string, unknown>>) => CsvCell;
 }
+
+/** Questions whose answers are numbers. */
+const NUMBER_TYPES = new Set<Field['type']>(['number', 'rating', 'nps', 'opinion_scale']);
 
 function questionLabel(field: Field): string {
   return field.label.trim() || 'Untitled question';
@@ -46,6 +56,8 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
   switch (field.type) {
     case 'matrix':
       return field.rows.map((row) => ({
+        key: `${field.id}:${row.id}`,
+        kind: 'text',
         header: `${label}: ${row.label.trim() || 'Untitled row'}`,
         cell: (answers) => {
           const answer = value(answers);
@@ -56,6 +68,8 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
       }));
     case 'address':
       return ADDRESS_PARTS.map((part) => ({
+        key: `${field.id}:${part}`,
+        kind: 'text',
         header: `${label} (${ADDRESS_PART_LABELS[part]})`,
         cell: (answers) => {
           const answer = value(answers);
@@ -64,6 +78,8 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
       }));
     case 'date_range':
       return (['start', 'end'] as const).map((part) => ({
+        key: `${field.id}:${part}`,
+        kind: 'date',
         header: `${label} (${part})`,
         cell: (answers) => {
           const answer = value(answers);
@@ -73,6 +89,8 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
     case 'currency':
       return [
         {
+          key: field.id,
+          kind: 'number',
           header: `${label} (${field.currency})`,
           cell: (answers) => csvCell(field, value(answers)),
         },
@@ -80,12 +98,21 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
     case 'slider':
       return [
         {
+          key: field.id,
+          kind: 'number',
           header: field.unit.trim() ? `${label} (${field.unit.trim()})` : label,
           cell: (answers) => csvCell(field, value(answers)),
         },
       ];
     default:
-      return [{ header: label, cell: (answers) => csvCell(field, value(answers)) }];
+      return [
+        {
+          key: field.id,
+          kind: NUMBER_TYPES.has(field.type) ? 'number' : field.type === 'date' ? 'date' : 'text',
+          header: label,
+          cell: (answers) => csvCell(field, value(answers)),
+        },
+      ];
   }
 }
 
@@ -95,6 +122,9 @@ export function csvAnswerColumns(schema: FormSchema): CsvColumn[] {
 }
 
 export interface CsvOutcomeColumn {
+  /** Stays the same when a variable or end screen is renamed. */
+  key: string;
+  kind: 'text' | 'number';
   header: string;
   /** This column's cell for one response's outcome (`null` before Sprint 13). */
   cell: (outcome: StoredOutcome | null) => CsvCell;
@@ -121,12 +151,29 @@ export function csvOutcomeColumns(schema: Pick<FormSchema, 'logic'>): CsvOutcome
   const columns: CsvOutcomeColumn[] = [];
   if (logic.quiz?.enabled) {
     columns.push(
-      { header: 'Quiz score', cell: (outcome) => outcome?.quiz?.score ?? null },
-      { header: 'Quiz points possible', cell: (outcome) => outcome?.quiz?.max ?? null },
-      { header: 'Quiz score (%)', cell: (outcome) => outcome?.quiz?.percent ?? null },
+      {
+        key: 'quiz:score',
+        kind: 'number',
+        header: 'Quiz score',
+        cell: (outcome) => outcome?.quiz?.score ?? null,
+      },
+      {
+        key: 'quiz:max',
+        kind: 'number',
+        header: 'Quiz points possible',
+        cell: (outcome) => outcome?.quiz?.max ?? null,
+      },
+      {
+        key: 'quiz:percent',
+        kind: 'number',
+        header: 'Quiz score (%)',
+        cell: (outcome) => outcome?.quiz?.percent ?? null,
+      },
     );
     if (logic.quiz.passPercent !== undefined) {
       columns.push({
+        key: 'quiz:passed',
+        kind: 'text',
         header: 'Passed',
         cell: (outcome) => {
           const passed = outcome?.quiz?.passed;
@@ -137,12 +184,16 @@ export function csvOutcomeColumns(schema: Pick<FormSchema, 'logic'>): CsvOutcome
   }
   logic.variables.forEach((variable, index) => {
     columns.push({
+      key: `var:${variable.id}`,
+      kind: 'number',
       header: variable.name.trim() || `Variable ${index + 1}`,
       cell: (outcome) => outcome?.values[variable.id] ?? null,
     });
   });
   if (logic.endScreens.length > 1) {
     columns.push({
+      key: 'end-screen',
+      kind: 'text',
       header: 'End screen',
       cell: (outcome) => (outcome ? endScreenLabel(schema, outcome.endScreenId) : null),
     });

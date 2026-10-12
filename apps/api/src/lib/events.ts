@@ -1,5 +1,6 @@
 import type { SubmissionRecord } from '@formyx/shared';
 import type { Logger } from 'pino';
+import { reportError } from './monitoring.js';
 
 /** A response saved or changed through the public form. */
 export interface SubmissionEvent {
@@ -36,6 +37,7 @@ export function createEventBus(logger: Logger): EventBus {
 
   const report = (type: keyof DomainEvents, error: unknown) => {
     logger.error({ err: error, event: type }, 'An event listener failed');
+    reportError(error, { event: type });
   };
 
   return {

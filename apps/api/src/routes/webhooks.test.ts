@@ -14,6 +14,7 @@ import {
 } from '@formyx/shared';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { JOB_POLICIES } from '../jobs/job-types.js';
 import { verifyWebhookSignature } from '../lib/webhook-signature.js';
 import { createTestApp, startTestServer, type TestServer } from '../test/create-test-app.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
@@ -250,7 +251,7 @@ describe('delivering new responses', () => {
       expect(first.requests).toHaveLength(1);
       expect(second.requests).toHaveLength(1);
     });
-    await server.webhooks.idle();
+    await server.jobs.drain();
     for (const [received, secret] of [
       [first.requests[0], a.secret],
       [second.requests[0], b.secret],
@@ -283,7 +284,7 @@ describe('delivering new responses', () => {
     await vi.waitFor(() => {
       expect(target.requests).toHaveLength(3);
     });
-    await server.webhooks.idle();
+    await server.jobs.drain();
     const [firstTry, ...retries] = target.requests;
     for (const retry of retries) {
       expect(retry.body).toBe(firstTry?.body);
@@ -303,41 +304,53 @@ describe('delivering new responses', () => {
     ]);
   });
 
-  it('gives up after three retries', async () => {
+  it('gives up after its last try, and lists the failure on the form', async () => {
+    const tries = JOB_POLICIES['webhook.deliver'].attempts;
     const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
     const target = await receiver(() => 503);
-    await addWebhook(form.id, target.url, server.app);
+    const { webhook } = await addWebhook(form.id, target.url, server.app);
 
     await submitTo(form.slug);
 
     await vi.waitFor(() => {
-      expect(target.requests).toHaveLength(4);
+      expect(target.requests).toHaveLength(tries);
     });
-    await server.webhooks.idle();
-    expect(target.requests).toHaveLength(4);
-    expect(await prisma.webhookDelivery.count({ where: { succeeded: false } })).toBe(4);
+    await server.jobs.drain();
+    expect(target.requests).toHaveLength(tries);
+    expect(await prisma.webhookDelivery.count({ where: { succeeded: false } })).toBe(tries);
+    const failures = await prisma.jobFailure.findMany({ where: { formId: form.id } });
+    expect(failures).toEqual([
+      expect.objectContaining({
+        queue: 'webhook.deliver',
+        webhookId: webhook.id,
+        attempts: tries,
+        error: 'The webhook answered 503',
+        resolvedAt: null,
+      }),
+    ]);
   });
 
-  it('stops retrying a webhook that was removed meanwhile', async () => {
-    // Retries far enough apart to remove the webhook in between.
-    const slow = await startTestServer({ webhookRetryDelaysMs: [300, 300, 300] });
-    cleanups.push(() => slow.close());
+  it('drops queued deliveries to a webhook that was removed meanwhile', async () => {
+    // Jobs wait for drain(), so the webhook can go between queueing and sending.
+    const manual = await startTestServer({ autoRunJobs: false });
+    cleanups.push(() => manual.close());
     const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
     const target = await receiver(() => 500);
-    const { webhook } = await addWebhook(form.id, target.url, slow.app);
+    const { webhook } = await addWebhook(form.id, target.url, manual.app);
 
-    await request(slow.url)
+    await request(manual.url)
       .post(`/api/public/forms/${form.slug}/submissions`)
       .send({ answers: { [name.id]: 'Ada' } })
       .expect(201);
     await vi.waitFor(() => {
-      expect(target.requests).toHaveLength(1);
+      expect(manual.jobs.pending()).toBe(1);
     });
-    await requestAs(slow.app, team.users.EDITOR)
+    await requestAs(manual.app, team.users.EDITOR)
       .delete(hooksPath(form.id, `/${webhook.id}`))
       .expect(204);
-    await slow.webhooks.idle();
+    await manual.jobs.drain();
 
-    expect(target.requests).toHaveLength(1);
+    expect(target.requests).toHaveLength(0);
+    expect(await prisma.jobFailure.count()).toBe(0);
   });
 });

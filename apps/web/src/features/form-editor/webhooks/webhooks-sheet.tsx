@@ -182,7 +182,9 @@ function WebhooksBody({ formId }: { formId: string }) {
         <code className="font-mono text-12">{WEBHOOK_SIGNATURE_HEADER}</code> header:{' '}
         <code className="font-mono text-12">sha256=</code> and the HMAC-SHA256 of the raw request
         body, keyed with the webhook’s secret. Compute the same and compare before trusting a
-        request. Failed deliveries are retried three times, after 2, 4 and 8 seconds.
+        request. A failed delivery is tried five more times, waiting about twice as long each time
+        (30 seconds at first, up to about a quarter of an hour in all); one that still fails is
+        listed under Failed jobs.
       </p>
     </div>
   );
