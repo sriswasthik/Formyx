@@ -86,6 +86,18 @@ export function removeResponses(data: ResponsePages, ids: ReadonlySet<string>): 
   });
 }
 
+/** Puts a changed response in place of its old self, wherever it is loaded. */
+export function replaceResponse(data: ResponsePages, submission: SubmissionRecord): ResponsePages {
+  if (!contains(data, submission.id)) return data;
+  return produce(data, (draft) => {
+    for (const page of draft.pages) {
+      page.submissions = page.submissions.map((current) =>
+        current.id === submission.id ? submission : current,
+      );
+    }
+  });
+}
+
 /** Counts a live response into cached analytics (totals, its day, its answers). */
 export function addResponseToAnalytics(
   analytics: FormAnalytics,

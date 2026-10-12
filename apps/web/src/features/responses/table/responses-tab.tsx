@@ -1,6 +1,6 @@
 import { answerableFields, type FormDetail } from '@formyx/shared';
 import type { RowSelectionState } from '@tanstack/react-table';
-import { Download, Inbox, RotateCw, Search, SearchX, Share2, Trash2, X } from 'lucide-react';
+import { Inbox, RotateCw, Search, SearchX, Share2, Trash2, X } from 'lucide-react';
 import { AnimatePresence, m } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
@@ -10,9 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { formatCount } from '../format';
-import { exportResponsesUrl } from '../responses-api';
 import { useDeleteResponses, useResponsesList } from '../use-responses';
 import { DeleteResponsesDialog } from './delete-responses-dialog';
+import { ExportMenu } from './export-menu';
 import { ResponseSheet } from './response-sheet';
 import { ResponsesTable } from './responses-table';
 import { useResponseFilters } from './use-response-filters';
@@ -215,12 +215,7 @@ export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
             </Button>
           )}
         </div>
-        <Button asChild variant="secondary" size="sm" className="w-fit">
-          <a href={exportResponsesUrl(form.id)} download>
-            <Download aria-hidden />
-            Export CSV
-          </a>
-        </Button>
+        <ExportMenu formId={form.id} />
       </div>
 
       {filters.answered && (

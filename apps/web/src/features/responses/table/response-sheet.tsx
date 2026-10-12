@@ -33,7 +33,11 @@ interface ResponseSheetProps {
 function Details({ response }: { response: SubmissionRecord }) {
   const { completionTimeMs, metadata } = response;
   const rows = [
+    ...(response.respondentEmail ? [{ label: 'Email', value: response.respondentEmail }] : []),
     { label: 'Submitted', value: formatDateTime(response.createdAt) },
+    ...(response.editedAt
+      ? [{ label: 'Changed by the respondent', value: formatDateTime(response.editedAt) }]
+      : []),
     ...(completionTimeMs === null
       ? []
       : [{ label: 'Time to complete', value: formatDuration(completionTimeMs) }]),

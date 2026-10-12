@@ -107,7 +107,12 @@ function OpenResponseButton({ response }: { response: SubmissionRecord }) {
   );
 }
 
-function buildColumns(fields: Field[], selectable: boolean, logic: FormLogic | undefined) {
+function buildColumns(
+  fields: Field[],
+  selectable: boolean,
+  logic: FormLogic | undefined,
+  withEmail: boolean,
+) {
   const outcomes = logic ? csvOutcomeColumns({ logic }) : [];
   return helper.columns([
     ...(selectable
@@ -152,6 +157,30 @@ function buildColumns(fields: Field[], selectable: boolean, logic: FormLogic | u
       cell: ({ row }) => <OpenResponseButton response={row.original} />,
       meta: { className: cn(STICKY, selectable ? 'left-11' : 'left-0', 'min-w-32 border-r') },
     }),
+    // Asked before the questions (and confirmed, when one response per address).
+    ...(withEmail
+      ? [
+          helper.accessor((row) => row.respondentEmail ?? null, {
+            id: 'respondent-email',
+            header: () => 'Email',
+            cell: (info) => {
+              const email = info.getValue();
+              return email === null ? (
+                <>
+                  <span aria-hidden className="text-muted-foreground">
+                    —
+                  </span>
+                  <span className="sr-only">None</span>
+                </>
+              ) : (
+                <span className="block max-w-56 truncate" title={email}>
+                  {email}
+                </span>
+              );
+            },
+          }),
+        ]
+      : []),
     ...fields.map((field) =>
       helper.accessor((row) => row.answers[field.id], {
         id: field.id,
@@ -201,9 +230,10 @@ export function ResponsesTable({
 }: ResponsesTableProps) {
   const arrived = useArrivals((state) => state.highlighted);
   const selectable = selection !== undefined;
+  const withEmail = rows.some((row) => row.respondentEmail);
   const columns = useMemo(
-    () => buildColumns(fields, selectable, logic),
-    [fields, selectable, logic],
+    () => buildColumns(fields, selectable, logic, withEmail),
+    [fields, selectable, logic, withEmail],
   );
   const actions = useMemo(() => ({ order, onOrderChange, onOpen }), [order, onOrderChange, onOpen]);
 

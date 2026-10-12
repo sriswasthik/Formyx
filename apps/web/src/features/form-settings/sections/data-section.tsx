@@ -21,9 +21,10 @@ import { useEntitlements } from '@/features/entitlements/use-entitlements';
 import { formKeys } from '@/features/forms/form-list-cache';
 import { formatCount } from '@/features/responses/format';
 import { responseKeys } from '@/features/responses/response-cache';
+import { exportResponsesUrl } from '@/features/responses/responses-api';
 import { ApiRequestError } from '@/lib/api';
 import { SettingGroup, SettingRow } from '../setting-row';
-import { deleteAllResponses, exportUrl } from '../settings-api';
+import { deleteAllResponses } from '../settings-api';
 import { useLiveSection } from '../use-settings';
 import { FieldError, OptionSelect, type Option, type SectionProps } from './section-controls';
 import { ValidatedInput } from './validated-input';
@@ -242,7 +243,7 @@ export function DataSection({ form, view }: SectionProps) {
               </Button>
             ) : (
               <Button asChild variant="secondary">
-                <a href={exportUrl(form.id, 'csv')} download>
+                <a href={exportResponsesUrl(form.id, 'csv')} download>
                   <Download aria-hidden />
                   CSV
                 </a>
@@ -255,7 +256,7 @@ export function DataSection({ form, view }: SectionProps) {
               </Button>
             ) : (
               <Button asChild variant="secondary">
-                <a href={exportUrl(form.id, 'xlsx')} download>
+                <a href={exportResponsesUrl(form.id, 'xlsx')} download>
                   <Download aria-hidden />
                   Excel
                 </a>

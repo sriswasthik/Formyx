@@ -88,8 +88,3 @@ export function deleteAllResponses(
     jsonRequest('POST', { confirm }),
   );
 }
-
-/** Where the browser downloads the responses from. */
-export function exportUrl(formId: string, format: 'csv' | 'xlsx'): string {
-  return `/api${base(formId)}/submissions/${format === 'csv' ? 'export' : 'export.xlsx'}`;
-}
