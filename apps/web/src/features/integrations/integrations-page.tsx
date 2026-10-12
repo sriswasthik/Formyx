@@ -51,12 +51,15 @@ function useConnectResult(formId: string) {
     const error = params.get(CONNECT_ERROR_PARAM);
     if (!connected.success && !error) return;
     if (connected.success) {
+      // One id: said once, however often the effect runs.
       toast.success(`${INTEGRATION_NAMES[connected.data]} connected`, {
+        id: 'connect-result',
         description: 'Copying the responses so far. New ones follow as they arrive.',
       });
       void queryClient.invalidateQueries({ queryKey: integrationKeys.overview(formId) });
     } else if (error) {
       toast.error('Not connected', {
+        id: 'connect-result',
         description: CONNECT_ERRORS[error] ?? CONNECT_ERRORS.failed,
       });
     }

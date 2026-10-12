@@ -1,11 +1,12 @@
 /* eslint-disable no-console -- a command-line server: printing is how it reports. */
 // A stand-in for the outside services the API calls, for end-to-end tests: Cloudinary's
 // upload and resource APIs (the API's CLOUDINARY_API_URL points here) and India Post's PIN
-// code look-up (PINCODE_API_URL). Files are kept in memory; their delivery URLs say
+// code look-up (PINCODE_API_URL), and Google's sign-in and Sheets API (fake-google.mjs). Files are kept in memory; their delivery URLs say
 // res.cloudinary.com, as real ones do, and tests route those to /delivery/ here.
 // Usage: node scripts/fake-cloudinary.mjs [port]
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
+import { handleGoogle } from './fake-google.mjs';
 
 const PORT = Number(process.argv[2] ?? process.env.FAKE_CLOUDINARY_PORT ?? 4590);
 
@@ -110,6 +111,15 @@ const server = createServer((req, res) => {
     return send(res, 200, stored.bytes, { 'Content-Type': stored.mime });
   }
 
+  // /google/…: Google's sign-in, tokens and Sheets (see fake-google.mjs).
+  if (parts[0] === 'google') {
+    handleGoogle(req, res, url, parts.slice(1), send, readBody).catch((error) => {
+      console.error(error);
+      send(res, 500, { error: { message: String(error) } });
+    });
+    return;
+  }
+
   // GET /pincode/<pin>: India Post's look-up.
   if (req.method === 'GET' && parts[0] === 'pincode') {
     const office = PIN_CODES[parts[1]];
@@ -126,5 +136,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Fake Cloudinary and India Post on http://localhost:${PORT}`);
+  console.log(`Fake Cloudinary, India Post and Google on http://localhost:${PORT}`);
 });

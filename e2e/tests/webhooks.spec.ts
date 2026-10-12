@@ -57,10 +57,9 @@ test('adds a webhook, sends a test event and delivers a real response', async ({
   try {
     const formId = await createFormViaApi(page, 'feedback_survey');
     const publicPath = await publishViaApi(page, formId);
-    await page.goto(`/app/forms/${formId}/edit`);
-
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Manage webhooks' }).click();
+    // Webhooks live on the form's Integrations page.
+    await page.goto(`/app/forms/${formId}/integrations`);
+    await page.getByRole('button', { name: 'Add a webhook' }).click();
     const sheet = page.getByRole('dialog', { name: 'Webhooks' });
     await sheet.getByRole('textbox', { name: 'Endpoint URL' }).fill(receiver.url);
     await sheet.getByRole('button', { name: 'Add webhook' }).click();

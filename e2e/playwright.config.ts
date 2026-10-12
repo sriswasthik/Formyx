@@ -77,6 +77,12 @@ export default defineConfig({
         CLOUDINARY_API_SECRET: 'e2e-secret',
         CLOUDINARY_API_URL: fakeServices,
         PINCODE_API_URL: `${fakeServices}/pincode`,
+        // Google Sheets connects to a fake Google that agrees at once.
+        GOOGLE_CLIENT_ID: 'e2e-google-client',
+        GOOGLE_CLIENT_SECRET: 'e2e-google-secret',
+        GOOGLE_OAUTH_URL: `${fakeServices}/google`,
+        GOOGLE_TOKEN_URL: `${fakeServices}/google`,
+        GOOGLE_SHEETS_URL: `${fakeServices}/google`,
       },
     },
     {
