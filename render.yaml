@@ -1,11 +1,20 @@
-# Render Blueprint for the API (which also runs background jobs) and the nightly demo reset. In the Render dashboard choose
-# New > Blueprint, pick this repository, then fill in every value marked `sync: false`.
-# The web app is deployed separately, on Vercel (see "Deployment" in the README).
+# Render Blueprint for the API (which also runs background jobs), the nightly demo reset, and a
+# staging API where plans are enforced and Razorpay runs in test mode. In the Render dashboard
+# choose New > Blueprint, pick this repository, then fill in every value marked `sync: false`.
+# The web app is deployed separately, on Vercel (see "Deployment" in the README); Vercel's
+# preview deployments are the staging site.
 
 envVarGroups:
   # Shared by the API and the demo cron job. With Neon, DATABASE_URL is the pooled connection
   # string and DIRECT_URL the direct one, which migrations use.
   - name: formyx-database
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+  # Staging's own database: a branch of the Neon project, never production's data.
+  - name: formyx-database-staging
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -46,7 +55,8 @@ services:
         value: '2'
       - key: DEMO_ENABLED
         value: 'true'
-      # Everyone gets every feature during the beta; switch to enforced once plans are sold.
+      # Everyone gets every feature during the beta; switch to enforced once plans are sold
+      # (staging, below, already is). Switching back to all_unlocked unlocks everything at once.
       - key: ENTITLEMENTS_MODE
         value: all_unlocked
       - key: RESEND_API_KEY
@@ -81,6 +91,68 @@ services:
         value: https://eu.i.posthog.com
       # Where feedback sent from the app is emailed (it is always stored).
       - key: FEEDBACK_EMAIL
+        sync: false
+
+  # Staging: the same code, with plans enforced and Razorpay in test mode, to try billing end to
+  # end before it reaches production. Vercel's preview deployments point at it (API_URL).
+  - type: web
+    name: formyx-api-staging
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @formyx/shared build &&
+      pnpm --filter @formyx/api build
+    preDeployCommand: pnpm --filter @formyx/api db:deploy
+    startCommand: pnpm --filter @formyx/api start
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: formyx-database-staging
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      # The Vercel preview address (or a staging domain), for CORS and links in emails.
+      - key: CORS_ORIGIN
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: TRUST_PROXY
+        value: '2'
+      - key: DEMO_ENABLED
+        value: 'false'
+      # Each workspace gets what its plan includes. To roll back, set all_unlocked: every
+      # feature is unlocked at once, and nothing stored changes.
+      - key: ENTITLEMENTS_MODE
+        value: enforced
+      # Responses past the monthly limit are still accepted; hard would turn visitors away.
+      - key: ENFORCEMENT_MODE
+        value: soft
+      # Razorpay test mode only (rzp_test_...: the API refuses live keys). The webhook in
+      # Razorpay's dashboard points at https://<this service>/api/webhooks/razorpay.
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: RAZORPAY_PLAN_PRO_MONTHLY
+        sync: false
+      - key: RAZORPAY_PLAN_PRO_YEARLY
+        sync: false
+      - key: RAZORPAY_PLAN_BUSINESS_MONTHLY
+        sync: false
+      - key: RAZORPAY_PLAN_BUSINESS_YEARLY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: ENCRYPTION_KEYS
+        sync: false
+      - key: SENTRY_DSN
         sync: false
 
   # Puts the shared demo account back to its starting point every night at 03:00 UTC.

@@ -20,7 +20,7 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 - **Conditional logic.** Show a question only when earlier answers match, with comparisons that fit each question type, combined with all or any.
 - **Advanced logic.** Pages with titles, jumps after a page ("if … go to page X or end screen Y"), a read-only map of pages and jumps that warns about unreachable pages, answers and values piped into text (`Thanks, {{name}}!`), calculated values (score, price, custom), quiz mode with points, a pass mark and an optional answer review, several designable end screens with redirects, shuffled questions and options, and answers saved in the browser or emailed as a link to finish later.
 - **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), 40 open-licence fonts with pairings, input, choice, button and container styles, question numbers, progress bars, and classic, card, split or one-question-at-a-time layouts. Brand kits carry a workspace's logo, colours and fonts from form to form, and a look can be suggested from a logo. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
-- **Plans.** Free, Pro and Business entitlements, checked through shared helpers. Everything is unlocked during the beta; when enforced, anyone can try Pro styles in the editor, but publishing them needs Pro.
+- **Plans and billing.** Free, Pro (₹299 a month) and Business (₹999), checked through shared helpers, with Razorpay subscriptions (test mode for now): a 30-day Pro trial without a card, checkout from the upgrade dialog, webhooks as the source of truth, a grace period for failed payments, and downgrades that delete nothing. Everything is unlocked in production during the beta; staging enforces plans.
 - **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code in the form's colours, a prefilled link or an embed snippet; close and reopen forms.
 - **Settings.** One page per form with a section nav, search and a save status: passwords, one response per browser or per confirmed email address (a 6-digit code), asking for respondents' email, opening and closing times with a closed message, a response limit, private links to change a response, unlisted or listed in search engines; the form's language (English, Telugu or Hindi, for buttons, checks and dates), date and number formats, progress bar, question numbers and required markers; notification emails to other addresses, Slack and Discord, and daily digests; an autoresponder with piped answers, a preview and a test send; a custom address, link previews and favicon; automatic deletion of old responses, CSV and Excel downloads and deleting every response. Access settings apply at once; the form's own settings publish with it.
 - **Preferences.** Each person chooses the app's theme and motion (saved to their account), the language of their new forms, response emails, and can change their password or delete their account. Each workspace has a time zone, a date format, default notifications and a default brand kit.
@@ -45,28 +45,32 @@ flowchart LR
     Proxy["/api/* proxy"]
   end
   subgraph Render
-    API["API<br/>Express, Socket.IO"]
+    API["API<br/>Express, Socket.IO,<br/>background jobs"]
     Cron["Nightly demo reset"]
   end
   DB[("PostgreSQL<br/>Neon")]
   Cloudinary[("Cloudinary")]
+  Razorpay[("Razorpay<br/>test mode")]
 
   App -- "HTML and JS" --> Static
   App -- "REST with the session cookie" --> Proxy --> API
   App -- "WebSocket with a 60-second token" --> API
   App -- "signed uploads" --> Cloudinary
+  App -- "Checkout" --> Razorpay
   Host -- "iframe /f/:slug?embed=1" --> Static
   API --> DB
   Cron --> DB
   API -- "checks uploads" --> Cloudinary
   API -- "response emails, invites" --> Resend
   API -- "signed webhooks" --> Hooks["Your endpoints"]
+  API -- "customers, subscriptions" --> Razorpay
+  Razorpay -- "signed webhooks" --> API
 ```
 
 | Package           | What                                                                                                                                                |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`        | React 18, Vite, TypeScript, Tailwind CSS v4, shadcn/ui (Radix), React Router, TanStack Query and Table, React Hook Form, Recharts, Socket.IO client |
-| `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino, Socket.IO, Resend, Cloudinary                                                     |
+| `apps/api`        | Node.js, Express 5, TypeScript, Prisma 7 + PostgreSQL, Zod, pino, Socket.IO, pg-boss, Resend, Cloudinary, Razorpay                                  |
 | `packages/shared` | Zod schemas, types and pure logic shared by web and api: the form schema, validation, conditional logic, analytics                                  |
 | `e2e`             | Playwright end-to-end and accessibility tests                                                                                                       |
 
@@ -185,7 +189,7 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 - **Client IPs.** Requests reach the API through Vercel's proxy and then Render's load balancer, so `render.yaml` sets `TRUST_PROXY=2` and rate limits see the visitor's IP. The API's own address is public (the socket needs it), and a request sent there directly could claim any IP in `X-Forwarded-For`, which weakens per-IP rate limits for such requests. Closing this needs the proxy to sign a header the API trusts (see the roadmap).
 - **Migrations** are plain SQL in `apps/api/prisma/migrations`, applied in order by `prisma migrate deploy`. Write them to work with the previous version of the code still running.
 - **Stored formats.** Themes and form schemas are JSON with a version. The API upgrades older ones as it reads them, so a deploy never waits on data. To rewrite them in the current format afterwards (theme v2 arrived in Sprint 9), run `pnpm --filter @formyx/api forms:migrate -- --dry-run` from the Render shell, then without `--dry-run`. It only touches forms that need it, never overwrites a save made while it runs, and leaves `updated_at` alone. A second run changes nothing.
-- **Plans.** `ENTITLEMENTS_MODE=all_unlocked` (set in `render.yaml`) gives every workspace every feature. Switch it to `enforced` once plans are sold.
+- **Plans.** `ENTITLEMENTS_MODE=all_unlocked` (set in `render.yaml`) gives every workspace every feature; staging runs `enforced`. See [Billing](#billing) for switching production over, and back.
 - **Secrets.** Never commit `.env` files; `.env.example` lists every variable. Changing `JWT_SECRET` signs everyone out and makes stored webhook secrets unreadable, so webhooks would need adding again.
 
 ## Roadmap
@@ -194,7 +198,7 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 - **Several API instances**: Redis for rate limits and the Socket.IO adapter.
 - **A signed header from the proxy**, so the API trusts forwarded client IPs only from Vercel.
 - **Partial responses**: keeping the answers of visits that never send, beside the drop-off counts.
-- **Payments.**
+- **Live payments.** Razorpay live keys, GST invoices, and checking in live mode what test mode can't show (plan changes on UPI mandates, Razorpay's retry schedule).
 - **Backward jumps** (loops), with a guard against endless routes; jumps only go forward for now.
 - **Custom domains** for public forms, and translations of a form.
 - **Live co-editing** in the editor, building on the existing Socket.IO rooms.
@@ -425,9 +429,40 @@ A theme (v2, `packages/shared/src/theme`) describes how a form looks to responde
 
 ## Plans and entitlements
 
-Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, advanced logic, quiz mode, branding removal, confirmed-email responses, the autoresponder, Slack and Discord, extra notification addresses, custom link previews and favicons, Excel export, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
+Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus`, and the dates a trial, a grace period or a complimentary plan ends; `effectivePlan` works out the plan in force from them, so nothing waits for a scheduled job. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, advanced logic, quiz mode, branding removal, confirmed-email responses, the autoresponder, Slack and Discord, extra notification addresses, custom link previews and favicons, Excel export, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
 
-`ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor explains that Pro plans are coming soon. Limits are reported; the brand kit limit is the first one enforced (`403 LIMIT_REACHED` when `ENTITLEMENTS_MODE=enforced`).
+`ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor offers the plan that includes them. The brand kit limit answers `403 LIMIT_REACHED`; responses per month are counted, never refused once a response has been started (see below).
+
+`pricing.ts` holds the prices (in paise), the trial, grace and reminder lengths, and the comparison the pricing page and upgrade dialog show, built from the same registry so what is sold, shown and enforced can't disagree. Features that aren't built yet (the AI ones) are left off the pricing page.
+
+## Billing
+
+Razorpay subscriptions, in test mode for now: the API refuses a live key (`rzp_live_…`).
+
+- **Trial.** Where plans are enforced, an account's first workspace starts on Pro for 30 days, without a card; one trial per account (`users.trial_used_at`). Owners are emailed 7, 3 and 1 days before it ends, and the workspace moves to Free when it does. A plan bought during the trial starts (and is first charged) when the trial ends.
+- **Buying.** An owner picks a plan; `POST /api/workspaces/:id/billing/subscribe` makes (or reuses) the Razorpay customer and subscription, and the browser opens Razorpay Checkout with it. Checkout's answer goes to `…/billing/verify`, which checks its HMAC-SHA256 signature with the key secret, but only records that Checkout finished: the plan changes when Razorpay's webhook says so.
+- **Webhooks** (`POST /api/webhooks/razorpay`) are the source of truth. Each is checked against `X-Razorpay-Signature` over the raw body, stored in `razorpay_events` by its event id (a repeat is a no-op) and answered at once; the job queue applies it to the subscription, its payments and the workspace's plan. `subscription.authenticated`, `activated`, `charged`, `pending`, `halted`, `cancelled`, `completed` and `payment.failed` are handled; an event older than the last one applied doesn't undo it.
+- **Failed renewals.** The workspace goes `PAST_DUE`: its plan keeps working for 7 days from the first failure while Razorpay retries, with a banner and an email. A later charge clears it; after the grace period the workspace moves to Free.
+- **Cancelling** ends the plan when the paid period does, with an optional reason. Razorpay can't undo a scheduled cancellation, so "Resume" makes a new subscription that starts when the current one ends. Moving to a higher plan starts at once; to a lower one, at the end of the period.
+- **Downgrades delete nothing.** On Free, a published form's Pro looks are drawn with the closest free ones (`themeForFeatures`, applied by the API when it serves the form, so the editor, public form and embed agree and the saved theme is kept), and work a plan pays for pauses: the autoresponder, extra recipients, Slack and Discord posts, Sheets and Notion syncing, a custom link image. Logic, quizzes and verified responses keep running on forms already published. The billing page lists each form that changed until the owner dismisses it, and upgrading brings everything back.
+- **Usage.** Responses are counted per billing period (the calendar month without one). Owners are warned at 80% and 100% by banner and email, once each. `ENFORCEMENT_MODE=soft` (the default) keeps accepting responses past the limit; `hard` shows new visitors that the form isn't taking responses, while anyone already filling it in can still send it.
+- **Admins** (`users.is_admin`, set only with `admin:grant`) use `/app/admin` to search workspaces, give a complimentary plan for some days, and extend or restart a trial. Each action is recorded in `admin_actions`.
+
+### Testing billing locally
+
+1. In the [Razorpay dashboard](https://dashboard.razorpay.com), switch to **Test mode** and create API keys. Put them in `apps/api/.env` as `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`, and set `ENTITLEMENTS_MODE=enforced`.
+2. Make the four plans: `pnpm --filter @formyx/api billing:sync-plans -- --create` prints the `RAZORPAY_PLAN_*` lines to add. Run it again without `--create` whenever prices change: it fails if a plan charges anything other than `pricing.ts` says.
+3. Expose the API so Razorpay can reach its webhook, e.g. `cloudflared tunnel --url http://localhost:4000` or `ngrok http 4000`. In the dashboard, add a webhook at `https://<tunnel>/api/webhooks/razorpay` for the `subscription.*` and `payment.failed` events, with a secret you also put in `RAZORPAY_WEBHOOK_SECRET`.
+4. Restart `pnpm dev`, open **Settings > Billing** and upgrade with one of Razorpay's [test cards](https://razorpay.com/docs/payments/payments/test-card-details/) or the test UPI id `success@razorpay`. The plan changes once the webhook arrives; `razorpay_events` keeps each one, with any error.
+
+Without a tunnel, `apps/api/src/test/fake-razorpay.ts` and the e2e suite's `scripts/fake-razorpay.mjs` stand in for Razorpay, and `tests/billing.spec.ts` sends the webhooks itself. `RAZORPAY_E2E=live pnpm test:e2e tests/billing.spec.ts` instead uses the keys in `apps/api/.env` and opens Razorpay's own Checkout. To see a trial end or a grace period run out, edit `trial_ends_at` or `grace_ends_at` and run `pnpm --filter @formyx/api jobs:run`; to make yourself an admin, `pnpm --filter @formyx/api admin:grant you@example.com`.
+
+### Staging, rollout and rolling back
+
+`render.yaml` has a `formyx-api-staging` service on its own database (a Neon branch) with `ENTITLEMENTS_MODE=enforced`, `ENFORCEMENT_MODE=soft` and Razorpay test keys; in Vercel, set the **Preview** environment's `API_URL` and `VITE_REALTIME_URL` to it, so preview deployments are the staging site. Production stays `all_unlocked`, with checkout off while its Razorpay settings are empty.
+
+- **Switching a server to enforced:** set `ENTITLEMENTS_MODE=enforced`, then run `pnpm --filter @formyx/api billing:start-trials -- --dry-run` and without `--dry-run`: workspaces made while everything was unlocked never had a trial, and get one now (one per owner account).
+- **Rolling back:** set `ENTITLEMENTS_MODE=all_unlocked` and redeploy (or restart). Every workspace gets every feature at once, because plans are only ever read through `resolveEntitlements`; nothing stored changes, so switching back to `enforced` later picks up where it left off. Subscriptions keep running in Razorpay meanwhile.
 
 ## File uploads
 
@@ -517,6 +552,9 @@ Run from the repository root:
 | `pnpm --filter @formyx/api jobs:worker`           | Runs background jobs in their own process, for an API started with `WORKERS=off` (after a build)                     |
 | `pnpm --filter @formyx/api keys:new`              | Prints a new key for `ENCRYPTION_KEYS`                                                                               |
 | `pnpm --filter @formyx/api db:migrate-forms`      | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
+| `pnpm --filter @formyx/api billing:sync-plans`    | Checks the Razorpay plans charge what `pricing.ts` says (`-- --create` makes missing ones, in test mode)             |
+| `pnpm --filter @formyx/api billing:start-trials`  | Gives existing workspaces their trial when a server switches to enforced (after a build; `-- --dry-run` to count)    |
+| `pnpm --filter @formyx/api admin:grant <email>`   | Makes an account a Formyx admin (`--revoke` takes it away)                                                           |
 | `pnpm --filter @formyx/web size`                  | Reports the gzip size of every route                                                                                 |
 | `node apps/web/scripts/font-fallback-metrics.mjs` | Works out resized local fallbacks for newly added fonts (run after adding one, then Prettier)                        |
 | `pnpm format`                                     | Formats with Prettier (`format:check` to verify)                                                                     |
