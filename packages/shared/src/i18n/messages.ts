@@ -13,8 +13,11 @@ export interface FormMessages {
     sending: string;
     pageOf: (page: number, pages: number) => string;
     questionOf: (question: number, questions: number) => string;
+    /** For screen readers: how far along, as a percentage already formatted ("25%"). */
+    percentComplete: (percent: string) => string;
     progress: string;
-    pressEnter: string;
+    /** "or press Enter": the keyboard shortcut that moves on, by its keys. */
+    pressKeys: (keys: string) => string;
     startOver: string;
     welcomeBack: string;
     anotherResponse: string;

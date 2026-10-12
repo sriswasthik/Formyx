@@ -25,6 +25,7 @@ export * from './migrate-form-schema.js';
 export * from './outcome-schema.js';
 export * from './page-layout.js';
 export * from './pages.js';
+export * from './prefill.js';
 export * from './phone-lookup.js';
 export * from './phone.js';
 export * from './public-form-api.js';

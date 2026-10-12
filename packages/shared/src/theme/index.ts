@@ -9,3 +9,4 @@ export * from './theme-utils.js';
 export * from './theme-v1.js';
 export * from './mesh.js';
 export * from './scatter.js';
+export * from './qr-colors.js';
