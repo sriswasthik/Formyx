@@ -8,6 +8,7 @@ export * from './errors.js';
 export * from './forms/index.js';
 export * from './health.js';
 export * from './i18n/index.js';
+export * from './integrations/index.js';
 export * from './json.js';
 export * from './logic/index.js';
 export * from './random.js';
