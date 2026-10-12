@@ -106,6 +106,14 @@ export const routes: RouteObject[] = [
                 },
               },
               {
+                path: 'admin',
+                handle: { title: 'Admin' } satisfies RouteHandle,
+                lazy: async () => {
+                  const { AdminPage } = await import('@/features/admin/admin-page');
+                  return { Component: AdminPage };
+                },
+              },
+              {
                 path: 'settings',
                 handle: { title: 'Settings' } satisfies RouteHandle,
                 lazy: async () => {

@@ -2,7 +2,8 @@ import { LayoutGroup, m } from 'motion/react';
 import { NavLink } from 'react-router';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS } from './nav-items';
+import { useSession } from '@/features/auth/session-context';
+import { ADMIN_NAV_ITEM, NAV_ITEMS } from './nav-items';
 
 interface SidebarNavProps {
   /** Namespaces the active-indicator animation so the desktop and mobile navs never share it. */
@@ -11,11 +12,13 @@ interface SidebarNavProps {
 }
 
 export function SidebarNav({ id, onNavigate }: SidebarNavProps) {
+  const { user } = useSession();
+  const items = user.isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
   return (
     <nav aria-label="Main">
       <LayoutGroup id={id}>
         <ul className="flex flex-col gap-0.5">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {items.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
