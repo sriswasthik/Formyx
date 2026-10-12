@@ -163,7 +163,7 @@ function PageBody({ form, overview }: { form: FormDetail; overview: Integrations
             <article
               key={service}
               aria-labelledby={`chat-${service}`}
-              className="flex flex-col gap-3 rounded-xl border bg-card p-5 sm:p-6"
+              className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-5 sm:p-6"
             >
               <div className="flex items-center gap-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-surface">
@@ -197,7 +197,7 @@ function PageBody({ form, overview }: { form: FormDetail; overview: Integrations
         title="Webhooks"
         description="A signed request to your own endpoint for each new response, retried for a while if it fails."
       >
-        <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:p-6">
+        <div className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-5 sm:p-6">
           {overview.webhooks.length > 0 ? (
             <ul className="divide-y" aria-label="Webhooks">
               {overview.webhooks.map((webhook) => (

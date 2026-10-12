@@ -160,9 +160,10 @@ export function IntegrationCard({
   return (
     <article
       aria-labelledby={`integration-${kind}`}
-      className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:p-6"
+      // min-w-0: a grid item, which may be narrower than its longest unbroken line.
+      className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-5 sm:p-6"
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-surface">
             <Icon aria-hidden />
