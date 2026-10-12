@@ -20,7 +20,10 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // Sprint 14 (form languages, password and email steps, edit links, prefilled links) added
 // about 9 KB, with Telugu and Hindi, their fonts and the access screens loading lazily; the
 // renderer joining classes with `cx` instead of tailwind-merge's `cn` took 10 KB back: 204.2 KB.
-const PUBLIC_FORM_BUDGET_KB = 205;
+// Sprint 19 (billing) left the form's own code as it was, but the app's entry carries the
+// router table (three more lazy pages) and the one stylesheet carries the new pages' classes:
+// 205.9 KB, so the budget is 207 KB. Checkout's script never loads on public forms.
+const PUBLIC_FORM_BUDGET_KB = 207;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',
