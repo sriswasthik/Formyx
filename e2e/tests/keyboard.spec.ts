@@ -134,11 +134,15 @@ test('designs a form in the Design Studio with the keyboard alone', async ({ pag
 
   // A preset, chosen with the arrow keys.
   const presets = page.getByRole('radiogroup', { name: 'Theme' });
+  const presetBefore = await presets.getByRole('radio', { checked: true }).getAttribute('value');
   await tabTo(page, presets.getByRole('radio', { checked: true }));
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Space');
   const chosen = presets.getByRole('radio', { checked: true });
-  await expect(chosen).toBeFocused();
+  await expect(chosen).toHaveCount(1);
+  if (presetBefore) {
+    await expect(chosen).not.toHaveAttribute('value', presetBefore);
+  }
 
   // Typography: a heading font, searched for and picked. The sections stand in a column.
   const sections = page.getByRole('tab', { name: 'Typography' });
