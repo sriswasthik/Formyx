@@ -56,6 +56,11 @@ export const FEATURES = {
     description: 'Send every response to a spreadsheet.',
     minPlan: 'PRO',
   },
+  notion: {
+    name: 'Notion',
+    description: 'Send every response to a Notion database.',
+    minPlan: 'PRO',
+  },
   advanced_logic: {
     name: 'Advanced logic',
     description: 'Page jumps, calculations, several end screens, redirects and save for later.',
