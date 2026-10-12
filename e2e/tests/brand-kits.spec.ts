@@ -26,6 +26,11 @@ interface Theme {
   typography: { headingFont: string; bodyFont: string };
 }
 
+/** Waits until the editor has persisted the latest design change. */
+async function expectSaved(page: Page) {
+  await expect(page.getByText('Saved', { exact: true })).toBeAttached({ timeout: 10_000 });
+}
+
 test('saves a brand kit, starts new forms with it and applies it to others', async ({ page }) => {
   const problems = trackConsoleProblems(page);
   const workspaceId = await createWorkspace(page);
@@ -40,6 +45,7 @@ test('saves a brand kit, starts new forms with it and applies it to others', asy
       .getByRole('radiogroup', { name: 'Theme' })
       .getByRole('radio', { name: /^Midnight/ })
       .click();
+    await expectSaved(page);
     await page.getByRole('button', { name: 'Save as brand kit' }).click();
     const dialog = page.getByRole('dialog', { name: 'Save as brand kit' });
     await dialog.getByRole('textbox', { name: 'Name' }).fill('Night brand');
@@ -70,7 +76,7 @@ test('saves a brand kit, starts new forms with it and applies it to others', asy
     await expect(button).toHaveAttribute('aria-pressed', 'false');
     await button.click();
     await expect(button).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByText('Saved', { exact: true })).toBeAttached({ timeout: 10_000 });
+    await expectSaved(page);
     const applied = (await (await page.request.get(`/api/forms/${other.id}`)).json()) as {
       theme: Theme;
     };
