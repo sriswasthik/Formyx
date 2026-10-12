@@ -1,4 +1,4 @@
-import { hasRole, type FormDetail } from '@formyx/shared';
+import { hasRole, qrCodeColors, type FormDetail } from '@formyx/shared';
 import { ArrowLeft, FileQuestion, Lock, PencilRuler, RotateCw, Send } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -215,6 +215,7 @@ function ResponsesWorkspace({ form, canEdit }: { form: FormDetail; canEdit: bool
           slug={form.slug}
           closed={form.status === 'CLOSED'}
           justPublished={false}
+          qrColors={qrCodeColors((form.publishedTheme ?? form.theme).colors)}
           {...(inlineNav && { returnFocusTo: shareButton })}
         />
       )}

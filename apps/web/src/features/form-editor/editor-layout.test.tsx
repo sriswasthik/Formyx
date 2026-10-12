@@ -137,27 +137,17 @@ describe('EditorLayout', () => {
     expect(screen.getByRole('heading', { name: 'Form settings' })).toBeInTheDocument();
   });
 
-  it('edits the submit button text from form settings', async () => {
-    const { user } = renderEditor();
-    const input = screen.getByRole('textbox', { name: 'Button text' });
-
-    await user.clear(input);
-    await user.type(input, 'Send it');
-
-    expect(screen.getByText('Send it')).toBeInTheDocument();
-  });
-
-  it('edits the description and response limits from form settings', async () => {
+  it('edits the description, and links to the rest of the settings', async () => {
     const { user, store } = renderEditor();
 
     await user.type(screen.getByRole('textbox', { name: 'Description' }), 'Tell us how we did');
-    await user.type(screen.getByRole('textbox', { name: 'Response limit' }), '100');
 
     expect(screen.getByText('Tell us how we did', { selector: 'p' })).toBeInTheDocument();
-    expect(store.getState().schema).toMatchObject({
-      description: 'Tell us how we did',
-      settings: { closeAfterResponses: 100 },
-    });
+    expect(store.getState().schema.description).toBe('Tell us how we did');
+    expect(screen.getByRole('link', { name: 'Open form settings' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/\/settings$/),
+    );
   });
 
   it('undoes and redoes from the top bar', async () => {

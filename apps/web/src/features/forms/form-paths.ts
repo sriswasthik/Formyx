@@ -12,3 +12,15 @@ export function publicFormPath(slug: string): string {
 export function publicFormUrl(slug: string, origin: string = window.location.origin): string {
   return `${origin}${publicFormPath(slug)}`;
 }
+
+/** A form's settings, at a section and setting when given. */
+export function formSettingsPath(
+  formId: string,
+  { section, setting }: { section?: string; setting?: string } = {},
+): string {
+  const params = new URLSearchParams();
+  if (section) params.set('section', section);
+  if (setting) params.set('setting', setting);
+  const query = params.toString();
+  return `/app/forms/${formId}/settings${query ? `?${query}` : ''}`;
+}

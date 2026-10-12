@@ -1,4 +1,4 @@
-import { hasRole, type FeatureId, type FormDetail } from '@formyx/shared';
+import { hasRole, qrCodeColors, type FeatureId, type FormDetail } from '@formyx/shared';
 import { FileQuestion, Lock, RotateCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
@@ -267,6 +267,7 @@ function FormEditor({ form }: { form: FormDetail }) {
               slug={form.slug}
               closed={form.status === 'CLOSED'}
               justPublished={share.justPublished}
+              qrColors={qrCodeColors((form.publishedTheme ?? form.theme).colors)}
               returnFocusTo={inlineNav ? shareButton : publishButton}
             />
             <LeaveGuard autosaver={autosaver} />
