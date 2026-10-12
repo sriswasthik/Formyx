@@ -47,7 +47,7 @@ export const SECTION_INFO: Record<
   },
   notifications: {
     label: 'Notifications',
-    description: 'Who hears about new responses, and where.',
+    description: 'Who hears about new responses by email, and how often.',
     icon: Bell,
   },
   autoresponder: {
@@ -177,8 +177,12 @@ export const SETTINGS: SettingEntry[] = [
     label: 'How often',
     keywords: 'digest daily instant summary',
   },
-  { id: 'slack', section: 'notifications', label: 'Slack', keywords: 'chat webhook channel' },
-  { id: 'discord', section: 'notifications', label: 'Discord', keywords: 'chat webhook server' },
+  {
+    id: 'chat',
+    section: 'notifications',
+    label: 'Slack, Discord, Google Sheets and webhooks',
+    keywords: 'chat channel integrations notion spreadsheet webhook zapier',
+  },
   {
     id: 'autoresponder',
     section: 'autoresponder',

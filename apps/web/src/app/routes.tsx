@@ -136,6 +136,16 @@ export const routes: RouteObject[] = [
             },
           },
           {
+            path: 'forms/:formId/integrations',
+            // Replaced by "Integrations · <form title>" once the form loads.
+            handle: { title: 'Integrations' } satisfies RouteHandle,
+            lazy: async () => {
+              const { IntegrationsPage } =
+                await import('@/features/integrations/integrations-page');
+              return { Component: IntegrationsPage };
+            },
+          },
+          {
             path: 'forms/:formId/settings',
             // Replaced by "Settings · <form title>" once the form loads.
             handle: { title: 'Form settings' } satisfies RouteHandle,

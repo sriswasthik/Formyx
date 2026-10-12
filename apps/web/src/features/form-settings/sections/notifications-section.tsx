@@ -8,7 +8,8 @@ import {
   type NotificationFrequency,
 } from '@formyx/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Send, X } from 'lucide-react';
+import { Plug, Send, X } from 'lucide-react';
+import { Link } from 'react-router';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useEntitlements } from '@/features/entitlements/use-entitlements';
+import { formIntegrationsPath } from '@/features/forms/form-paths';
 import { NotifyToggle } from '@/features/responses/notify-toggle';
 import { ApiRequestError } from '@/lib/api';
 import { useSaveQueue } from '../save-queue-context';
@@ -124,14 +126,17 @@ export function EmailList({
 }
 
 /** A Slack or Discord incoming webhook: set it, test it, remove it. Its URL is never shown. */
-function ChatWebhook({
+export function ChatWebhook({
   formId,
   service,
   hint,
+  onSaved,
 }: {
   formId: string;
   service: ChatService;
   hint: string | null;
+  /** After connecting or removing it (the Integrations page refreshes). */
+  onSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
   const queue = useSaveQueue();
@@ -145,6 +150,7 @@ function ChatWebhook({
     queue.save(`chat:${service}`, async () => {
       const view = await setChatWebhook(formId, service, next);
       queryClient.setQueryData(formSettingsKey(formId), view);
+      onSaved?.();
     });
     setUrl('');
   };
@@ -225,7 +231,7 @@ function ChatWebhook({
   );
 }
 
-/** Who hears about new responses, how often, and in which chat channels. */
+/** Who hears about new responses by email, and how often. */
 export function NotificationsSection({ form, view }: SectionProps) {
   const setNotifications = useLiveSection(form.id, 'notifications');
   const { hasFeature } = useEntitlements();
@@ -295,27 +301,19 @@ export function NotificationsSection({ form, view }: SectionProps) {
         </SettingRow>
       </SettingGroup>
 
-      <SettingGroup title="Chat">
-        {(['slack', 'discord'] as const).map((service) => (
-          <SettingRow
-            key={service}
-            id={service}
-            label={CHAT_SERVICE_NAMES[service]}
-            description={
-              service === 'slack'
-                ? 'Post each new response to a channel. Make an incoming webhook in Slack, then paste its URL.'
-                : "Post each new response to a channel. In the channel's settings, make a webhook under Integrations, then paste its URL."
-            }
-            pro={!hasFeature('chat_notifications')}
-            stacked
-          >
-            <ChatWebhook
-              formId={form.id}
-              service={service}
-              hint={view.chat[service]?.hint ?? null}
-            />
-          </SettingRow>
-        ))}
+      <SettingGroup title="Elsewhere">
+        <SettingRow
+          id="chat"
+          label="Slack, Discord, Google Sheets and webhooks"
+          description="New responses can also go to chat channels, spreadsheets, Notion and your own endpoints."
+        >
+          <Button asChild variant="secondary" size="sm">
+            <Link to={formIntegrationsPath(form.id)}>
+              <Plug aria-hidden />
+              Open Integrations
+            </Link>
+          </Button>
+        </SettingRow>
       </SettingGroup>
     </div>
   );
