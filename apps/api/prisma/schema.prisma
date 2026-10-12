@@ -43,6 +43,7 @@ model User {
   webhooks        Webhook[]
   brandKits       BrandKit[]
   integrations    Integration[]
+  feedback        Feedback[]
 
   @@map("users")
 }
@@ -459,4 +460,26 @@ model JobFailure {
 
   @@index([formId, resolvedAt, createdAt(sort: Desc)])
   @@map("job_failures")
+}
+
+enum FeedbackKind {
+  IDEA
+  PROBLEM
+  OTHER
+}
+
+/// What people tell us from the app's Feedback button.
+model Feedback {
+  id        String       @id @default(cuid())
+  /// Who sent it; kept when they delete their account, without them.
+  userId    String?      @map("user_id")
+  kind      FeedbackKind
+  message   String
+  /// The app page it was sent from (a path, without its query), to reproduce problems.
+  page      String?
+  createdAt DateTime     @default(now()) @map("created_at")
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("feedback")
 }

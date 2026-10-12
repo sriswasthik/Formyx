@@ -5,6 +5,7 @@ export * from './color.js';
 export * from './entitlements/index.js';
 export * from './email/index.js';
 export * from './errors.js';
+export * from './feedback.js';
 export * from './forms/index.js';
 export * from './health.js';
 export * from './i18n/index.js';

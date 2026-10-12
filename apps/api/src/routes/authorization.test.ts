@@ -544,6 +544,7 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/account/password'],
   ['POST', '/api/account/delete'],
   ['POST', '/api/invites/token/accept'],
+  ['POST', '/api/feedback'],
 ];
 
 /** Public endpoints, and why any of them may go without a limit of its own. */

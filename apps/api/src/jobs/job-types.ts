@@ -18,7 +18,7 @@ export interface JobPayloads {
    */
   'email.send': {
     formId: string | null;
-    kind: 'response' | 'autoresponder' | 'digest';
+    kind: 'response' | 'autoresponder' | 'digest' | 'feedback';
     /** `EmailMessage[]` as JSON, sealed. */
     sealedMessages: string;
     recipients: number;
@@ -141,7 +141,9 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
           ? 'the autoresponder email'
           : job.kind === 'digest'
             ? 'the daily digest'
-            : `the new response email${count === 1 ? '' : 's'}`;
+            : job.kind === 'feedback'
+              ? 'feedback to the team'
+              : `the new response email${count === 1 ? '' : 's'}`;
       return { formId: job.formId, summary: `Send ${what}` };
     }
     case 'chat.post': {

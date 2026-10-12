@@ -175,6 +175,18 @@ export function createWebhookTestRateLimiter() {
   );
 }
 
+/** Feedback from the app, per person: room for a thought or two, not a flood of emails. */
+const FEEDBACK_LIMIT = 10;
+
+export function createFeedbackRateLimiter() {
+  return limitedTo(
+    FEEDBACK_LIMIT,
+    // Runs after requireAuth, so there is always a user.
+    (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
+    'Thanks for all the feedback! Send more in a few minutes.',
+  );
+}
+
 /** Coming back from Google or Notion after connecting, per IP. */
 const OAUTH_CALLBACK_LIMIT = 30;
 

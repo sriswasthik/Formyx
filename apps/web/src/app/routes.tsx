@@ -32,6 +32,14 @@ export const routes: RouteObject[] = [
           return { Component: LandingPage };
         },
       },
+      {
+        path: 'changelog',
+        handle: { title: 'Changelog' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ChangelogPage } = await import('@/features/changelog/changelog-page');
+          return { Component: ChangelogPage };
+        },
+      },
       // Log in and sign up: signed-in visitors are sent on to the app.
       {
         lazy: async () => {

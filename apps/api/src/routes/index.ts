@@ -8,6 +8,7 @@ import { createAccountRouter } from './account.js';
 import { createAnalyticsRouter } from './analytics.js';
 import { createAuthRouter } from './auth.js';
 import { createBrandKitsRouter } from './brand-kits.js';
+import { createFeedbackRouter } from './feedback.js';
 import { createFormSettingsRouter } from './form-settings.js';
 import { createFormsRouter } from './forms.js';
 import { createIntegrationsRouter } from './integrations.js';
@@ -52,6 +53,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createBrandKitsRouter(deps, guards));
   router.use(createWebhooksRouter(deps, guards));
   router.use(createIntegrationsRouter(deps, guards));
+  router.use(createFeedbackRouter(deps, guards));
 
   return router;
 }
