@@ -21,9 +21,11 @@ _GIF placeholder: `docs/images/live-responses.gif`, a form being filled in on a 
 - **Advanced logic.** Pages with titles, jumps after a page ("if … go to page X or end screen Y"), a read-only map of pages and jumps that warns about unreachable pages, answers and values piped into text (`Thanks, {{name}}!`), calculated values (score, price, custom), quiz mode with points, a pass mark and an optional answer review, several designable end screens with redirects, shuffled questions and options, and answers saved in the browser or emailed as a link to finish later.
 - **Themes.** Presets, layered backgrounds (gradients, mesh gradients, textures, shapes, images), 40 open-licence fonts with pairings, input, choice, button and container styles, question numbers, progress bars, and classic, card, split or one-question-at-a-time layouts. Brand kits carry a workspace's logo, colours and fonts from form to form, and a look can be suggested from a logo. One renderer draws the editor canvas, preview, public form and embeds, so they always match. Changes publish with the form.
 - **Plans.** Free, Pro and Business entitlements, checked through shared helpers. Everything is unlocked during the beta; when enforced, anyone can try Pro styles in the editor, but publishing them needs Pro.
-- **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code or an embed snippet; close and reopen forms, or close them automatically after a date or a number of responses.
+- **Publishing.** Drafts stay private until published; respondents always see the last published snapshot. Share a link, a QR code in the form's colours, a prefilled link or an embed snippet; close and reopen forms.
+- **Settings.** One page per form with a section nav, search and a save status: passwords, one response per browser or per confirmed email address (a 6-digit code), asking for respondents' email, opening and closing times with a closed message, a response limit, private links to change a response, unlisted or listed in search engines; the form's language (English, Telugu or Hindi, for buttons, checks and dates), date and number formats, progress bar, question numbers and required markers; notification emails to other addresses, Slack and Discord, and daily digests; an autoresponder with piped answers, a preview and a test send; a custom address, link previews and favicon; automatic deletion of old responses, CSV and Excel downloads and deleting every response. Access settings apply at once; the form's own settings publish with it.
+- **Preferences.** Each person chooses the app's theme and motion (saved to their account), the language of their new forms, response emails, and can change their password or delete their account. Each workspace has a time zone, a date format, default notifications and a default brand kit.
 - **Embeds.** One `<script>` and a `<div>` put a form in any page. It resizes itself and tells the page when someone submits.
-- **Responses.** A live summary (views, completion rate, time to complete, responses per day, a drop-off funnel, per-question charts), a searchable table, a detail view with each response's end screen, quiz mark and values, bulk delete and CSV export.
+- **Responses.** A live summary (views, completion rate, time to complete, responses per day, a drop-off funnel, per-question charts), a searchable table, a detail view with each response's end screen, quiz mark and values, bulk delete, CSV and Excel export, and responses changed by their respondents updating live.
 - **Live updates.** New responses appear on the dashboard as they arrive, over Socket.IO.
 - **Teams.** Workspaces with owner, editor and viewer roles, and email invites.
 - **Integrations.** Signed webhooks with retries and a delivery log, response emails through Resend, and file uploads straight to Cloudinary.
@@ -141,11 +143,11 @@ Create a Neon project and copy two connection strings from its dashboard: the **
 
 ### 2. API: Render
 
-1. In Render, choose **New > Blueprint** and pick this repository. `render.yaml` creates the `formyx-api` web service, a `formyx-demo-reset` cron job (03:00 UTC every night) and a `formyx-database` environment group they share.
+1. In Render, choose **New > Blueprint** and pick this repository. `render.yaml` creates the `formyx-api` web service, two cron jobs (`formyx-demo-reset` at 03:00 UTC every night, and `formyx-jobs` every hour for daily digests and deleting old responses) and a `formyx-database` environment group they share.
 2. Fill in the values Render asks for: `DATABASE_URL` and `DIRECT_URL` in the group; `CORS_ORIGIN` and `APP_URL` (your Vercel address, which you can add after step 3); and, optionally, `RESEND_API_KEY`, `EMAIL_FROM` and the three `CLOUDINARY_*` values. `JWT_SECRET` is generated for you.
 3. Every deploy builds `packages/shared` and the API, runs `prisma migrate deploy` (the pre-deploy command; a failed migration stops the deploy and the previous version keeps running), then starts the server. Render waits for `/api/health` before sending traffic.
 
-Pre-deploy commands and cron jobs need a paid instance type. On the free plan, start the API with `pnpm --filter @formyx/api db:deploy && pnpm --filter @formyx/api start` instead, and reset the demo from somewhere else on a schedule (for example a scheduled GitHub Actions job running `pnpm --filter @formyx/api db:seed:demo` with `DATABASE_URL` as a secret). Free instances also sleep when idle, so the first request after a while is slow.
+Pre-deploy commands and cron jobs need a paid instance type. On the free plan, start the API with `pnpm --filter @formyx/api db:deploy && pnpm --filter @formyx/api start` instead, and run the scheduled work from somewhere else: for example a GitHub Actions workflow on `schedule: - cron: '5 * * * *'` that installs, builds `packages/shared` and the API, and runs `pnpm --filter @formyx/api jobs` with the API's `DATABASE_URL`, `JWT_SECRET`, `APP_URL`, `CORS_ORIGIN`, `RESEND_API_KEY`, `EMAIL_FROM` and `CLOUDINARY_*` as secrets (and a nightly one running `pnpm --filter @formyx/api db:seed:demo`). The jobs are safe to run twice or late: a digest covers everything since the last one. Free instances also sleep when idle, so the first request after a while is slow.
 
 ### 3. Web: Vercel
 
@@ -166,6 +168,8 @@ Pre-deploy commands and cron jobs need a paid instance type. On the free plan, s
    - a content security policy allows only the site's own scripts (inline ones by hash), its API, the socket and Cloudinary uploads;
    - public forms (`/f/*`) may be embedded anywhere (`frame-ancestors *`), every other page refuses to be framed;
    - hashed assets are cached for a year, `embed.js` for five minutes.
+
+Public form pages (`/f/:slug`) go through a small edge function (`apps/web/build/form-meta-edge.ts`, written into the Vercel output at build time). It asks the API for the form's title, description, preview image, favicon and whether it may be indexed, writes them into the page's `<head>` for link previews and search engines, and redirects old addresses. If the API takes more than 1.5 seconds, the page goes out as it is. `pnpm dev` does the same through a Vite plugin.
 
 ### 4. Connect them
 
@@ -417,7 +421,7 @@ A theme (v2, `packages/shared/src/theme`) describes how a form looks to responde
 
 ## Plans and entitlements
 
-Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, advanced logic, quiz mode, branding removal, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
+Workspaces have a `plan` (FREE, PRO or BUSINESS), a `planStatus` and an optional `trialEndsAt`; there are no payments yet. `packages/shared/src/entitlements` lists the features (premium fonts and textures, mesh gradients, custom shapes, the conversational layout, advanced logic, quiz mode, branding removal, confirmed-email responses, the autoresponder, Slack and Discord, extra notification addresses, custom link previews and favicons, Excel export, AI and Google Sheets) and limits (responses per month, upload size, AI credits, brand kits) for each plan. Code asks `hasFeature(plan, featureId)` and `getLimit(plan, limitId)`, never a plan's name.
 
 `ENTITLEMENTS_MODE=all_unlocked` (the default) gives everyone everything; `enforced` applies plans. `GET /api/workspaces/:workspaceId/entitlements` tells members what their plan includes, `requireFeature(featureId)` guards API routes, and `useEntitlements()` answers the same on the web. Saving a Pro look is always allowed. Publishing one on a plan without it returns `403 UPGRADE_REQUIRED` listing the features, and the editor explains that Pro plans are coming soon. Limits are reported; the brand kit limit is the first one enforced (`403 LIMIT_REACHED` when `ENTITLEMENTS_MODE=enforced`).
 
@@ -464,6 +468,16 @@ Editors manage a form's webhooks from its settings in the editor (Webhooks › M
 - **Limitation: the queue is in memory.** Deliveries waiting for a retry are lost if the API restarts, and with several API instances each retries only its own. A durable queue (a jobs table, or Redis with BullMQ) would remove this; `apps/api/src/webhooks/dispatcher.ts` keeps the same interface either way.
 - **Private networks.** Endpoints must be public `https` URLs. Loopback, private, link-local (including cloud metadata addresses) and other non-public addresses are refused when the URL is added and again when connecting, through the socket's own DNS lookup, so a name that later resolves somewhere private is caught. `WEBHOOK_ALLOW_PRIVATE_URLS=true` lifts this for local development; never set it on a server. Webhook URLs never appear in logs, since some carry tokens.
 
+## Settings, access and languages
+
+**Where settings live.** A form's own settings (button text, language, date and number formats, saving progress) are part of its schema (version 4) and its theme (progress bar, numbering, required marker, badge), so they reach respondents when the form is published. Access, notifications, the autoresponder, sharing and data are **live settings**, in `forms.live_settings` (JSON validated by `liveSettingsSchema` in `packages/shared/src/settings`), and apply at once. Secrets are kept apart: the password as a bcrypt hash, Slack and Discord webhooks encrypted, and none of them ever returned to the browser. `PATCH /api/forms/:formId/settings` replaces whole sections and is validated with the shared schemas; Pro sections go through `requiredSettingsFeatures`.
+
+**Access checks, on the server.** `formAvailability` (shared, pure, tested) decides whether a form is open: published, not closed by hand, not past its response limit, between its opening and closing times. A password unlocks a form with a short-lived signed token (sent as `X-Form-Access`) that carries the password's version, so changing the password locks everyone out again. One response per email address sends a 6-digit code (10 minutes, 5 tries, stored hashed), then a signed token proves the address; responses keep a hash of it, unique per form, so two at once cannot both get in. Asking for a code never says whether an address has responded; confirming it does. Edit links carry a 32-byte token whose hash is stored; they work while the form is open. IP addresses are used for rate limits and never stored.
+
+**Languages.** `packages/shared/src/i18n` has a catalog per language (English, Telugu, Hindi) for everything a form says itself: buttons, checks, dates and numbers, upload and voice controls, emails to respondents. What creators write stays as they wrote it. Telugu and Hindi load only for forms in those languages, with their Noto fonts. The Telugu and Hindi catalogs were written for this project and should be reviewed by native speakers before launch.
+
+**Jobs.** `pnpm --filter @formyx/api jobs` sends daily digests (each form at its chosen hour, in its workspace's time zone), deletes responses past a form's retention (with their uploaded files) and clears expired codes. Run it hourly (see Deployment).
+
 ## Scripts
 
 Run from the repository root:
@@ -482,6 +496,7 @@ Run from the repository root:
 | `pnpm db:studio`                                  | Opens Prisma Studio                                                                                                  |
 | `pnpm --filter @formyx/e2e render:textures`       | Renders the paper, linen and concrete WebP textures                                                                  |
 | `pnpm --filter @formyx/api db:seed:demo`          | Sets up or resets the demo account                                                                                   |
+| `pnpm --filter @formyx/api jobs:run`              | Runs the hourly jobs once in development (`jobs` after a build)                                                      |
 | `pnpm --filter @formyx/api db:migrate-forms`      | Rewrites stored themes and schemas in the current format (`--dry-run` to report only; `forms:migrate` after a build) |
 | `pnpm --filter @formyx/web size`                  | Reports the gzip size of every route                                                                                 |
 | `node apps/web/scripts/font-fallback-metrics.mjs` | Works out resized local fallbacks for newly added fonts (run after adding one, then Prettier)                        |
