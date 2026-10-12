@@ -88,6 +88,12 @@ describe('vercelRoutes', () => {
     expect(destination('/app/forms/abc/edit')).toBe('/index.html');
   });
 
+  it("serves public forms through the edge function that writes in each form's details", () => {
+    expect(destination('/f/customer-survey-x7k2')).toBe('/form-page');
+    expect(destination('/f/customer-survey-x7k2/')).toBe('/form-page');
+    expect(destination('/f/')).toBe('/index.html');
+  });
+
   it('lets anyone embed public forms but nothing else', () => {
     const form = headersFor('/f/customer-survey-x7k2?embed=1');
     expect(form['Content-Security-Policy']).toContain('frame-ancestors *');

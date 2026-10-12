@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { defaultClientConditions, defineConfig, loadEnv } from 'vite';
 import { fontPreload } from './build/font-preload.ts';
+import { formMetaDev } from './build/form-meta-dev.ts';
 import { routePreload } from './build/route-preload.ts';
 import { vercelOutput } from './build/vercel-output.ts';
 
@@ -35,8 +36,11 @@ export default defineConfig(({ mode }) => {
       routePreload([
         { pathPrefix: '/f/', module: 'src/features/public-form/public-form-page.tsx' },
       ]),
-      // Only on Vercel: routes, the /api proxy and security headers (see build/vercel-output.ts).
+      // Only on Vercel: routes, the /api proxy, security headers and the edge function that
+      // gives each public form its own link preview (see build/vercel-output.ts).
       vercelOutput(),
+      // The same link previews in development.
+      formMetaDev(proxy['/api'].target),
     ],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

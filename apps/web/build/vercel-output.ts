@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import ts from 'typescript';
 import type { Plugin } from 'vite';
 
 /** One entry of a Vercel Build Output API (v3) `config.json` routes list. */
@@ -122,8 +123,26 @@ export function vercelRoutes({ apiUrl, realtimeUrl, html }: DeployOptions): Verc
     },
     { src: '^/api/(.*)$', dest: `${api.origin}${api.pathname.replace(/\/$/, '')}/api/$1` },
     { handle: 'filesystem' },
+    // A public form's page carries its own title and preview (see form-meta-edge.ts).
+    { src: '^/f/[^/]+/?$', dest: `/${FORM_PAGE_FUNCTION}` },
     { src: '^/.*$', dest: '/index.html' },
   ];
+}
+
+/** The edge function that writes a form's details into its page. */
+export const FORM_PAGE_FUNCTION = 'form-page';
+
+/**
+ * The edge function's code: form-meta-edge.ts as JavaScript, with its handler set up for this
+ * deploy (the API's address and the built page).
+ */
+export function formPageFunction({ apiUrl, html }: { apiUrl: string; html: string }): string {
+  const source = readFileSync(join(import.meta.dirname, 'form-meta-edge.ts'), 'utf8');
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  });
+  const options = JSON.stringify({ apiUrl: originOf(apiUrl, 'API_URL').href, html });
+  return `${outputText}\nexport default createFormMetaHandler(${options});\n`;
 }
 
 /**
@@ -169,6 +188,16 @@ export function vercelOutput(): Plugin {
       writeFileSync(
         join(output, 'config.json'),
         `${JSON.stringify({ version: 3, routes }, null, 2)}\n`,
+      );
+      const formPage = join(output, 'functions', `${FORM_PAGE_FUNCTION}.func`);
+      mkdirSync(formPage, { recursive: true });
+      writeFileSync(
+        join(formPage, 'index.js'),
+        formPageFunction({ apiUrl, html: readFileSync(join(outDir, 'index.html'), 'utf8') }),
+      );
+      writeFileSync(
+        join(formPage, '.vc-config.json'),
+        `${JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2)}\n`,
       );
     },
   };
