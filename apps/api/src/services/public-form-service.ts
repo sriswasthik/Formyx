@@ -156,7 +156,7 @@ export interface PublicFormService {
   get(slug: string, accessToken: string | undefined): Promise<PublicFormResponse>;
   /**
    * The id, title and published questions of a form taking responses that this browser may
-   * open; 404, 410, 403 FORM_NOT_OPEN or 401 FORM_LOCKED otherwise.
+   * open; 404, 410, 403 FORM_NOT_OPEN or FORM_LOCKED otherwise.
    */
   openForm(slug: string, accessToken: string | undefined): Promise<LiveForm>;
   /** A token that opens a password-protected form; 401 WRONG_CODE for a wrong password. */
@@ -275,7 +275,7 @@ function closed(title: string): AppError {
 }
 
 function locked(): AppError {
-  return new AppError(401, 'FORM_LOCKED', 'This form needs its password.');
+  return new AppError(403, 'FORM_LOCKED', 'This form needs its password.');
 }
 
 function toLiveForm(record: PublicRecord | null): LiveForm {
@@ -446,7 +446,7 @@ export function createPublicFormService({
       const right = hash
         ? await passwords.verify(password, hash)
         : (await passwords.verifyAgainstDummy(password), false);
-      if (!right) throw new AppError(401, 'WRONG_CODE', 'That password is not right.');
+      if (!right) throw new AppError(400, 'WRONG_CODE', 'That password is not right.');
       return { token: signUnlockToken(form.id, form.record.passwordVersion, secret) };
     },
 
@@ -502,7 +502,7 @@ export function createPublicFormService({
       const form = await openForm(slug, accessToken);
       const emailHash = respondentKey(email);
       const wrong = () =>
-        new AppError(401, 'WRONG_CODE', 'That code is not right, or it has expired.');
+        new AppError(400, 'WRONG_CODE', 'That code is not right, or it has expired.');
       const pending = await prisma.respondentVerification.findFirst({
         where: { formId: form.id, emailHash, expiresAt: { gt: new Date() } },
         orderBy: { createdAt: 'desc' },

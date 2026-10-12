@@ -42,8 +42,9 @@ export function createAccountService({
       select: { passwordHash: true, passwordVersion: true },
     });
     if (!user) throw new AppError(401, 'UNAUTHORIZED', 'Log in to continue');
+    // 400, not 401: a mistyped password must not look like an ended session.
     if (!(await passwords.verify(password, user.passwordHash))) {
-      throw new AppError(401, 'WRONG_CODE', 'That password is not right.', {
+      throw new AppError(400, 'WRONG_CODE', 'That password is not right.', {
         details: [{ path: 'password', message: 'That password is not right' }],
       });
     }

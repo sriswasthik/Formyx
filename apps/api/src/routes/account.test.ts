@@ -79,7 +79,7 @@ describe('changing the password', () => {
     const wrong = await agent
       .post('/api/account/password')
       .send({ currentPassword: 'nope nope nope', newPassword: 'a new long password' })
-      .expect(401);
+      .expect(400);
     expect(apiErrorSchema.parse(wrong.body).error.code).toBe('WRONG_CODE');
 
     await agent
@@ -126,7 +126,7 @@ describe('deleting the account', () => {
       data: { userId: own.user.id, workspaceId: team.workspaceId, role: 'EDITOR' },
     });
 
-    await agent.post('/api/account/delete').send({ password: 'wrong password!' }).expect(401);
+    await agent.post('/api/account/delete').send({ password: 'wrong password!' }).expect(400);
     await agent.post('/api/account/delete').send({ password: PASSWORD }).expect(204);
 
     expect(await prisma.user.findUnique({ where: { id: own.user.id } })).toBeNull();

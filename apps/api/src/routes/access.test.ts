@@ -97,10 +97,10 @@ describe('passwords', () => {
 
   it('refuses every way in without the password', async () => {
     const form = await lockedForm();
-    expect(errorCode((await submit(form.slug, { answers: ANSWERS }).expect(401)).body)).toBe(
+    expect(errorCode((await submit(form.slug, { answers: ANSWERS }).expect(403)).body)).toBe(
       'FORM_LOCKED',
     );
-    await request(app).post(url(form.slug, '/view')).expect(401);
+    await request(app).post(url(form.slug, '/view')).expect(403);
     await request(app).get(`/api/uploads/signature?purpose=answer&form=${form.slug}&field=name`);
     expect(await prisma.submission.count()).toBe(0);
   });
@@ -116,7 +116,7 @@ describe('passwords', () => {
     const res = await request(app)
       .post(url(form.slug, '/unlock'))
       .send({ password: 'guess' })
-      .expect(401);
+      .expect(400);
     expect(errorCode(res.body)).toBe('WRONG_CODE');
   });
 
@@ -127,11 +127,11 @@ describe('passwords', () => {
     await editor()
       .put(`/api/forms/${form.id}/settings/password`, { password: 'new secret' })
       .expect(200);
-    await submit(form.slug, { answers: ANSWERS }, before).expect(401);
+    await submit(form.slug, { answers: ANSWERS }, before).expect(403);
     await request(app)
       .post(url(form.slug, '/unlock'))
       .send({ password: 'open sesame' })
-      .expect(401);
+      .expect(400);
     await submit(form.slug, { answers: ANSWERS }, await unlock(form.slug, 'new secret')).expect(
       201,
     );
@@ -144,13 +144,13 @@ describe('passwords', () => {
     const first = await lockedForm();
     const second = await lockedForm();
     const token = await unlock(first.slug);
-    await submit(second.slug, { answers: ANSWERS }, token).expect(401);
+    await submit(second.slug, { answers: ANSWERS }, token).expect(403);
   });
 
   it('slows down guessing', async () => {
     const form = await lockedForm();
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      await request(app).post(url(form.slug, '/unlock')).send({ password: 'guess' }).expect(401);
+      await request(app).post(url(form.slug, '/unlock')).send({ password: 'guess' }).expect(400);
     }
     const res = await request(app)
       .post(url(form.slug, '/unlock'))
@@ -318,14 +318,14 @@ describe('one response per person, by email', () => {
       const res = await request(app)
         .post(url(form.slug, '/verify/check'))
         .send({ email: 'ada@example.com', code: wrong })
-        .expect(401);
+        .expect(400);
       expect(errorCode(res.body)).toBe('WRONG_CODE');
     }
     // Even the right code no longer works: a new one must be sent.
     await request(app)
       .post(url(form.slug, '/verify/check'))
       .send({ email: 'ada@example.com', code })
-      .expect(401);
+      .expect(400);
   });
 
   it('refuses expired codes, and codes for another address', async () => {
@@ -334,12 +334,12 @@ describe('one response per person, by email', () => {
     await request(app)
       .post(url(form.slug, '/verify/check'))
       .send({ email: 'grace@example.com', code })
-      .expect(401);
+      .expect(400);
     await prisma.respondentVerification.updateMany({ data: { expiresAt: new Date(0) } });
     await request(app)
       .post(url(form.slug, '/verify/check'))
       .send({ email: 'ada@example.com', code })
-      .expect(401);
+      .expect(400);
   });
 
   it("never lets one form's confirmation count for another", async () => {
