@@ -13,7 +13,7 @@ import type { AppDependencies } from '../app.js';
 import { demoRestricted, isDemoUser } from '../demo/restrictions.js';
 import { createPasswordHasher } from '../lib/password.js';
 import { routeParam } from '../lib/route-param.js';
-import { createSecretBox } from '../lib/webhook-signature.js';
+import { encryptionFromEnv } from '../lib/encryption.js';
 import { getAuth } from '../middleware/auth.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormSettingsService } from '../services/form-settings-service.js';
@@ -41,7 +41,7 @@ export function createFormSettingsRouter(
     prisma,
     entitlements: createEntitlementService(prisma, env.ENTITLEMENTS_MODE),
     passwords: createPasswordHasher(env.BCRYPT_COST),
-    secrets: createSecretBox(env.JWT_SECRET),
+    secrets: encryptionFromEnv(env),
     chat,
     mailer,
   });
