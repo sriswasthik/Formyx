@@ -9,7 +9,7 @@ import type { Env } from '../config/env.js';
 import type { Encryption } from '../lib/encryption.js';
 import type { Database } from '../lib/prisma.js';
 import { submissionBatches } from '../services/submission-service.js';
-import { openCredentials, CredentialsError } from './credentials.js';
+import { CredentialsError, openCredentials, sealCredentials } from './credentials.js';
 import { createNotionClient, NotionApiError, type NotionClient } from './notion.js';
 import type { SheetForm } from './sheets-sync.js';
 
@@ -36,9 +36,17 @@ export function notionSync({
   prisma: Database;
   encryption: Encryption;
 }) {
-  function clientFor(integration: NotionIntegration): NotionClient {
-    const credentials = openCredentials(encryption, integration.credentialsEncrypted);
+  async function clientFor(integration: NotionIntegration): Promise<NotionClient> {
+    const sealed = integration.credentialsEncrypted;
+    const credentials = openCredentials(encryption, sealed);
     if (credentials.kind !== 'notion') throw new CredentialsError();
+    // Sealed under an older key: store it under the current one.
+    if (sealed && encryption.needsReseal(sealed)) {
+      await prisma.integration.update({
+        where: { id: integration.id },
+        data: { credentialsEncrypted: sealCredentials(encryption, credentials) },
+      });
+    }
     return createNotionClient(env, credentials.accessToken);
   }
 
@@ -138,7 +146,7 @@ export function notionSync({
   return {
     /** Every response without a page yet; with `fresh`, all of them into a new database. */
     async backfill(integration: NotionIntegration, form: SheetForm, fresh: boolean) {
-      const client = clientFor(integration);
+      const client = await clientFor(integration);
       let prepared;
       try {
         prepared = await prepare(client, integration, form, fresh ? 'newDatabase' : 'keep');
@@ -172,7 +180,7 @@ export function notionSync({
     },
 
     async write(integration: NotionIntegration, form: SheetForm, submission: SubmissionRecord) {
-      const client = clientFor(integration);
+      const client = await clientFor(integration);
       const prepared = await prepare(client, integration, form, 'keep');
       await writeOne(client, integration, prepared, submission);
     },
