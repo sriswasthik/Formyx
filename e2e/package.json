@@ -6,6 +6,7 @@
   "scripts": {
     "e2e": "playwright test",
     "visual": "playwright test --project=visual-desktop --project=visual-mobile",
+    "perf": "playwright test --config=playwright.perf.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "render:images": "node scripts/render-images.mjs",

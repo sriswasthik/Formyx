@@ -124,6 +124,7 @@ To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DE
 | `pnpm test`                      | Vitest in every package: shared logic, API routes against a real Postgres (Supertest), and web components (React Testing Library)                |
 | `pnpm test:e2e`                  | Playwright on desktop and phone viewports: sign-up to CSV export, the editor, logic, publishing, live responses, teams, themes, webhooks, embeds |
 | `pnpm --filter @formyx/web size` | The gzip size of every route, failing if the public form passes its budget                                                                       |
+| `pnpm --filter @formyx/e2e perf` | How fast a public form paints on a throttled phone, in six themes (see below)                                                                    |
 
 - API tests need the `formyx_test` database (see [Database](#database)); every run empties it, and the setup refuses any database whose name does not end in `_test`.
 - `e2e/tests/journey.spec.ts` is the whole story in one test: sign up, create a form from a template, add a question with a condition, publish, answer the form as a respondent on a phone in a second browser, see the response arrive live, and export it as CSV.
@@ -131,6 +132,7 @@ To try the demo locally, set `DEMO_ENABLED=true` in `apps/api/.env` and `VITE_DE
 - `e2e/tests/embed.spec.ts` embeds a form in a page served from another origin and checks resizing and the `formyx:submitted` event.
 - `e2e/tests/new-fields.spec.ts` fills in a three-page form with every newer question type, including a typed signature, a voice note recorded from Chromium's fake microphone and the PIN look-up, and checks the stored answers and the response drawer. `e2e/scripts/fake-cloudinary.mjs` stands in for Cloudinary and India Post (Playwright starts it), so the tests make no outside calls.
 - `e2e/tests/logic.spec.ts` takes a quiz with a jump to an end screen as three respondents, checks the server's mark, a redirect carrying an answer and the drop-off funnel, then saves answers in the browser and by an emailed link, and finishes the form from the link in another browser.
+- `e2e/perf/public-form.perf.ts` loads a published form cold, three times in each of six themes (the plain one, then textures, mesh gradients, blurred shapes and display fonts), on an emulated Moto G4 with a 4x slower CPU, 150 ms round trips and 1.6 Mbps down, applied to the real browser rather than simulated as Lighthouse does. It serves the production build as Vercel does (HTTP/2, Brotli; `e2e/perf/serve-h2.mjs`), asks for no layout shift (CLS under 0.1) and Largest Contentful Paint under 2.5 s, and writes `e2e/perf/results/public-form.json`. Its servers use ports 4104 and 4174; set `DATABASE_URL` and `DIRECT_URL` to a local database before running it. Results in October 2026: no layout shift in any theme; LCP 2.8 to 3.6 s (median of three), so the paint budget is not met yet (see the roadmap).
 - To run the tests beside dev servers on the usual ports, move them: `E2E_WEB_PORT`, `E2E_API_PORT` and `E2E_FAKE_PORT` (defaults 5173, 4000 and 4590).
 - Before the first `pnpm test:e2e`, install the browser once with `pnpm --filter @formyx/e2e exec playwright install chromium`. End-to-end tests sign up throwaway users in the development database, and reuse dev servers that are already running.
 
@@ -188,7 +190,7 @@ Set `CORS_ORIGIN` and `APP_URL` on Render to the Vercel address (add a custom do
 
 ## Roadmap
 
-- **Server-render or prerender public forms.** Desktop Lighthouse scores 99 for performance, but on a simulated slow phone the client-rendered page scores 75 to 83, because nothing shows until JavaScript runs. Rendering the form's HTML on the server would bring first paint forward by about two seconds.
+- **Server-render or prerender public forms.** On a throttled phone a public form paints after 2.8 to 3.6 s, because nothing shows until its JavaScript (about 200 KB) has downloaded and run. Its code, fonts and question controls already start loading together within the first second (`apps/web/build/route-preload.ts` and `form-asset-preload.ts`); what remains is the connection and the CPU. Rendering the form's first screen at the edge, identical to ThemeRenderer's, would bring first paint under 2.5 s.
 - **Several API instances**: Redis for rate limits and the Socket.IO adapter.
 - **A signed header from the proxy**, so the API trusts forwarded client IPs only from Vercel.
 - **Partial responses**: keeping the answers of visits that never send, beside the drop-off counts.
