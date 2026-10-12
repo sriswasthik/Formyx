@@ -18,6 +18,7 @@ export const ERROR_CODES = [
   'LAST_OWNER',
   /** File uploads are not set up on this server. */
   'UPLOADS_UNAVAILABLE',
+  'DRAFTS_OFF',
   /** Switched off for the shared demo account: it would reach outside Formyx or change the workspace. */
   'DEMO_RESTRICTED',
   /** The workspace's plan does not include a feature this needs; `details.features` lists them. */

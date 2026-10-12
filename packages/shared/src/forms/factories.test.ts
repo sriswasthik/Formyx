@@ -44,13 +44,20 @@ describe('createField', () => {
 
 describe('createEmptyForm', () => {
   it('has no questions and default settings', () => {
-    expect(createEmptyForm()).toEqual({
-      version: 2,
+    const form = createEmptyForm();
+    expect(form).toMatchObject({
+      version: 3,
       fields: [],
-      settings: {
-        submitButtonText: 'Submit',
-        successMessage: 'Thanks! Your response has been recorded.',
-      },
+      settings: { submitButtonText: 'Submit', saveProgress: 'browser' },
+      logic: { pages: {}, variables: [], rules: [] },
     });
+    // One end screen, the default, thanking respondents.
+    expect(form.logic.endScreens).toEqual([
+      expect.objectContaining({
+        id: 'end_default',
+        message: 'Thanks! Your response has been recorded.',
+        when: [],
+      }),
+    ]);
   });
 });

@@ -1,4 +1,10 @@
-import type { Field, SubmissionOrder, SubmissionRecord } from '@formyx/shared';
+import {
+  csvOutcomeColumns,
+  type Field,
+  type FormLogic,
+  type SubmissionOrder,
+  type SubmissionRecord,
+} from '@formyx/shared';
 import {
   createColumnHelper,
   rowSelectionFeature,
@@ -33,6 +39,8 @@ const SELECT_WIDTH = 'w-11 min-w-11';
 interface ResponsesTableProps {
   /** The published questions that take an answer, one column each. */
   fields: Field[];
+  /** The published form's logic: quiz scores, values and end screens get columns too. */
+  logic?: FormLogic | undefined;
   rows: SubmissionRecord[];
   order: SubmissionOrder;
   onOrderChange: (order: SubmissionOrder) => void;
@@ -99,7 +107,8 @@ function OpenResponseButton({ response }: { response: SubmissionRecord }) {
   );
 }
 
-function buildColumns(fields: Field[], selectable: boolean) {
+function buildColumns(fields: Field[], selectable: boolean, logic: FormLogic | undefined) {
+  const outcomes = logic ? csvOutcomeColumns({ logic }) : [];
   return helper.columns([
     ...(selectable
       ? [
@@ -154,6 +163,26 @@ function buildColumns(fields: Field[], selectable: boolean) {
         cell: (info) => <AnswerCell field={field} value={info.getValue()} />,
       }),
     ),
+    // As the server worked them out.
+    ...outcomes.map((column, index) =>
+      helper.accessor((row) => column.cell(row.outcome), {
+        id: `outcome-${index}`,
+        header: () => <span className="block max-w-56 truncate">{column.header}</span>,
+        cell: (info) => {
+          const value = info.getValue();
+          return value === null ? (
+            <>
+              <span aria-hidden className="text-muted-foreground">
+                —
+              </span>
+              <span className="sr-only">None</span>
+            </>
+          ) : (
+            <span className="tabular-nums">{value}</span>
+          );
+        },
+      }),
+    ),
   ]);
 }
 
@@ -163,6 +192,7 @@ function buildColumns(fields: Field[], selectable: boolean) {
  */
 export function ResponsesTable({
   fields,
+  logic,
   rows,
   order,
   onOrderChange,
@@ -171,7 +201,10 @@ export function ResponsesTable({
 }: ResponsesTableProps) {
   const arrived = useArrivals((state) => state.highlighted);
   const selectable = selection !== undefined;
-  const columns = useMemo(() => buildColumns(fields, selectable), [fields, selectable]);
+  const columns = useMemo(
+    () => buildColumns(fields, selectable, logic),
+    [fields, selectable, logic],
+  );
   const actions = useMemo(() => ({ order, onOrderChange, onOpen }), [order, onOrderChange, onOpen]);
 
   const table = useTable(

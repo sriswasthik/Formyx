@@ -7,6 +7,7 @@ export * from './errors.js';
 export * from './forms/index.js';
 export * from './health.js';
 export * from './json.js';
+export * from './logic/index.js';
 export * from './random.js';
 export * from './realtime.js';
 export * from './roles.js';

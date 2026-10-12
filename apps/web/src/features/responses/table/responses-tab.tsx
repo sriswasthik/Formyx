@@ -46,6 +46,7 @@ export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
     () => (form.publishedSchema ? answerableFields(form.publishedSchema) : []),
     [form.publishedSchema],
   );
+  const logic = form.publishedSchema?.logic;
   const filtersState = useResponseFilters();
   const { filters, searchInput, setSearchInput, openResponseId, openResponse } = filtersState;
   const list = useResponsesList(form.id, filters);
@@ -140,6 +141,7 @@ export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
       <div className="flex flex-col gap-4">
         <ResponsesTable
           fields={fields}
+          logic={logic}
           rows={rows}
           order={filters.order}
           onOrderChange={filtersState.setOrder}
@@ -282,6 +284,7 @@ export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
       <ResponseSheet
         formId={form.id}
         fields={fields}
+        logic={logic}
         responseId={openResponseId}
         onClose={() => {
           openResponse(null);

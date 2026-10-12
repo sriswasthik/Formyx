@@ -1,26 +1,49 @@
 import {
+  createShuffleSeed,
+  displayOrder,
+  formPages,
   hiddenFieldValues,
   isAnswered,
   isShownQuestionType,
+  presentField,
+  QUIZ_PERCENT_VARIABLE,
+  QUIZ_SCORE_VARIABLE,
+  resolvePiping,
+  type AnswerValue,
+  type DraftState,
   type FormSchema,
   type FormTheme,
+  type SubmissionOutcome,
   type SubmittedAnswers,
 } from '@formyx/shared';
-import { CircleCheck } from 'lucide-react';
-import { LazyMotion, m, useReducedMotion } from 'motion/react';
-import { useCallback, useId, useMemo, useState, type ReactNode } from 'react';
-import { DURATION, EASE_STANDARD } from '@/lib/motion';
+import { LazyMotion } from 'motion/react';
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { ClassicForm } from './classic-form';
 import type { ConversationProgress } from './conversational/conversational-form';
 import { useConversational } from './conversational/load-conversational';
 import { FormLogo } from './branding';
 import { FileUploadsContext, type FileUploader } from './file-uploads';
 import { FormProgress } from './form-progress';
+import { endScreenModule, saveForLaterModule, useLazyModule } from './lazy-module';
 import { questionNumbers } from './numbering';
+import { clearSavedProgress, readSavedProgress, useSavedProgress } from './saved-progress';
+import { secondaryButton } from './styles';
 import { ThemeRenderer, type ThemeVariant } from './theme/theme-renderer';
 import { useFormResponse, type SubmitOutcome } from './use-form-response';
 
 export type { SubmitOutcome } from './use-form-response';
+
+/** How far a respondent got: the page shown, the last question answered. */
+export interface ResponseProgress {
+  pageKey?: string;
+  fieldId?: string;
+}
+
+/** Answers to carry on from, with where the respondent was. */
+export interface ResumeFrom {
+  answers: Readonly<Record<string, AnswerValue>>;
+  state: DraftState;
+}
 
 interface FormViewProps {
   title: string;
@@ -28,13 +51,16 @@ interface FormViewProps {
   theme: FormTheme;
   /** `h1` on the public page; `h2` inside the editor, which has its own heading. */
   titleAs?: 'h1' | 'h2';
-  /** Receives the normalised answers to visible questions once they are all valid. */
+  /**
+   * Receives the normalised answers once they are all valid. Its outcome (from the server)
+   * picks the end screen; without one, it is worked out here.
+   */
   onSubmit?: (answers: SubmittedAnswers) => Promise<SubmitOutcome> | SubmitOutcome;
   /** Inputs respondents never see, such as a honeypot for bots. */
   hiddenFields?: ReactNode;
-  /** Shown below the form and below the thank-you message. */
+  /** Shown below the form and below the end screen. */
   footer?: ReactNode;
-  /** Offers "Submit another response" after the thank-you message. */
+  /** Offers "Submit another response" on the end screen. */
   allowAnotherResponse?: boolean;
   /** Where the form is drawn: its own page (default), a box in the builder, or an embed. */
   variant?: ThemeVariant;
@@ -44,6 +70,26 @@ interface FormViewProps {
   previewStep?: number | undefined;
   /** The form link's query string, which fills hidden fields (`?source=instagram`). */
   linkParams?: URLSearchParams | undefined;
+  /** A draft to carry on from, such as one saved by email. */
+  resume?: ResumeFrom | undefined;
+  /** Keeps answers in this browser under this key as the respondent goes. */
+  saveProgressKey?: string | undefined;
+  /** Saves the answers and emails `email` a link; offered when the form allows it. */
+  onSaveDraft?:
+    | ((draft: {
+        email: string;
+        answers: Record<string, AnswerValue>;
+        state: DraftState;
+      }) => Promise<void>)
+    | undefined;
+  /** How far the respondent gets, for drop-off analytics. */
+  onProgress?: ((progress: ResponseProgress) => void) | undefined;
+  /** Follows end screens' redirects (the public form, not the editor's preview). */
+  allowRedirect?: boolean;
+  /** Shows this end screen straight away, as the editor does while designing one. */
+  previewEndScreenId?: string | undefined;
+  /** A line for the respondent above the questions, such as an expired link. */
+  notice?: string | undefined;
   className?: string;
 }
 
@@ -53,16 +99,35 @@ interface FormViewProps {
  */
 const loadMotionFeatures = () => import('./motion-features').then((module) => module.default);
 
-/** How the thank-you message arrives, as the theme's page transition says. */
-const ENTRANCES = {
-  none: { opacity: 1, y: 0 },
-  fade: { opacity: 0, y: 0 },
-  slide: { opacity: 0, y: 6 },
-} as const;
+/** A sample outcome for previewing an end screen in the editor. */
+function previewOutcome(
+  schema: FormSchema,
+  endScreenId: string,
+  values: Record<string, number>,
+): SubmissionOutcome {
+  const quiz = schema.logic.quiz?.enabled
+    ? {
+        score: 8,
+        max: 10,
+        percent: 80,
+        passed: schema.logic.quiz.passPercent === undefined ? null : true,
+      }
+    : null;
+  return {
+    endScreenId,
+    values: {
+      ...values,
+      ...(quiz && { [QUIZ_SCORE_VARIABLE]: quiz.score, [QUIZ_PERCENT_VARIABLE]: quiz.percent }),
+    },
+    quiz,
+  };
+}
 
 /**
- * A whole form as respondents see it: conditional questions, validation and a thank-you, in
- * the theme's layout (all questions on one page, or one at a time) with its progress bar.
+ * A whole form as respondents see it: their route through the pages, conditional questions,
+ * answers piped into the text, validation, and the end screen, in the theme's layout (all
+ * questions on a page, or one at a time) with its progress bar. Answers can be kept in the
+ * browser and saved to finish later.
  */
 export function FormView({
   title,
@@ -77,36 +142,135 @@ export function FormView({
   variant = 'page',
   previewStep,
   linkParams,
+  resume,
+  saveProgressKey,
+  onSaveDraft,
+  onProgress,
+  allowRedirect = false,
+  previewEndScreenId,
+  notice,
   className,
 }: FormViewProps) {
   const idPrefix = useId();
-  const reduceMotion = useReducedMotion() ?? false;
-  // Read once: the link does not change while the form is open.
-  const [initialAnswers] = useState(() =>
+  // Read once: the link and what was saved do not change while the form is open.
+  const [hiddenValues] = useState(() =>
     linkParams ? hiddenFieldValues(schema, linkParams) : undefined,
   );
-  const response = useFormResponse({ schema, onSubmit, uploadFile, initialAnswers });
-  const { answers, status, visibleIds, fileUploads } = response;
+  const [start] = useState<ResumeFrom | null>(() => {
+    if (resume) return resume;
+    const saved = saveProgressKey ? readSavedProgress(saveProgressKey) : null;
+    return saved && { answers: saved.answers, state: { pageKey: saved.pageKey, seed: saved.seed } };
+  });
+  const [seed, setSeed] = useState(() => start?.state.seed ?? createShuffleSeed());
+  const [pageKey, setPageKey] = useState<string | undefined>(start?.state.pageKey);
+  const [welcomeBack, setWelcomeBack] = useState(start !== null);
+  /** Remounts the layout to start over, or for another response. */
+  const [attempt, setAttempt] = useState(0);
+
+  const response = useFormResponse({
+    schema,
+    onSubmit,
+    uploadFile,
+    initialAnswers: hiddenValues,
+    startFrom: start?.answers,
+  });
+  const { answers, status, path, activeIds, fileUploads, outcome } = response;
   const conversational = theme.layout.mode === 'conversational';
   // Only conversational forms download the one-question-at-a-time flow.
   const conversationalModule = useConversational(conversational);
   const [conversation, setConversation] = useState<ConversationProgress | null>(null);
-  const onProgress = useCallback((progress: ConversationProgress) => {
-    setConversation(progress);
-  }, []);
 
-  const visibleFields = useMemo(
-    () => schema.fields.filter((field) => visibleIds.has(field.id)),
-    [schema.fields, visibleIds],
+  // The form as this respondent sees it: their order, answers piped in.
+  const ordered = useMemo(() => displayOrder(schema, seed), [schema, seed]);
+  const fieldById = useMemo(
+    () => new Map(schema.fields.map((field) => [field.id, field])),
+    [schema.fields],
+  );
+  const piping = useMemo(() => {
+    const seen: Record<string, AnswerValue> = {};
+    for (const id of activeIds) {
+      const value = answers[id];
+      if (value !== undefined) seen[id] = value;
+    }
+    return { fieldById, answers: seen, values: path.values, variables: schema.logic.variables };
+  }, [fieldById, answers, activeIds, path.values, schema.logic.variables]);
+  const presented = useMemo(
+    () => ordered.map((field) => presentField(field, { piping, seed })),
+    [ordered, piping, seed],
+  );
+  const pipeText = useCallback((text: string) => resolvePiping(text, piping), [piping]);
+  const shownFields = useMemo(
+    () => presented.filter((field) => activeIds.has(field.id)),
+    [presented, activeIds],
   );
   const numbering = theme.typography.questionNumbering;
-  const numbers = useMemo(
-    () => questionNumbers(visibleFields, numbering),
-    [visibleFields, numbering],
+  const numbers = useMemo(() => questionNumbers(shownFields, numbering), [shownFields, numbering]);
+
+  // Kept in the browser as they go (hidden fields come from the link, so they are left out).
+  const ownAnswers = useMemo(() => {
+    const kept: Record<string, AnswerValue> = {};
+    for (const [id, value] of Object.entries(answers)) {
+      if (fieldById.get(id)?.type !== 'hidden') kept[id] = value;
+    }
+    return kept;
+  }, [answers, fieldById]);
+  useSavedProgress(status === 'filling' ? (saveProgressKey ?? null) : null, {
+    answers: ownAnswers,
+    pageKey,
+    seed,
+  });
+  useEffect(() => {
+    if (status === 'done' && saveProgressKey) clearSavedProgress(saveProgressKey);
+  }, [status, saveProgressKey]);
+
+  // How far they got, for drop-off: the page shown and the furthest question answered.
+  const pageOfField = useMemo(() => {
+    const pages = new Map<string, string>();
+    for (const page of formPages(schema.fields)) {
+      for (const field of page.fields) pages.set(field.id, page.key);
+    }
+    return pages;
+  }, [schema.fields]);
+  const conversationPage = conversation?.stepId ? pageOfField.get(conversation.stepId) : undefined;
+  const reachedPage = conversational ? conversationPage : pageKey;
+  useEffect(() => {
+    if (reachedPage) onProgress?.({ pageKey: reachedPage });
+  }, [reachedPage, onProgress]);
+  const furthestAnswered = useMemo(
+    () =>
+      schema.fields.findLast(
+        (field) =>
+          isShownQuestionType(field.type) &&
+          activeIds.has(field.id) &&
+          isAnswered(answers[field.id]),
+      )?.id,
+    [schema.fields, activeIds, answers],
   );
+  useEffect(() => {
+    if (furthestAnswered) onProgress?.({ fieldId: furthestAnswered });
+  }, [furthestAnswered, onProgress]);
+
+  // The end screen's code arrives while they answer, so it shows at once on sending.
+  const endScreen = useLazyModule(
+    endScreenModule,
+    status !== 'filling' || previewEndScreenId !== undefined || Object.keys(ownAnswers).length > 0,
+  );
+  const offerSaving =
+    schema.settings.saveProgress === 'email' && onSaveDraft !== undefined && status === 'filling';
+  const saving = useLazyModule(saveForLaterModule, offerSaving);
+
+  const startOver = () => {
+    if (saveProgressKey) clearSavedProgress(saveProgressKey);
+    response.reset();
+    setPageKey(undefined);
+    setSeed(createShuffleSeed());
+    setWelcomeBack(false);
+    setConversation(null);
+    setAttempt((count) => count + 1);
+  };
 
   const progress = (() => {
-    if (status === 'done') return null;
+    if (status === 'done' || previewEndScreenId !== undefined) return null;
     if (conversational) {
       return (
         conversation && (
@@ -119,8 +283,8 @@ export function FormView({
         )
       );
     }
-    // Classic forms: the visible questions answered so far.
-    const questions = visibleFields.filter((field) => isShownQuestionType(field.type));
+    // Classic forms: the questions on their route answered so far.
+    const questions = shownFields.filter((field) => isShownQuestionType(field.type));
     const answered = questions.filter((field) => isAnswered(answers[field.id])).length;
     return <FormProgress theme={theme} value={answered} total={questions.length} />;
   })();
@@ -134,22 +298,102 @@ export function FormView({
           {schema.description}
         </p>
       )}
+      {notice && (
+        <p role="status" className="form-text-sm text-(--form-muted)">
+          {notice}
+        </p>
+      )}
+      {welcomeBack && (
+        <p
+          role="status"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 form-text-sm text-(--form-muted)"
+        >
+          Welcome back: your answers are as you left them.
+          <button type="button" className={secondaryButton} onClick={startOver}>
+            Start over
+          </button>
+        </p>
+      )}
     </header>
   );
 
-  const classic = (
-    <ClassicForm
-      schema={schema}
-      response={response}
-      visibleFields={visibleFields}
-      idPrefix={idPrefix}
-      header={header}
-      pageHeadingLevel={Title === 'h1' ? 'h2' : 'h3'}
-      numbers={numbers}
-      pageTransition={theme.motion.pageTransition}
-      hiddenFields={hiddenFields}
-    />
-  );
+  const actions =
+    offerSaving && saving ? (
+      <saving.SaveForLater
+        onSave={(email) => onSaveDraft({ email, answers: ownAnswers, state: { pageKey, seed } })}
+      />
+    ) : null;
+
+  const shownOutcome =
+    previewEndScreenId !== undefined
+      ? previewOutcome(schema, previewEndScreenId, path.values)
+      : status === 'done'
+        ? outcome
+        : null;
+  const screen =
+    shownOutcome &&
+    (schema.logic.endScreens.find((candidate) => candidate.id === shownOutcome.endScreenId) ??
+      schema.logic.endScreens[0]);
+
+  let body: ReactNode;
+  if (shownOutcome && screen) {
+    body = endScreen ? (
+      <endScreen.EndScreenView
+        schema={schema}
+        screen={screen}
+        outcome={shownOutcome}
+        answers={piping.answers}
+        titleAs={Title}
+        allowRedirect={allowRedirect && previewEndScreenId === undefined}
+        onAnotherResponse={
+          allowAnotherResponse && previewEndScreenId === undefined ? startOver : undefined
+        }
+      />
+    ) : (
+      <p role="status" className="py-12 text-center form-text">
+        Thank you.
+      </p>
+    );
+  } else if (conversational) {
+    body = conversationalModule ? (
+      <conversationalModule.ConversationalForm
+        key={attempt}
+        schema={schema}
+        fields={presented}
+        theme={theme}
+        response={response}
+        idPrefix={idPrefix}
+        header={header}
+        variant={variant}
+        hiddenFields={hiddenFields}
+        actions={actions}
+        onProgress={setConversation}
+        previewStep={previewStep}
+      />
+    ) : (
+      // Where it has not been preloaded: the title, where the flow will start.
+      <div className="flex min-h-[min(24rem,55dvh)] flex-col justify-center">{header}</div>
+    );
+  } else {
+    body = (
+      <ClassicForm
+        key={attempt}
+        schema={schema}
+        fields={presented}
+        response={response}
+        idPrefix={idPrefix}
+        header={header}
+        pageHeadingLevel={Title === 'h1' ? 'h2' : 'h3'}
+        numbers={numbers}
+        pageTransition={theme.motion.pageTransition}
+        pipeText={pipeText}
+        initialPageKey={attempt === 0 ? start?.state.pageKey : undefined}
+        onPageChange={setPageKey}
+        actions={actions}
+        hiddenFields={hiddenFields}
+      />
+    );
+  }
 
   return (
     <LazyMotion features={loadMotionFeatures}>
@@ -160,54 +404,7 @@ export function FormView({
         progress={progress}
         className={className}
       >
-        {status === 'done' ? (
-          <m.div
-            role="status"
-            initial={reduceMotion ? ENTRANCES.none : ENTRANCES[theme.motion.pageTransition]}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
-            className="flex flex-col items-center gap-4 py-12 text-center"
-          >
-            <CircleCheck aria-hidden className="size-10 text-(--form-accent)" strokeWidth={1.5} />
-            <p className="max-w-md form-text whitespace-pre-wrap">
-              {schema.settings.successMessage}
-            </p>
-            {allowAnotherResponse && (
-              <button
-                type="button"
-                className="mt-2 form-text-sm font-medium text-(--form-accent) underline-offset-4 hover:underline"
-                onClick={response.reset}
-              >
-                Submit another response
-              </button>
-            )}
-          </m.div>
-        ) : (
-          <FileUploadsContext.Provider value={fileUploads}>
-            {conversational ? (
-              conversationalModule ? (
-                <conversationalModule.ConversationalForm
-                  schema={schema}
-                  theme={theme}
-                  response={response}
-                  idPrefix={idPrefix}
-                  header={header}
-                  variant={variant}
-                  hiddenFields={hiddenFields}
-                  onProgress={onProgress}
-                  previewStep={previewStep}
-                />
-              ) : (
-                // Where it has not been preloaded: the title, where the flow will start.
-                <div className="flex min-h-[min(24rem,55dvh)] flex-col justify-center">
-                  {header}
-                </div>
-              )
-            ) : (
-              classic
-            )}
-          </FileUploadsContext.Provider>
-        )}
+        <FileUploadsContext.Provider value={fileUploads}>{body}</FileUploadsContext.Provider>
       </ThemeRenderer>
     </LazyMotion>
   );

@@ -1,7 +1,9 @@
 import type { FieldType } from './field-types.js';
 import type { FieldOfType, FieldOption } from './fields.js';
-import { FORM_SCHEMA_VERSION, type FormSchema, type FormSettings } from './form-schema.js';
+import { FORM_SCHEMA_VERSION, type FormSettings } from './form-schema-shape.js';
+import type { FormSchema } from './form-schema.js';
 import { createId } from './ids.js';
+import { createDefaultLogic } from './logic-factories.js';
 import { DEFAULT_PHONE_COUNTRY } from './phone.js';
 
 export function createOption(label: string): FieldOption {
@@ -102,12 +104,14 @@ export function createField<T extends FieldType>(type: T): FieldOfType<T> {
 }
 
 export function createDefaultSettings(): FormSettings {
-  return {
-    submitButtonText: 'Submit',
-    successMessage: 'Thanks! Your response has been recorded.',
-  };
+  return { submitButtonText: 'Submit', saveProgress: 'browser' };
 }
 
 export function createEmptyForm(): FormSchema {
-  return { version: FORM_SCHEMA_VERSION, fields: [], settings: createDefaultSettings() };
+  return {
+    version: FORM_SCHEMA_VERSION,
+    fields: [],
+    settings: createDefaultSettings(),
+    logic: createDefaultLogic(),
+  };
 }

@@ -1,4 +1,4 @@
-import type { Field, SubmissionRecord } from '@formyx/shared';
+import type { Field, FormLogic, SubmissionRecord } from '@formyx/shared';
 import { CircleAlert, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,13 @@ import { formatDateTime, formatRelativeTime } from '@/lib/relative-time';
 import { formatDuration } from '../format';
 import { useResponse } from '../use-responses';
 import { AnswerDetail } from './answer-value';
+import { ResponseOutcome } from './response-outcome';
 
 interface ResponseSheetProps {
   formId: string;
   fields: Field[];
+  /** The published form's logic, for the outcome. */
+  logic?: FormLogic | undefined;
   /** The open response, or `null` when the sheet is closed. */
   responseId: string | null;
   onClose: () => void;
@@ -59,11 +62,13 @@ function Details({ response }: { response: SubmissionRecord }) {
 function SheetBody({
   formId,
   fields,
+  logic,
   responseId,
   open,
 }: {
   formId: string;
   fields: Field[];
+  logic: FormLogic | undefined;
   responseId: string;
   open: boolean;
 }) {
@@ -125,6 +130,7 @@ function SheetBody({
           </div>
         ))}
       </dl>
+      {logic && <ResponseOutcome logic={logic} outcome={response.outcome} />}
       <Details response={response} />
     </div>
   );
@@ -134,6 +140,7 @@ function SheetBody({
 export function ResponseSheet({
   formId,
   fields,
+  logic,
   responseId,
   onClose,
   onDelete,
@@ -168,7 +175,13 @@ export function ResponseSheet({
         </SheetHeader>
         <div className="flex-1 p-5">
           {shownId && (
-            <SheetBody formId={formId} fields={fields} responseId={shownId} open={open} />
+            <SheetBody
+              formId={formId}
+              fields={fields}
+              logic={logic}
+              responseId={shownId}
+              open={open}
+            />
           )}
         </div>
         {onDelete && query.data && (

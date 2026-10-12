@@ -85,6 +85,7 @@ function response(id: string, createdAt: string, answers: SubmissionRecord['answ
     completionTimeMs: 90_000,
     answers,
     metadata: { userAgent: 'Firefox', referrer: null },
+    outcome: null,
   } satisfies SubmissionRecord;
 }
 
@@ -118,6 +119,16 @@ function analytics(): FormAnalytics {
       })),
     },
     questions,
+    dropOff: {
+      unit: 'question',
+      started: 8,
+      steps: [
+        { key: 'q1', label: 'Satisfaction', reached: 8 },
+        { key: 'q2', label: 'Recommend', reached: 5 },
+        { key: 'q3', label: 'Better', reached: 4 },
+      ],
+      completed: 2,
+    },
   };
 }
 

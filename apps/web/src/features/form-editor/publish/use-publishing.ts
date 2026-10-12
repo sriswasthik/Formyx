@@ -1,6 +1,7 @@
 import {
   findPublishIssues,
   requiredFeatures,
+  requiredLogicFeatures,
   upgradeRequiredDetailsSchema,
   type FeatureId,
   type FormDetail,
@@ -66,8 +67,8 @@ export function usePublishing({
       onIncomplete();
       return 'incomplete';
     }
-    // Pro looks can be tried in the editor; going live with them takes the plan.
-    const locked = missingFeatures(requiredFeatures(theme));
+    // Pro looks and logic can be tried in the editor; going live with them takes the plan.
+    const locked = missingFeatures([...requiredFeatures(theme), ...requiredLogicFeatures(schema)]);
     if (locked.length > 0) {
       onUpgradeRequired(locked);
       return 'locked';
@@ -96,7 +97,12 @@ export function usePublishing({
         });
         const details = upgradeRequiredDetailsSchema.safeParse(error.details);
         onUpgradeRequired(
-          details.success ? details.data.features : requiredFeatures(store.getState().theme),
+          details.success
+            ? details.data.features
+            : [
+                ...requiredFeatures(store.getState().theme),
+                ...requiredLogicFeatures(store.getState().schema),
+              ],
         );
         return 'locked';
       }

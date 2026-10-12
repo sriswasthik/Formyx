@@ -1,7 +1,9 @@
 import { createDefaultSettings, createEmptyForm, createField, createOption } from './factories.js';
+import { createDefaultLogic } from './logic-factories.js';
 import type { ChoiceFieldType, FieldType } from './field-types.js';
 import type { FieldOfType } from './fields.js';
-import { FORM_SCHEMA_VERSION, type FormSchema } from './form-schema.js';
+import { FORM_SCHEMA_VERSION } from './form-schema-shape.js';
+import type { FormSchema } from './form-schema.js';
 import type { FormTemplateId } from './template-ids.js';
 
 export interface FormTemplate {
@@ -90,8 +92,8 @@ function buildEventRegistration(): FormSchema {
     settings: {
       ...createDefaultSettings(),
       submitButtonText: 'Register',
-      successMessage: "You're registered! Check your inbox for a confirmation email.",
     },
+    logic: createDefaultLogic("You're registered! Check your inbox for a confirmation email."),
   };
 }
 
@@ -141,8 +143,8 @@ function buildFeedbackSurvey(): FormSchema {
     settings: {
       ...createDefaultSettings(),
       submitButtonText: 'Send feedback',
-      successMessage: 'Thank you! Your feedback helps us build a better product.',
     },
+    logic: createDefaultLogic('Thank you! Your feedback helps us build a better product.'),
   };
 }
 

@@ -1,26 +1,60 @@
 import {
   answerErrorsFromIssues,
+  DRAFT_TOKEN_PATTERN,
   HONEYPOT_FIELD,
   validationIssueSchema,
+  type DraftResponse,
   type PublicForm,
   type SubmittedAnswers,
 } from '@formyx/shared';
 import { useQuery } from '@tanstack/react-query';
 import { FileQuestion, Lock, WifiOff } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { Button } from '@/components/ui/button';
-import { FormView, type SubmitOutcome } from '@/features/form-renderer/form-view';
+import {
+  FormView,
+  type ResponseProgress,
+  type SubmitOutcome,
+} from '@/features/form-renderer/form-view';
 import { preloadFormLayout } from '@/features/form-renderer/conversational/load-conversational';
 import { preloadFieldControls } from '@/features/form-renderer/controls/registry';
 import { themeFontsReady } from '@/features/form-renderer/theme/fonts';
 import { ApiRequestError } from '@/lib/api';
 import { isEmbedded } from '@/lib/embed';
 import { hostTargetOrigin, postToHost, useReportHeight } from './embed-host';
-import { answerUploader, getPublicForm, submitResponse } from './public-form-api';
+import {
+  answerUploader,
+  getPublicForm,
+  resumeDraft,
+  saveDraft,
+  submitResponse,
+} from './public-form-api';
 import { MadeWithFormyx, PublicFormMessage, PublicFormSkeleton } from './public-form-states';
-import { recordViewOnce } from './record-view';
+import { createProgressReporter, recordViewOnce } from './record-view';
+
+/**
+ * The token of an emailed "continue later" link, from the page's fragment (where it never
+ * reaches a server). Only reads it: `useClearResumeToken` then takes it out of the address bar.
+ */
+function readResumeToken(): string | null {
+  const match = /(?:^#|&)resume=([^&]+)/.exec(window.location.hash);
+  const token = match?.[1] ? decodeURIComponent(match[1]) : null;
+  return token && DRAFT_TOKEN_PATTERN.test(token) ? token : null;
+}
+
+/** Clears a resume link's token from the address bar once it has been read. */
+function useClearResumeToken(token: string | null) {
+  useEffect(() => {
+    if (token === null) return;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      window.location.pathname + window.location.search,
+    );
+  }, [token]);
+}
 
 /** A missing form stays missing, so asking again would not help. */
 function isNotFound(error: unknown): boolean {
@@ -65,31 +99,41 @@ interface LiveFormProps {
   hostOrigin: string | null;
   /** The link's query string, for hidden fields. */
   linkParams: URLSearchParams;
+  /** A draft from an emailed link, with its token; or that the link no longer works. */
+  draft: { token: string; saved: DraftResponse } | 'expired' | null;
 }
 
 /** Query parameters the embed adds for itself, which never fill hidden fields. */
 const EMBED_PARAMS = ['embed', 'parent'];
 
-function LiveForm({ form, onClosed, hostOrigin, linkParams }: LiveFormProps) {
+function LiveForm({ form, onClosed, hostOrigin, linkParams, draft }: LiveFormProps) {
   const embedded = hostOrigin !== null;
   const [openedAt] = useState(() => Date.now());
   const honeypot = useRef<HTMLInputElement>(null);
   const uploadFile = useMemo(() => answerUploader(form.slug), [form.slug]);
-
-  useEffect(() => {
-    recordViewOnce(form.slug);
-  }, [form.slug]);
+  // One visit, counted once per browser session; its token carries the progress reports.
+  const [visit] = useState(() => recordViewOnce(form.slug));
+  const [report] = useState(() => createProgressReporter(form.slug, visit));
+  const onProgress = useCallback(
+    (progress: ResponseProgress) => {
+      report(progress);
+    },
+    [report],
+  );
+  const saved = draft !== null && draft !== 'expired' ? draft : null;
 
   const submit = async (answers: SubmittedAnswers): Promise<SubmitOutcome> => {
     try {
-      await submitResponse(form.slug, {
+      const sent = await submitResponse(form.slug, {
         answers,
         completionTimeMs: Math.max(0, Math.round(Date.now() - openedAt)),
         referrer: document.referrer || undefined,
         [HONEYPOT_FIELD]: honeypot.current?.value || undefined,
+        viewToken: (await visit) ?? undefined,
+        resumeToken: saved?.token,
       });
       if (hostOrigin !== null) postToHost({ type: 'submitted', slug: form.slug }, hostOrigin);
-      return { ok: true };
+      return { ok: true, outcome: sent.outcome };
     } catch (error) {
       if (!(error instanceof ApiRequestError)) throw error;
       if (error.status === 410) {
@@ -112,6 +156,19 @@ function LiveForm({ form, onClosed, hostOrigin, linkParams }: LiveFormProps) {
     }
   };
 
+  const onSaveDraft = async (input: Parameters<typeof saveDraft>[1]) => {
+    try {
+      await saveDraft(form.slug, input);
+    } catch (error) {
+      throw new Error(
+        error instanceof ApiRequestError && error.code === 'RATE_LIMITED'
+          ? error.message
+          : 'Your answers could not be saved. Check your connection and try again.',
+        { cause: error },
+      );
+    }
+  };
+
   return (
     <FormView
       title={form.title}
@@ -121,6 +178,16 @@ function LiveForm({ form, onClosed, hostOrigin, linkParams }: LiveFormProps) {
       allowAnotherResponse={false}
       uploadFile={uploadFile}
       linkParams={linkParams}
+      resume={saved ? saved.saved : undefined}
+      saveProgressKey={form.schema.settings.saveProgress === 'off' ? undefined : form.slug}
+      onSaveDraft={onSaveDraft}
+      onProgress={onProgress}
+      allowRedirect
+      notice={
+        draft === 'expired'
+          ? 'This link has expired or was already used, so the form starts afresh.'
+          : undefined
+      }
       hiddenFields={<Honeypot inputRef={honeypot} />}
       variant={embedded ? 'embed' : 'page'}
       // Embedded, the form is a card on the host's page rather than a page of its own.
@@ -146,6 +213,8 @@ export function PublicFormPage() {
     return params;
   });
   const [closedWhileOpen, setClosedWhileOpen] = useState(false);
+  const [resumeToken] = useState(readResumeToken);
+  useClearResumeToken(resumeToken);
   const query = useQuery({
     queryKey: ['public-form', slug],
     queryFn: async () => {
@@ -166,6 +235,15 @@ export function PublicFormPage() {
     refetchOnWindowFocus: false,
     retry: (failures, error) => !isNotFound(error) && failures < 1,
   });
+  // An emailed "continue later" link brings its saved answers.
+  const draftQuery = useQuery({
+    queryKey: ['public-form-draft', slug, resumeToken],
+    queryFn: () => resumeDraft(slug, resumeToken ?? ''),
+    enabled: resumeToken !== null,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
   usePageTitle(query.data?.title ?? 'Form');
   useReportHeight({
     enabled: embedded,
@@ -174,7 +252,9 @@ export function PublicFormPage() {
     targetOrigin: hostOrigin ?? '*',
   });
 
-  if (query.isPending) return <PublicFormSkeleton />;
+  if (query.isPending || (resumeToken !== null && draftQuery.isPending)) {
+    return <PublicFormSkeleton />;
+  }
 
   if (query.isError) {
     if (isNotFound(query.error)) {
@@ -215,6 +295,13 @@ export function PublicFormPage() {
       form={query.data}
       hostOrigin={hostOrigin}
       linkParams={linkParams}
+      draft={
+        resumeToken === null
+          ? null
+          : draftQuery.data
+            ? { token: resumeToken, saved: draftQuery.data }
+            : 'expired'
+      }
       onClosed={() => {
         setClosedWhileOpen(true);
       }}

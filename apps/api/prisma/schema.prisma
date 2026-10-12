@@ -178,6 +178,7 @@ model Form {
   createdBy       User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   submissions     Submission[]
   views           FormView[]
+  drafts          FormDraft[]
   subscriptions   FormSubscription[]
   webhooks        Webhook[]
 
@@ -197,6 +198,9 @@ model Submission {
   completionTimeMs Int?     @map("completion_time_ms")
   /// Client details: user agent and referrer. IP addresses are never stored.
   metadata         Json
+  /// Route, values, quiz mark and end screen, worked out by the server (never the client).
+  /// Null for responses from before Sprint 13.
+  outcome          Json?
   createdAt        DateTime @default(now()) @map("created_at")
   form             Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
 
@@ -206,15 +210,43 @@ model Submission {
 }
 
 /// One visit to a published form, recorded once per browser session. Rows rather than a
-/// counter, so views can be charted over time and compared with submissions.
+/// counter, so views can be charted over time and compared with submissions. Visits also
+/// report how far they got, for drop-off analytics: anonymously, under a random token that
+/// identifies the visit and nothing else.
 model FormView {
-  id        String   @id @default(cuid())
-  formId    String   @map("form_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  formId        String    @map("form_id")
+  /// Random, given to the browser; ties progress reports to this visit. Null before Sprint 13.
+  token         String?   @unique
+  /// The furthest page shown (`start` or a page break's id).
+  furthestPage  String?   @map("furthest_page")
+  /// The last question answered, furthest in form order.
+  furthestField String?   @map("furthest_field")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  form          Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
 
   @@index([formId, createdAt])
   @@map("form_views")
+}
+
+/// Answers a respondent saved to finish later, reached through an emailed link. Only a hash
+/// of the link's token is kept, and never the email address.
+model FormDraft {
+  id        String   @id @default(cuid())
+  formId    String   @map("form_id")
+  /// SHA-256 of the token in the link, hex.
+  tokenHash String   @unique @map("token_hash")
+  answers   Json
+  /// Where they were: page and shuffle seed.
+  state     Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([expiresAt])
+  @@map("form_drafts")
 }
 
 /// A member who wants an email about each new response to a form. Each member decides for

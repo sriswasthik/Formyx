@@ -16,6 +16,7 @@ function record(id: string, answers: SubmissionRecord['answers'] = {}): Submissi
     completionTimeMs: null,
     answers,
     metadata: { userAgent: null, referrer: null },
+    outcome: null,
   };
 }
 

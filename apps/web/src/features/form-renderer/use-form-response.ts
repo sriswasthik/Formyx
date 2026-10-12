@@ -1,9 +1,10 @@
 import {
   buildSubmissionValidator,
-  evaluateVisibility,
+  resolvePath,
   validateAnswers,
   type AnswerValue,
   type FormSchema,
+  type SubmissionOutcome,
   type SubmittedAnswers,
 } from '@formyx/shared';
 import { useCallback, useMemo, useState } from 'react';
@@ -11,7 +12,11 @@ import type { FileUploader, FileUploads } from './file-uploads';
 
 /** How a handed-over submission went. Problems keep the form open to fix them. */
 export type SubmitOutcome =
-  | { ok: true }
+  | {
+      ok: true;
+      /** Where the server says the response ended up; worked out here when it says nothing. */
+      outcome?: SubmissionOutcome;
+    }
   | {
       ok: false;
       /** Problems with particular answers, by field id, shown under those questions. */
@@ -22,6 +27,27 @@ export type SubmitOutcome =
 
 export type ResponseStatus = 'filling' | 'submitting' | 'done';
 
+/**
+ * The outcome worked out in the browser, for when the server does not say (the editor's
+ * preview). Its module loads only then; if it cannot load, the first end screen shows.
+ */
+async function outcomeHere(
+  schema: FormSchema,
+  answers: SubmittedAnswers,
+): Promise<SubmissionOutcome> {
+  try {
+    const { localOutcome } = await import('./local-outcome');
+    return localOutcome(schema, answers);
+  } catch {
+    return {
+      // An id no end screen has: the form shows its first.
+      endScreenId: '',
+      values: {},
+      quiz: null,
+    };
+  }
+}
+
 /** What `submit` found: sent, or problems by field id (empty for a whole-form problem). */
 export type SubmitResult = { ok: true } | { ok: false; problems: Record<string, string> };
 
@@ -29,8 +55,10 @@ interface UseFormResponseOptions {
   schema: FormSchema;
   onSubmit?: ((answers: SubmittedAnswers) => Promise<SubmitOutcome> | SubmitOutcome) | undefined;
   uploadFile?: FileUploader | undefined;
-  /** Answers to start from, such as hidden fields filled from the link. */
+  /** Answers every response starts with, such as hidden fields filled from the link. */
   initialAnswers?: Readonly<Record<string, AnswerValue>> | undefined;
+  /** Answers this response carries on from (a saved draft); not kept on reset. */
+  startFrom?: Readonly<Record<string, AnswerValue>> | undefined;
 }
 
 /**
@@ -42,8 +70,10 @@ export function useFormResponse({
   onSubmit,
   uploadFile,
   initialAnswers,
+  startFrom,
 }: UseFormResponseOptions) {
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>(() => ({
+    ...startFrom,
     ...initialAnswers,
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,7 +82,10 @@ export function useFormResponse({
   /** Questions whose file is still on its way to storage. */
   const [uploading, setUploadingIds] = useState<ReadonlySet<string>>(() => new Set());
 
-  const visibleIds = useMemo(() => evaluateVisibility(schema, answers), [schema, answers]);
+  const [outcome, setOutcome] = useState<SubmissionOutcome | null>(null);
+  // The respondent's route through the pages, and the questions on it they see.
+  const path = useMemo(() => resolvePath(schema, answers), [schema, answers]);
+  const activeIds = path.active;
 
   const handleChange = useCallback((fieldId: string, value: AnswerValue) => {
     setAnswers((current) => ({ ...current, [fieldId]: value }));
@@ -87,14 +120,14 @@ export function useFormResponse({
     (only?: ReadonlySet<string>): Record<string, string> => {
       const problems = validateAnswers(schema, answers);
       for (const field of schema.fields) {
-        if (uploading.has(field.id) && visibleIds.has(field.id)) {
+        if (uploading.has(field.id) && activeIds.has(field.id)) {
           problems[field.id] = 'Wait for the file to finish uploading';
         }
       }
       if (!only) return problems;
       return Object.fromEntries(Object.entries(problems).filter(([id]) => only.has(id)));
     },
-    [schema, answers, uploading, visibleIds],
+    [schema, answers, uploading, activeIds],
   );
 
   /** Checks one question's answer, showing its problem if it has one. */
@@ -139,14 +172,15 @@ export function useFormResponse({
     setFormError(null);
     try {
       const submitted = buildSubmissionValidator(schema, answers).parse(answers);
-      const outcome = onSubmit ? await onSubmit(submitted) : { ok: true as const };
-      if (!outcome.ok) {
+      const sent: SubmitOutcome = onSubmit ? await onSubmit(submitted) : { ok: true };
+      if (!sent.ok) {
         setStatus('filling');
-        setFormError(outcome.message ?? null);
-        const fieldErrors = outcome.fieldErrors ?? {};
-        if (outcome.fieldErrors) setErrors(fieldErrors);
+        setFormError(sent.message ?? null);
+        const fieldErrors = sent.fieldErrors ?? {};
+        if (sent.fieldErrors) setErrors(fieldErrors);
         return { ok: false, problems: fieldErrors };
       }
+      setOutcome(sent.outcome ?? (await outcomeHere(schema, submitted)));
       setStatus('done');
       return { ok: true };
     } catch {
@@ -161,6 +195,7 @@ export function useFormResponse({
     setAnswers({ ...initialAnswers });
     setErrors({});
     setFormError(null);
+    setOutcome(null);
     setStatus('filling');
   }, [initialAnswers]);
 
@@ -169,7 +204,9 @@ export function useFormResponse({
     errors,
     formError,
     status,
-    visibleIds,
+    path,
+    activeIds,
+    outcome,
     fileUploads,
     handleChange,
     checkField,

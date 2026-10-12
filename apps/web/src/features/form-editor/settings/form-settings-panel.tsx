@@ -1,19 +1,38 @@
 import { FORM_DESCRIPTION_MAX_LENGTH } from '@formyx/shared';
 import { FormField } from '@/components/form-field';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { ProBadge } from '@/features/entitlements/pro-badge';
 import { issuesUnder, useDraftIssues } from '../draft-issues';
+import { useEditorEntitlements } from '../editor-entitlements';
 import { useEditorStore } from '../editor-store-context';
 import { WebhooksSection } from '../webhooks/webhooks-section';
 import { fromDateTimeLocal, toDateTimeLocal } from './date-time';
 import { NumberInput } from './number-input';
 import { SettingsSection } from './settings-section';
 
+const SAVE_PROGRESS = [
+  {
+    value: 'browser',
+    label: 'In their browser',
+    hint: 'Answers are kept on their device as they go, so a reload loses nothing.',
+  },
+  {
+    value: 'email',
+    label: 'In their browser, and by email',
+    hint: 'They can also email themselves a link to finish later, on any device.',
+  },
+  { value: 'off', label: 'Off', hint: 'Nothing is kept until they submit. For shared devices.' },
+] as const;
+
 /** Settings for the form as a whole, shown while no question is selected. */
 export function FormSettingsPanel() {
   const settings = useEditorStore((state) => state.schema.settings);
   const description = useEditorStore((state) => state.schema.description ?? '');
   const updateSettings = useEditorStore((state) => state.updateSettings);
+  const { hasFeature } = useEditorEntitlements();
   const setDescription = useEditorStore((state) => state.setDescription);
   const draftIssues = useDraftIssues();
   const issues = issuesUnder(draftIssues, 'draftSchema.settings');
@@ -57,24 +76,44 @@ export function FormSettingsPanel() {
           />
         </FormField>
       </SettingsSection>
-      <SettingsSection title="After submitting">
-        <FormField
-          id="setting-success-message"
-          label="Success message"
-          hint="Shown to respondents once their answers are in."
-          error={issues.successMessage}
+      <SettingsSection title="Saving progress">
+        <RadioGroup
+          aria-label="Saving progress"
+          value={settings.saveProgress}
+          onValueChange={(value) => {
+            const saveProgress = SAVE_PROGRESS.find((option) => option.value === value)?.value;
+            if (saveProgress) updateSettings({ saveProgress });
+          }}
         >
-          <Textarea
-            rows={3}
-            value={settings.successMessage}
-            onChange={(event) => {
-              updateSettings(
-                { successMessage: event.target.value },
-                { mergeKey: 'successMessage' },
-              );
-            }}
-          />
-        </FormField>
+          {SAVE_PROGRESS.map((option) => (
+            <div key={option.value} className="flex items-start gap-2.5">
+              <RadioGroupItem
+                id={`setting-save-${option.value}`}
+                value={option.value}
+                aria-describedby={`setting-save-${option.value}-hint`}
+                className="mt-0.5"
+              />
+              <div className="flex flex-col gap-0.5">
+                <Label
+                  htmlFor={`setting-save-${option.value}`}
+                  className="flex items-center gap-1.5 font-normal"
+                >
+                  {option.label}
+                  {option.value === 'email' && !hasFeature('advanced_logic') && <ProBadge />}
+                </Label>
+                <p
+                  id={`setting-save-${option.value}-hint`}
+                  className="text-13 text-muted-foreground"
+                >
+                  {option.hint}
+                </p>
+              </div>
+            </div>
+          ))}
+        </RadioGroup>
+        <p className="text-13 text-muted-foreground">
+          What respondents see after submitting is set in Logic, under End screens.
+        </p>
       </SettingsSection>
       <SettingsSection title="Responses">
         <FormField

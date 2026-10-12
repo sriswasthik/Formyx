@@ -78,5 +78,18 @@ export interface WebhookPayload {
   /** When the event happened (ISO 8601). Signed with the rest, so receivers can refuse replays. */
   createdAt: string;
   form: { id: string; title: string };
-  submission: { id: string; createdAt: string; answers: WebhookAnswer[] };
+  submission: {
+    id: string;
+    createdAt: string;
+    answers: WebhookAnswer[];
+    /** The quiz mark, values and end screen, as the server worked them out. */
+    outcome: WebhookOutcome | null;
+  };
+}
+
+/** A response's outcome in an event: variables by name as well as id. */
+export interface WebhookOutcome {
+  endScreen: { id: string; name: string };
+  variables: { id: string; name: string; value: number }[];
+  quiz: { score: number; max: number; percent: number; passed: boolean | null } | null;
 }

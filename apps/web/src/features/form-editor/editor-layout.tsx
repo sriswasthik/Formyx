@@ -23,6 +23,7 @@ import { DesignStudio } from './design/design-studio';
 import { createStudioStore, StudioStoreContext, useStudio } from './design/studio-state';
 import { StudioPreview } from './design/studio-preview';
 import { EditorSidebar, type SidebarTab } from './editor-sidebar';
+import { LogicPanel } from './logic-panel/logic-panel';
 import { SettingsPanel } from './settings/settings-panel';
 import { EditorTopBar, type EditorView } from './top-bar/editor-top-bar';
 import { useEditorShortcuts } from './use-editor-shortcuts';
@@ -128,7 +129,10 @@ function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
           )}
           <aside
             aria-label="Settings and design"
-            className={cn('shrink-0 border-l bg-background', designing ? 'w-[26.25rem]' : 'w-80')}
+            className={cn(
+              'shrink-0 border-l bg-background',
+              designing || panel === 'logic' ? 'w-[26.25rem]' : 'w-80',
+            )}
           >
             <EditorSidebar
               tab={panel}
@@ -146,9 +150,9 @@ function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
   );
 }
 
-type MobileTab = 'build' | 'design' | 'settings' | 'preview';
+type MobileTab = 'build' | 'design' | 'logic' | 'settings' | 'preview';
 
-/** Phones and tablets: Build / Settings / Preview tabs, and the palette in a bottom sheet. */
+/** Phones and tablets: Build / Design / Logic / Settings / Preview tabs; the palette in a sheet. */
 function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
   const theme = useEditorStore((state) => state.theme);
   const [tab, setTab] = useState<MobileTab>('build');
@@ -165,6 +169,7 @@ function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
           if (
             value === 'build' ||
             value === 'design' ||
+            value === 'logic' ||
             value === 'settings' ||
             value === 'preview'
           ) {
@@ -174,9 +179,10 @@ function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="shrink-0 border-b bg-background px-3 py-2">
-          <TabsList aria-label="Editor" className="grid w-full grid-cols-4 sm:mx-auto sm:max-w-md">
+          <TabsList aria-label="Editor" className="grid w-full grid-cols-5 sm:mx-auto sm:max-w-lg">
             <TabsTrigger value="build">Build</TabsTrigger>
             <TabsTrigger value="design">Design</TabsTrigger>
+            <TabsTrigger value="logic">Logic</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
@@ -209,6 +215,12 @@ function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
           <StudioPreview compact className="h-[42dvh] shrink-0 border-b" />
           <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
             <DesignStudio layout="stacked" />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="logic" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-background">
+          <div className="mx-auto w-full max-w-xl">
+            <LogicPanel />
           </div>
         </TabsContent>
 

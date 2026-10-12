@@ -504,9 +504,9 @@ describe('schema v2', () => {
       ],
       settings: createEmptyForm().settings,
     };
-    const v2 = migrateFormSchema(v1);
-    expect(v2.version).toBe(2);
-    const [statement, phone, rating] = v2.fields;
+    const upgraded = migrateFormSchema(v1);
+    expect(upgraded.version).toBe(3);
+    const [statement, phone, rating] = upgraded.fields;
     expect(statement?.label).toBe('Price \\* 2 = cost');
     expect(richTextToPlain(statement?.label ?? '')).toBe('Price * 2 = cost');
     expect(phone).toMatchObject({ defaultCountry: 'IN' });

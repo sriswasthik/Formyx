@@ -62,6 +62,21 @@ export const storedAnswerSchema = z.union([
   matrixAnswerSchema,
 ]);
 
+/** A response's outcome as stored: the quiz marked, without the per-question review. */
+export const storedOutcomeSchema = z.object({
+  endScreenId: z.string(),
+  values: z.record(z.string(), z.number()),
+  quiz: z
+    .object({
+      score: z.number(),
+      max: z.number(),
+      percent: z.number(),
+      passed: z.boolean().nullable(),
+    })
+    .nullable(),
+});
+export type StoredOutcome = z.infer<typeof storedOutcomeSchema>;
+
 export const submissionMetadataSchema = z.object({
   userAgent: z.string().nullable(),
   referrer: z.string().nullable(),
@@ -77,6 +92,8 @@ export const submissionRecordSchema = z.object({
   /** Answers keyed by field id. Questions left empty are absent. */
   answers: z.record(z.string(), storedAnswerSchema),
   metadata: submissionMetadataSchema,
+  /** Where it ended up; `null` for responses from before Sprint 13. */
+  outcome: storedOutcomeSchema.nullable(),
 });
 export type SubmissionRecord = z.infer<typeof submissionRecordSchema>;
 

@@ -14,7 +14,10 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // Sprint 12 (21 question types, pages, hidden fields) is 199.8 KB: the new types' controls,
 // file uploads, image and video blocks and the phone country table load only with forms
 // that use them, but every type's schema and validator ship with every form.
-const PUBLIC_FORM_BUDGET_KB = 200;
+// Sprint 13 (pages, jumps, piping, shuffling, saved progress) raised it to 205 KB; it is
+// 204.8 KB with end screens, saving by email, resuming and quiz marking loading lazily, and
+// the checks that span a form schema kept out of the public form (form-schema-shape.ts).
+const PUBLIC_FORM_BUDGET_KB = 205;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',

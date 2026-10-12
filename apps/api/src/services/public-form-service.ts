@@ -1,12 +1,22 @@
+import { createHash, randomBytes } from 'node:crypto';
 import {
   buildSubmissionValidator,
+  computeOutcome,
+  formPages,
+  isShownQuestionType,
   responseLimitReached,
   sanitizeAnswers,
   toAnswerIssues,
+  toPublicSchema,
+  type Answers,
   type ClosedFormDetails,
   type FormSchema,
+  type ProgressInput,
   type PublicFormResponse,
+  type ResponseOutcome,
+  type StoredOutcome,
   type SubmissionInput,
+  type SubmissionOutcome,
   type SubmissionRecord,
 } from '@formyx/shared';
 import type { z } from 'zod';
@@ -17,6 +27,65 @@ import type { UploadChecks } from './upload-checks.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
 
 const USER_AGENT_MAX_LENGTH = 512;
+
+type Transaction = Parameters<Parameters<Database['$transaction']>[0]>[0];
+
+/** Where pages and fields sit in the form, to tell which of two is further on. */
+function formOrder(schema: FormSchema) {
+  return {
+    pages: new Map(formPages(schema.fields).map((page) => [page.key, page.index])),
+    fields: new Map(schema.fields.map((field, index) => [field.id, index])),
+  };
+}
+
+/**
+ * `next` when it comes after `current` in `order`, otherwise `undefined` (nothing to
+ * change). Ids no longer in the form never count as further.
+ */
+function further(
+  order: ReadonlyMap<string, number>,
+  next: string | undefined,
+  current: string | null,
+): string | undefined {
+  if (next === undefined) return undefined;
+  const nextIndex = order.get(next);
+  if (nextIndex === undefined) return undefined;
+  const currentIndex = current === null ? -1 : (order.get(current) ?? -1);
+  return nextIndex > currentIndex ? next : undefined;
+}
+
+/**
+ * Marks a visit finished, moving its progress on to the last page of the route the server
+ * worked out and the last question answered, in case the browser's last reports were lost.
+ * Drop-off counts each visit by the furthest page it reached.
+ */
+async function completeView(
+  tx: Transaction,
+  schema: FormSchema,
+  formId: string,
+  token: string,
+  finished: { completedAt: Date; route: readonly string[]; answers: Answers },
+): Promise<void> {
+  const view = await tx.formView.findUnique({
+    where: { token },
+    select: { id: true, formId: true, furthestPage: true, furthestField: true, completedAt: true },
+  });
+  if (view?.formId !== formId || view.completedAt) return;
+  const order = formOrder(schema);
+  const lastAnswered = schema.fields.findLast(
+    (field) => isShownQuestionType(field.type) && finished.answers[field.id] !== undefined,
+  );
+  const furthestPage = further(order.pages, finished.route.at(-1), view.furthestPage);
+  const furthestField = further(order.fields, lastAnswered?.id, view.furthestField);
+  await tx.formView.update({
+    where: { id: view.id },
+    data: {
+      completedAt: finished.completedAt,
+      ...(furthestPage !== undefined && { furthestPage }),
+      ...(furthestField !== undefined && { furthestField }),
+    },
+  });
+}
 
 const publicSelect = {
   id: true,
@@ -49,10 +118,21 @@ export interface SubmissionContext {
 export interface PublicFormService {
   /** The published form, or that it is closed; 404 if it was never published. */
   get(slug: string): Promise<PublicFormResponse>;
-  /** The id and published questions of a form taking responses; 404 or 410 otherwise. */
-  openForm(slug: string): Promise<{ id: string; schema: FormSchema }>;
-  /** Counts a visit to an open form. */
-  recordView(slug: string): Promise<void>;
+  /** The id, title and published questions of a form taking responses; 404 or 410 otherwise. */
+  openForm(slug: string): Promise<{ id: string; title: string; schema: FormSchema }>;
+  /** Counts a visit to an open form; returns the visit's token for progress reports. */
+  recordView(slug: string): Promise<{ token: string }>;
+  /**
+   * Notes how far a visit got: the page shown and the last question answered, each only
+   * ever moving forward in the published form. Unknown tokens, pages and questions are
+   * ignored, as is anything after the visit ended in a response.
+   */
+  recordProgress(slug: string, input: ProgressInput): Promise<void>;
+  /**
+   * The outcome `answers` would get, without storing anything: what a bot caught by the
+   * honeypot is shown, so it cannot tell.
+   */
+  previewOutcome(slug: string, answers: Answers): Promise<SubmissionOutcome>;
   /**
    * Stores a response after checking it against the published schema. Answers to hidden or
    * unknown questions are dropped. The response that reaches the limit closes the form.
@@ -68,6 +148,50 @@ export interface PublicFormService {
 export interface SavedSubmission {
   formId: string;
   submission: SubmissionRecord;
+  /** For the respondent: the end screen, values and quiz mark (with the review if shown). */
+  outcome: SubmissionOutcome;
+}
+
+/** What is stored: the route is left out, and so is the quiz review. */
+export function toStoredOutcome(outcome: ResponseOutcome): StoredOutcome {
+  const { quiz } = outcome;
+  return {
+    endScreenId: outcome.endScreenId,
+    values: outcome.values,
+    quiz: quiz && {
+      score: quiz.score,
+      max: quiz.max,
+      percent: quiz.percent,
+      passed: quiz.passed,
+    },
+  };
+}
+
+/** What the respondent is told: the review only when the form reveals the answers. */
+export function toRespondentOutcome(
+  schema: FormSchema,
+  outcome: ResponseOutcome,
+): SubmissionOutcome {
+  const stored = toStoredOutcome(outcome);
+  const reveal = schema.logic.quiz?.revealAnswers === true;
+  return {
+    ...stored,
+    quiz: stored.quiz &&
+      outcome.quiz && {
+        ...stored.quiz,
+        ...(reveal && { review: outcome.quiz.review }),
+      },
+  };
+}
+
+/** A random token for a visit: 24 bytes, base64url. */
+function createViewToken(): string {
+  return randomBytes(24).toString('base64url');
+}
+
+/** SHA-256, hex: how draft tokens are stored. */
+export function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 function notFound(): AppError {
@@ -123,19 +247,64 @@ export function createPublicFormService(
       // snapshotted fall back to the current one.
       const theme = parsePublishedTheme(form.record.publishedTheme ?? form.record.theme);
       if (!theme) throw new Error('A published form has no theme');
-      return { status: 'open', slug: form.slug, title: form.title, schema: form.schema, theme };
+      // The quiz's right answers stay on the server, which marks it.
+      return {
+        status: 'open',
+        slug: form.slug,
+        title: form.title,
+        schema: toPublicSchema(form.schema),
+        theme,
+      };
     },
 
     async openForm(slug) {
       const form = await find(slug);
       assertOpen(form);
-      return { id: form.id, schema: form.schema };
+      return { id: form.id, title: form.title, schema: form.schema };
     },
 
     async recordView(slug) {
       const form = await find(slug);
       assertOpen(form);
-      await prisma.formView.create({ data: { formId: form.id } });
+      const token = createViewToken();
+      await prisma.formView.create({ data: { formId: form.id, token } });
+      return { token };
+    },
+
+    async recordProgress(slug, input) {
+      const form = await find(slug);
+      const view = await prisma.formView.findUnique({
+        where: { token: input.token },
+        select: {
+          id: true,
+          formId: true,
+          furthestPage: true,
+          furthestField: true,
+          completedAt: true,
+        },
+      });
+      if (view?.formId !== form.id || view.completedAt) return;
+
+      const order = formOrder(form.schema);
+      const furthestPage = further(order.pages, input.pageKey, view.furthestPage);
+      const furthestField = further(order.fields, input.fieldId, view.furthestField);
+      if (furthestPage === undefined && furthestField === undefined) return;
+      await prisma.formView.update({
+        where: { id: view.id },
+        data: {
+          ...(furthestPage !== undefined && { furthestPage }),
+          ...(furthestField !== undefined && { furthestField }),
+        },
+      });
+    },
+
+    async previewOutcome(slug, answers) {
+      const form = await find(slug);
+      assertOpen(form);
+      return toRespondentOutcome(
+        form.schema,
+        computeOutcome(form.schema, sanitizeAnswers(form.schema, answers)),
+      );
     },
 
     async submit(slug, input, context) {
@@ -161,6 +330,9 @@ export function createPublicFormService(
         const answers = sanitizeAnswers(form.schema, checked);
         const result = buildSubmissionValidator(form.schema, answers).safeParse(answers);
         if (!result.success) throw invalidAnswers(result.error);
+        // Worked out here from the answers alone: totals from the browser are never trusted.
+        const outcome = computeOutcome(form.schema, result.data);
+        const stored = toStoredOutcome(outcome);
 
         const metadata = {
           userAgent: context.userAgent?.slice(0, USER_AGENT_MAX_LENGTH) ?? null,
@@ -172,9 +344,23 @@ export function createPublicFormService(
             answers: result.data,
             completionTimeMs: input.completionTimeMs ?? null,
             metadata,
+            outcome: stored,
           },
           select: { id: true, createdAt: true, completionTimeMs: true },
         });
+        if (input.viewToken) {
+          await completeView(tx, form.schema, form.id, input.viewToken, {
+            completedAt: created.createdAt,
+            route: outcome.pages,
+            answers: result.data,
+          });
+        }
+        if (input.resumeToken) {
+          // The draft is finished; its link stops working.
+          await tx.formDraft.deleteMany({
+            where: { formId: form.id, tokenHash: hashToken(input.resumeToken) },
+          });
+        }
 
         const count = form.record._count.submissions + 1;
         if (responseLimitReached(form.schema.settings, count) === 'response_limit') {
@@ -188,7 +374,9 @@ export function createPublicFormService(
             completionTimeMs: created.completionTimeMs,
             answers: result.data,
             metadata,
+            outcome: stored,
           },
+          outcome: toRespondentOutcome(form.schema, outcome),
         };
       });
     },

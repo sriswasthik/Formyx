@@ -7,6 +7,7 @@
 
 interface URLSearchParams {
   get(name: string): string | null;
+  set(name: string, value: string): void;
 }
 
 interface URL {
@@ -15,6 +16,7 @@ interface URL {
   readonly hostname: string;
   readonly pathname: string;
   readonly searchParams: URLSearchParams;
+  toString(): string;
 }
 
 declare const URL: new (input: string, base?: string) => URL;

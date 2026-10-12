@@ -6,7 +6,9 @@ import {
   PIN_CODE_PATTERN,
   TIME_PATTERN,
 } from './answer-values.js';
-import { evaluateVisibility, isAnswered, type AnswerValue, type Answers } from './answers.js';
+import { resolvePath } from '../logic/navigation.js';
+import { submissionOutcomeSchema } from './outcome-schema.js';
+import { isAnswered, type AnswerValue, type Answers } from './answers.js';
 import { MAX_MATRIX_ROWS, MAX_OPTIONS, type Field, type FieldOfType } from './fields.js';
 import {
   fileAnswerSchema,
@@ -16,7 +18,8 @@ import {
   type FileAnswer,
 } from './files.js';
 import { compactPhone, phoneNumberProblem } from './phone.js';
-import { MAX_FIELDS, type FormSchema } from './form-schema.js';
+import { MAX_FIELDS } from './form-schema-shape.js';
+import type { FormSchema } from './form-schema.js';
 import { NODE_ID_PATTERN } from './ids.js';
 
 const REQUIRED = 'This question is required';
@@ -359,18 +362,19 @@ function withoutEmpty(answers: Record<string, unknown>): SubmittedAnswers {
 }
 
 /**
- * A Zod schema for the answers to `schema`, built for the questions visible with `answers`.
- * Hidden questions are skipped, so their required flag does not apply, and answers to them,
- * to unknown questions or to statements are stripped. Parsing returns the normalised answers.
+ * A Zod schema for the answers to `schema`, built for the questions the respondent saw:
+ * shown by their conditions, on a page on their route (see `resolvePath`). Other questions
+ * are skipped, so their required flag does not apply, and answers to them, to unknown
+ * questions or to statements are stripped. Parsing returns the normalised answers.
  */
 export function buildSubmissionValidator(
   schema: FormSchema,
   answers: Answers,
 ): z.ZodType<SubmittedAnswers> {
-  const visible = evaluateVisibility(schema, answers);
+  const { active } = resolvePath(schema, answers);
   const shape: Record<string, z.ZodType> = {};
   for (const field of schema.fields) {
-    const fieldSchema = visible.has(field.id) ? answerSchema(field) : null;
+    const fieldSchema = active.has(field.id) ? answerSchema(field) : null;
     if (fieldSchema) shape[field.id] = fieldSchema;
   }
   return z.object(shape).transform(withoutEmpty);
@@ -428,11 +432,17 @@ const answerValueInput = z.union([
   z.null(),
 ]);
 
-/** Body of `POST /api/public/forms/:slug/submissions`. Answers are checked separately. */
+/** Answers keyed by field id, in any shape an answer can take; checked separately. */
+export const submissionAnswersSchema = z
+  .record(z.string().regex(NODE_ID_PATTERN), answerValueInput)
+  .refine((answers) => Object.keys(answers).length <= MAX_FIELDS, 'Too many answers');
+
+/**
+ * Body of `POST /api/public/forms/:slug/submissions`. Answers are checked separately; the
+ * route, values, quiz score and end screen are always worked out again on the server.
+ */
 export const submissionInputSchema = z.object({
-  answers: z
-    .record(z.string().regex(NODE_ID_PATTERN), answerValueInput)
-    .refine((answers) => Object.keys(answers).length <= MAX_FIELDS, 'Too many answers'),
+  answers: submissionAnswersSchema,
   completionTimeMs: z
     .number()
     .int()
@@ -445,10 +455,17 @@ export const submissionInputSchema = z.object({
     .transform((value) => value.slice(0, 2048))
     .optional(),
   [HONEYPOT_FIELD]: z.string().max(1000).optional(),
+  /** The visit's token (see `viewResponseSchema`), marking it finished for drop-off. */
+  viewToken: z.string().max(64).optional(),
+  /** The saved draft this response finishes, which is then deleted. */
+  resumeToken: z.string().max(64).optional(),
 });
 export type SubmissionInput = z.input<typeof submissionInputSchema>;
 
-export const submissionResponseSchema = z.object({ id: z.string() });
+export const submissionResponseSchema = z.object({
+  id: z.string(),
+  outcome: submissionOutcomeSchema,
+});
 export type SubmissionResponse = z.infer<typeof submissionResponseSchema>;
 
 /** Where answer problems appear in a rejected submission's issues: `answers.<fieldId>`. */

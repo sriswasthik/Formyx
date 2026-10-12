@@ -1,6 +1,7 @@
 import {
   answerableFields,
   storedAnswerSchema,
+  storedOutcomeSchema,
   submissionMetadataSchema,
   type FormSchema,
   type listSubmissionsQuerySchema,
@@ -58,6 +59,7 @@ interface StoredRow {
   completionTimeMs: number | null;
   answers: unknown;
   metadata: unknown;
+  outcome: unknown;
 }
 
 function toRecord(row: StoredRow): SubmissionRecord {
@@ -67,12 +69,15 @@ function toRecord(row: StoredRow): SubmissionRecord {
     throw new Error('Stored answers do not match their schema', { cause: answers.error });
   }
   const metadata = submissionMetadataSchema.safeParse(row.metadata);
+  const outcome = storedOutcomeSchema.safeParse(row.outcome);
   return {
     id: row.id,
     createdAt: row.createdAt,
     completionTimeMs: row.completionTimeMs,
     answers: answers.data,
     metadata: metadata.success ? metadata.data : NO_METADATA,
+    // Responses from before Sprint 13 have none.
+    outcome: outcome.success ? outcome.data : null,
   };
 }
 
@@ -82,6 +87,7 @@ const recordSelect = {
   completionTimeMs: true,
   answers: true,
   metadata: true,
+  outcome: true,
 } satisfies Prisma.SubmissionSelect;
 
 type SelectedRow = Prisma.SubmissionGetPayload<{ select: typeof recordSelect }>;
@@ -97,6 +103,7 @@ interface RawRow {
   completion_time_ms: number | null;
   answers: unknown;
   metadata: unknown;
+  outcome: unknown;
 }
 
 const CREATED_AT_ISO = Prisma.raw(`to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
@@ -216,7 +223,7 @@ export function createSubmissionService(prisma: Database): SubmissionService {
       // One row more than asked for says whether another page follows.
       const [rows, counted] = await Promise.all([
         prisma.$queryRaw<RawRow[]>`
-          SELECT id, ${CREATED_AT_ISO} AS created_at, completion_time_ms, answers, metadata
+          SELECT id, ${CREATED_AT_ISO} AS created_at, completion_time_ms, answers, metadata, outcome
           FROM submissions
           WHERE ${where} ${page}
           ORDER BY created_at ${direction}, id ${direction}
@@ -234,6 +241,7 @@ export function createSubmissionService(prisma: Database): SubmissionService {
           completionTimeMs: row.completion_time_ms,
           answers: row.answers,
           metadata: row.metadata,
+          outcome: row.outcome,
         }),
       );
       const last = submissions.at(-1);

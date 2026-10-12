@@ -1,7 +1,9 @@
 import {
   addSubmissionToSummaries,
   ANALYTICS_RANGE_DAYS,
+  buildDropOff,
   createQuestionSummaries,
+  type DropOff,
   type AnalyticsRange,
   type AnalyticsTotals,
   type FormAnalytics,
@@ -82,6 +84,39 @@ export function createAnalyticsService(
   }
 
   /**
+   * How far visits got, grouped so the funnel reads a handful of rows however many visits
+   * there were. Visits from before progress was recorded have no token and are left out.
+   */
+  async function dropOff(
+    formId: string,
+    schema: Parameters<typeof buildDropOff>[0] | null,
+  ): Promise<DropOff> {
+    if (!schema) return { unit: 'question', started: 0, steps: [], completed: 0 };
+    const groups = await prisma.$queryRaw<
+      {
+        furthest_page: string | null;
+        furthest_field: string | null;
+        completed: boolean;
+        visits: number;
+      }[]
+    >`
+      SELECT furthest_page, furthest_field, completed_at IS NOT NULL AS completed, count(*)::int AS visits
+      FROM form_views
+      WHERE form_id = ${formId} AND token IS NOT NULL
+      GROUP BY 1, 2, 3
+    `;
+    return buildDropOff(
+      schema,
+      groups.map((group) => ({
+        furthestPage: group.furthest_page,
+        furthestField: group.furthest_field,
+        completed: group.completed,
+        count: group.visits,
+      })),
+    );
+  }
+
+  /**
    * The query schema accepts zones the JavaScript runtime knows; Postgres has its own list.
    * Answers are cached: only valid IANA names get this far, so the cache stays small.
    */
@@ -105,9 +140,10 @@ export function createAnalyticsService(
     async get(formId, { range, timeZone }) {
       await assertKnownTimeZone(timeZone);
       const { schema } = await submissions.published(formId);
-      const [formTotals, perDay] = await Promise.all([
+      const [formTotals, perDay, funnel] = await Promise.all([
         totals(formId),
         responsesPerDay(formId, range, timeZone),
+        dropOff(formId, schema),
       ]);
 
       // A form that was never published has no questions anyone answered.
@@ -121,7 +157,7 @@ export function createAnalyticsService(
         }
       }
 
-      return { totals: formTotals, responsesPerDay: perDay, questions };
+      return { totals: formTotals, responsesPerDay: perDay, questions, dropOff: funnel };
     },
   };
 }

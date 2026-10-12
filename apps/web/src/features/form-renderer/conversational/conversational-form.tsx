@@ -46,10 +46,14 @@ export interface ConversationProgress {
   /** The question shown, from 0. */
   current: number;
   total: number;
+  /** The id of the step shown. */
+  stepId?: string | undefined;
 }
 
 interface ConversationalFormProps {
   schema: FormSchema;
+  /** The fields as this respondent sees them: in their order, answers piped in. */
+  fields: readonly Field[];
   theme: FormTheme;
   response: FormResponse;
   idPrefix: string;
@@ -57,6 +61,8 @@ interface ConversationalFormProps {
   header: ReactNode;
   variant: ThemeVariant;
   hiddenFields?: ReactNode;
+  /** Under the buttons, such as "Save and continue later". */
+  actions?: ReactNode;
   onProgress: (progress: ConversationProgress) => void;
   /** Shows this step (from 0) without checking answers, as the Studio preview's stepper does. */
   previewStep?: number | undefined;
@@ -84,20 +90,22 @@ function focusStep(node: HTMLElement, field: Field | undefined, idPrefix: string
  */
 export function ConversationalForm({
   schema,
+  fields,
   theme,
   response,
   idPrefix,
   header,
   variant,
   hiddenFields,
+  actions,
   onProgress,
   previewStep,
 }: ConversationalFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const { answers, errors, formError, status, handleChange, checkField, submit } = response;
   const visibleIds = useMemo(
-    () => stepVisibleIds(schema.fields, response.visibleIds),
-    [schema.fields, response.visibleIds],
+    () => stepVisibleIds(fields, response.activeIds),
+    [fields, response.activeIds],
   );
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -106,11 +114,8 @@ export function ConversationalForm({
   const autoAdvance = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardInset = useKeyboardInset(variant === 'page');
 
-  const steps = useMemo(
-    () => conversationSteps(schema.fields, visibleIds),
-    [schema.fields, visibleIds],
-  );
-  const shownId = resolveStep(schema.fields, visibleIds, currentId);
+  const steps = useMemo(() => conversationSteps(fields, visibleIds), [fields, visibleIds]);
+  const shownId = resolveStep(fields, visibleIds, currentId);
   const index = steps.findIndex((step) => step.id === shownId);
   const field = steps[index];
   const isLast = index === steps.length - 1 || steps.length === 0;
@@ -118,8 +123,8 @@ export function ConversationalForm({
   const numbers = useMemo(() => questionNumbers(steps, numbering), [steps, numbering]);
 
   useEffect(() => {
-    onProgress({ current: Math.max(index, 0), total: steps.length });
-  }, [index, steps.length, onProgress]);
+    onProgress({ current: Math.max(index, 0), total: steps.length, stepId: shownId ?? undefined });
+  }, [index, steps.length, shownId, onProgress]);
 
   const cancelAutoAdvance = useCallback(() => {
     if (autoAdvance.current) clearTimeout(autoAdvance.current);
@@ -334,6 +339,7 @@ export function ConversationalForm({
         <p role="alert" className="form-text-sm text-(--form-danger) empty:hidden">
           {formError}
         </p>
+        {actions}
       </div>
     </form>
   );

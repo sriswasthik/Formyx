@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  evaluateCondition,
-  evaluateVisibility,
-  isAnswered,
-  sanitizeAnswers,
-  type AnswerValue,
-} from './answers.js';
+import { sanitizeAnswers } from '../logic/navigation.js';
+import { evaluateCondition, evaluateVisibility, isAnswered, type AnswerValue } from './answers.js';
 import { OPERATORS_BY_FIELD_TYPE, type Condition, type ConditionOperator } from './conditions.js';
 import { createEmptyForm, createField } from './factories.js';
 import { FIELD_TYPES, type FieldType } from './field-types.js';

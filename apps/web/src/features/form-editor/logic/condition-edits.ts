@@ -21,9 +21,10 @@ export function conditionSources(fields: readonly Field[], index: number): Condi
     .filter(({ field }) => isAnswerableFieldType(field.type));
 }
 
-/** A starting value that fits the source: its first option for choices, otherwise none yet. */
+/** A starting value that fits the source: its first option (or Yes), otherwise none yet. */
 function defaultValue(source: Field, operator: ConditionOperator): string | undefined {
   if (!operatorNeedsValue(operator)) return undefined;
+  if (source.type === 'yes_no') return 'yes';
   return 'options' in source ? source.options[0]?.id : undefined;
 }
 

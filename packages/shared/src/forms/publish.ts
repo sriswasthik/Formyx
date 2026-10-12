@@ -5,6 +5,7 @@ import { parseVideoUrl } from './answer-values.js';
 import { isAnswerableFieldType, type FieldType } from './field-types.js';
 import { MIN_RANKING_OPTIONS, URL_PARAM_PATTERN } from './fields.js';
 import type { FormSchema, FormSettings } from './form-schema.js';
+import { findLogicPublishIssues } from './logic-publish.js';
 
 /** What to say when a field's `label` is empty, or `null` where it may be. */
 function missingLabelMessage(type: FieldType): string | null {
@@ -104,6 +105,7 @@ export function findPublishIssues(schema: FormSchema): ValidationIssue[] {
     });
   });
 
+  issues.push(...findLogicPublishIssues(schema));
   return issues;
 }
 
@@ -136,12 +138,15 @@ export function responseLimitReached(
   return null;
 }
 
-/** Every picture a form's questions show: picture-choice options and image blocks. */
-export function schemaImageUrls(schema: Pick<FormSchema, 'fields'>): string[] {
-  const urls = schema.fields.flatMap((field) => {
-    if (field.type === 'picture_choice') return field.options.map((option) => option.imageUrl);
-    if (field.type === 'image') return [field.imageUrl];
-    return [];
-  });
+/** Every picture a form shows: picture-choice options, image blocks and end screens. */
+export function schemaImageUrls(schema: Pick<FormSchema, 'fields' | 'logic'>): string[] {
+  const urls = [
+    ...schema.fields.flatMap((field) => {
+      if (field.type === 'picture_choice') return field.options.map((option) => option.imageUrl);
+      if (field.type === 'image') return [field.imageUrl];
+      return [];
+    }),
+    ...schema.logic.endScreens.map((screen) => screen.imageUrl),
+  ];
   return [...new Set(urls.filter((url): url is string => url !== undefined))];
 }

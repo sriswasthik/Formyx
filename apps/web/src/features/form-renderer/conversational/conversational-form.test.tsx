@@ -1,5 +1,6 @@
 import {
   createDefaultTheme,
+  createDefaultLogic,
   createEmptyForm,
   createField,
   type Field,
@@ -25,7 +26,8 @@ const notes: Field = { ...createField('long_text'), id: 'notes', label: 'Anythin
 const schema: FormSchema = {
   ...createEmptyForm(),
   fields: [name, pick, notes],
-  settings: { submitButtonText: 'Send', successMessage: 'Thanks!' },
+  settings: { ...createEmptyForm().settings, submitButtonText: 'Send' },
+  logic: createDefaultLogic('Thanks!'),
 };
 
 const base = createDefaultTheme();

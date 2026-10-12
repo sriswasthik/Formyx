@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import {
   answerableFields,
+  computeOutcome,
+  endScreenLabel,
   formatAnswer,
   type AnswerValue,
   type Field,
   type FormSchema,
+  type StoredOutcome,
   type WebhookAnswer,
+  type WebhookOutcome,
   type WebhookPayload,
 } from '@formyx/shared';
+import { toStoredOutcome } from '../services/public-form-service.js';
 
 interface FormInfo {
   id: string;
@@ -33,10 +38,31 @@ function answersFor(schema: FormSchema | null, answers: Record<string, unknown>)
   });
 }
 
+/** Where the response ended up, with names a receiver can show; null before outcomes. */
+function outcomeFor(
+  schema: FormSchema | null,
+  outcome: StoredOutcome | null,
+): WebhookOutcome | null {
+  if (!schema || !outcome) return null;
+  return {
+    endScreen: { id: outcome.endScreenId, name: endScreenLabel(schema, outcome.endScreenId) },
+    variables: schema.logic.variables.flatMap((variable) => {
+      const value = outcome.values[variable.id];
+      return value === undefined ? [] : [{ id: variable.id, name: variable.name, value }];
+    }),
+    quiz: outcome.quiz,
+  };
+}
+
 /** The event sent when a response is saved. Each webhook gets its own event id. */
 export function submissionPayload(
   form: FormInfo,
-  submission: { id: string; createdAt: string; answers: Record<string, unknown> },
+  submission: {
+    id: string;
+    createdAt: string;
+    answers: Record<string, unknown>;
+    outcome: StoredOutcome | null;
+  },
 ): WebhookPayload {
   return {
     id: randomUUID(),
@@ -47,6 +73,7 @@ export function submissionPayload(
       id: submission.id,
       createdAt: submission.createdAt,
       answers: answersFor(form.schema, submission.answers),
+      outcome: outcomeFor(form.schema, submission.outcome),
     },
   };
 }
@@ -158,6 +185,13 @@ export function testPayload(form: FormInfo): WebhookPayload {
     event: 'test',
     createdAt: now,
     form: { id: form.id, title: form.title },
-    submission: { id: 'test', createdAt: now, answers: answersFor(form.schema, answers) },
+    submission: {
+      id: 'test',
+      createdAt: now,
+      answers: answersFor(form.schema, answers),
+      outcome: form.schema
+        ? outcomeFor(form.schema, toStoredOutcome(computeOutcome(form.schema, answers)))
+        : null,
+    },
   };
 }

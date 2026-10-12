@@ -1,4 +1,5 @@
 import {
+  createDefaultLogic,
   createDefaultTheme,
   createEmptyForm,
   createField,
@@ -23,10 +24,8 @@ const name: Field = { ...createField('short_text'), label: 'Name', required: tru
 const schema: FormSchema = {
   ...createEmptyForm(),
   fields: [name, { ...contact, label: 'May we contact you?' }, email],
-  settings: {
-    submitButtonText: 'Send',
-    successMessage: 'Thanks, we got it.',
-  },
+  settings: { ...createEmptyForm().settings, submitButtonText: 'Send' },
+  logic: createDefaultLogic('Thanks, we got it.'),
 };
 
 type Props = Partial<React.ComponentProps<typeof FormView>>;

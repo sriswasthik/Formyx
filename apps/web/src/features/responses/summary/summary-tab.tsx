@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAnalytics } from '../use-responses';
+import { DropOffCard } from './drop-off-card';
 import { QuestionSummaryCard } from './question-summary';
 import { ResponsesChart } from './responses-chart';
 import { StatCards, StatCardsSkeleton } from './stat-cards';
@@ -61,7 +62,7 @@ export function SummaryTab({ form, onShare }: SummaryTabProps) {
     );
   }
 
-  const { totals, responsesPerDay, questions } = analytics.data;
+  const { totals, responsesPerDay, questions, dropOff } = analytics.data;
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,6 +76,8 @@ export function SummaryTab({ form, onShare }: SummaryTabProps) {
         onRangeChange={setRange}
         updating={analytics.isPlaceholderData}
       />
+
+      <DropOffCard dropOff={dropOff} />
 
       <section aria-labelledby="questions-heading" className="flex flex-col gap-4">
         <h2 id="questions-heading" className="text-16 font-semibold tracking-tight">

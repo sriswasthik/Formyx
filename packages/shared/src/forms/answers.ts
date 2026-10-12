@@ -1,5 +1,4 @@
 import { operatorNeedsValue, type Condition } from './conditions.js';
-import { isAnswerableFieldType } from './field-types.js';
 import type { Field } from './fields.js';
 import {
   isAddressAnswer,
@@ -171,21 +170,4 @@ export function evaluateVisibility(schema: FormSchema, answers: Answers): Set<st
     if (shown) visible.add(field.id);
   }
   return visible;
-}
-
-/**
- * Only the answers that count: those to visible questions that take an answer. Answers to
- * hidden, unknown or statement questions are dropped, and so are empty ones.
- */
-export function sanitizeAnswers(schema: FormSchema, answers: Answers): Record<string, AnswerValue> {
-  const visible = evaluateVisibility(schema, answers);
-  const kept: Record<string, AnswerValue> = {};
-  for (const field of schema.fields) {
-    const value = answers[field.id];
-    if (!visible.has(field.id) || !isAnswerableFieldType(field.type) || !isAnswered(value)) {
-      continue;
-    }
-    if (value !== undefined) kept[field.id] = value;
-  }
-  return kept;
 }

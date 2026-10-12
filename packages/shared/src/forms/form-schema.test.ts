@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { toValidationIssues } from '../errors.js';
 import type { Condition } from './conditions.js';
 import { createEmptyForm, createField } from './factories.js';
+import { createDefaultLogic } from './logic-factories.js';
 import { FIELD_TYPES } from './field-types.js';
 import type { Field } from './fields.js';
 import { formSchema, type FormSchema } from './form-schema.js';
@@ -54,7 +55,7 @@ describe('formSchema: valid forms', () => {
     const choice = createField('single_choice');
     const optionId = choice.options[0]?.id ?? '';
     const form: FormSchema = {
-      version: 2,
+      version: 3,
       fields: [
         rating,
         choice,
@@ -73,10 +74,11 @@ describe('formSchema: valid forms', () => {
       ],
       settings: {
         submitButtonText: 'Send',
-        successMessage: 'Thanks',
+        saveProgress: 'email',
         closeAfterResponses: 100,
         closeAt: '2026-12-31T23:59:00+01:00',
       },
+      logic: createDefaultLogic(),
     };
 
     expect(issues(form)).toBeNull();
@@ -92,7 +94,10 @@ describe('formSchema: valid forms', () => {
 describe('formSchema: invalid forms', () => {
   it('rejects other versions and missing parts', () => {
     expect(issues({ ...createEmptyForm(), version: 1 })?.[0]?.path).toBe('version');
-    expect(issues({ version: 2, fields: [] })?.[0]?.path).toBe('settings');
+    expect(issues({ version: 3, fields: [] })?.map((issue) => issue.path)).toEqual([
+      'settings',
+      'logic',
+    ]);
     expect(issues(null)).not.toBeNull();
   });
 
@@ -166,13 +171,13 @@ describe('formSchema: invalid forms', () => {
       ...createEmptyForm(),
       settings: {
         submitButtonText: '  ',
-        successMessage: '',
+        saveProgress: 'sometimes',
         closeAt: 'next friday',
       },
     };
     expect(issues(form)?.map((issue) => issue.path)).toEqual([
       'settings.submitButtonText',
-      'settings.successMessage',
+      'settings.saveProgress',
       'settings.closeAt',
     ]);
   });
