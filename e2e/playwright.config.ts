@@ -66,6 +66,7 @@ export default defineConfig({
         // Every run signs up new users and sends invites; keep the limits out of the way.
         AUTH_RATE_LIMIT_MAX: '1000',
         INVITE_RATE_LIMIT_MAX: '1000',
+        API_RATE_LIMIT_MAX: '100000',
         // Emails land here, so tests can follow invite links.
         EMAIL_OUTBOX_DIR: OUTBOX_DIR,
         // Tests receive webhooks on 127.0.0.1.

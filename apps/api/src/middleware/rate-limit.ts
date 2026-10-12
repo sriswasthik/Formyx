@@ -2,6 +2,7 @@ import type { Request } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import type { Env } from '../config/env.js';
 import { AppError } from '../lib/app-error.js';
+import { readSessionToken, verifySessionToken } from '../lib/session.js';
 
 const WINDOW_MS = 15 * 60 * 1000;
 
@@ -35,6 +36,14 @@ export function createAuthRateLimiters(env: Pick<Env, 'AUTH_RATE_LIMIT_MAX'>) {
 
 /** Views are cheap and recorded once per browser session, so their limit is generous. */
 const VIEW_LIMIT = 100;
+/** Loading a form: each visit loads it once or twice (again after unlocking it). */
+const LOAD_LIMIT = 300;
+/**
+ * Link previews: the site's edge function reads them for every visit from a crawler, and the
+ * responses are cached, so the limit is generous. The image is drawn on the server, so fewer.
+ */
+const META_LIMIT = 600;
+const PREVIEW_IMAGE_LIMIT = 120;
 const PROGRESS_LIMIT = 600;
 const DRAFT_SAVE_LIMIT = 10;
 const DRAFT_RESUME_LIMIT = 30;
@@ -74,6 +83,12 @@ export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_M
       'Too many responses from your network. Try again in a few minutes.',
     ),
     view: publicLimiter(VIEW_LIMIT, 'Too many requests. Try again in a few minutes.'),
+    load: publicLimiter(LOAD_LIMIT, 'Too many requests. Try again in a few minutes.'),
+    meta: publicLimiter(META_LIMIT, 'Too many requests. Try again in a few minutes.'),
+    previewImage: publicLimiter(
+      PREVIEW_IMAGE_LIMIT,
+      'Too many requests. Try again in a few minutes.',
+    ),
     /** A report per page and answer: room for long forms and several visits. */
     progress: publicLimiter(PROGRESS_LIMIT, 'Too many requests. Try again in a few minutes.'),
     /** Each save sends an email, so few are allowed. */
@@ -158,4 +173,43 @@ export function createWebhookTestRateLimiter() {
     (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
     'Too many test events. Try again in a few minutes.',
   );
+}
+
+/** Coming back from Google or Notion after connecting, per IP. */
+const OAUTH_CALLBACK_LIMIT = 30;
+
+export function createOAuthCallbackRateLimiter() {
+  return limitedTo(
+    OAUTH_CALLBACK_LIMIT,
+    (req) => ipKeyGenerator(req.ip ?? ''),
+    'Too many requests. Try again in a few minutes.',
+  );
+}
+
+/** Marks the API-wide limiter, so tests can tell it from an endpoint's own. */
+export const API_WIDE = Symbol('apiWide');
+
+/**
+ * A ceiling on everything else: per signed-in user (by a valid session), or per IP for
+ * everyone else. It is far above what the app sends, and only stops floods and scripts.
+ * Public form endpoints and health checks have their own limits (per form) instead, since
+ * a classroom or office filling in a form shares one IP, and so does the site's edge function.
+ */
+export function createApiRateLimiter(env: Pick<Env, 'API_RATE_LIMIT_MAX' | 'JWT_SECRET'>) {
+  const limiter = rateLimit({
+    windowMs: WINDOW_MS,
+    limit: env.API_RATE_LIMIT_MAX,
+    skip: (req) => req.path === '/health' || req.path.startsWith('/public/'),
+    keyGenerator: (req) => {
+      const token = readSessionToken(req);
+      const userId = token ? verifySessionToken(token, env.JWT_SECRET) : null;
+      return userId ? `user:${userId}` : ipKeyGenerator(req.ip ?? '');
+    },
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new AppError(429, 'RATE_LIMITED', 'Too many requests. Try again in a few minutes.'));
+    },
+  });
+  return Object.assign(limiter, { [API_WIDE]: true });
 }

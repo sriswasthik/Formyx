@@ -30,6 +30,7 @@ function testEnv(env: Record<string, string>) {
     AUTH_RATE_LIMIT_MAX: '1000',
     SUBMISSION_RATE_LIMIT_MAX: '1000',
     INVITE_RATE_LIMIT_MAX: '1000',
+    API_RATE_LIMIT_MAX: '100000',
     // Test receivers listen on 127.0.0.1.
     WEBHOOK_ALLOW_PRIVATE_URLS: 'true',
     APP_URL: 'https://app.formyx.test',

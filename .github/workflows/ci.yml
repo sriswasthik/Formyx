@@ -47,6 +47,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Known high or critical advisories in any dependency, tooling included. Fix them with
+      # an update or an override in pnpm-workspace.yaml.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
       - name: Check formatting
         run: pnpm format:check
 

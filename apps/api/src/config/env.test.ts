@@ -17,6 +17,7 @@ describe('parseEnv', () => {
       TRUST_PROXY: false,
       BCRYPT_COST: 12,
       AUTH_RATE_LIMIT_MAX: 10,
+      API_RATE_LIMIT_MAX: 3000,
       SUBMISSION_RATE_LIMIT_MAX: 10,
       INVITE_RATE_LIMIT_MAX: 20,
       WEBHOOK_ALLOW_PRIVATE_URLS: false,

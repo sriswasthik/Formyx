@@ -88,6 +88,11 @@ export const envSchema = z.object({
   /** Allowed invite emails (new or sent again) per user per 15 minutes. */
   INVITE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
   /**
+   * Allowed API requests per signed-in user (or per IP when signed out) per 15 minutes, for
+   * everything outside the public form endpoints. A ceiling for floods, far above normal use.
+   */
+  API_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(3000),
+  /**
    * Lets webhooks use plain http and reach localhost and private networks. For development
    * only: on a server it would let anyone with a form send requests inside your network.
    */

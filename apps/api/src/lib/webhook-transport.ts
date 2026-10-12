@@ -19,6 +19,7 @@ const BLOCKED_V4: [string, number][] = [
   ['172.16.0.0', 12],
   ['192.0.0.0', 24],
   ['192.0.2.0', 24], // documentation
+  ['192.88.99.0', 24], // 6to4 relays
   ['192.168.0.0', 16],
   ['198.18.0.0', 15], // benchmarking
   ['198.51.100.0', 24],
@@ -31,7 +32,14 @@ const BLOCKED_V6: [string, number][] = [
   ['::1', 128],
   // No ::ffff:0:0/96 rule: BlockList checks IPv4 addresses against IPv6 rules in their
   // mapped form, so it would block every IPv4 address. Mapped addresses are converted below.
+  // IPv4-compatible addresses (::a.b.c.d, deprecated): no public host uses them.
+  ['::', 96],
   ['64:ff9b::', 96], // NAT64
+  ['64:ff9b:1::', 48], // local-use NAT64
+  ['100::', 64], // discard
+  // Tunnels that carry an IPv4 address inside (6to4, Teredo), which could be a private one.
+  ['2001::', 32],
+  ['2002::', 16],
   ['2001:db8::', 32], // documentation
   ['fc00::', 7], // unique local
   ['fe80::', 10], // link-local

@@ -14,6 +14,7 @@ import { encryptionFromEnv } from '../lib/encryption.js';
 import { routeParam } from '../lib/route-param.js';
 import { readSessionToken, verifySession } from '../lib/session.js';
 import { getAuth } from '../middleware/auth.js';
+import { createOAuthCallbackRateLimiter } from '../middleware/rate-limit.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormSettingsService } from '../services/form-settings-service.js';
 import { createPasswordHasher } from '../lib/password.js';
@@ -119,8 +120,9 @@ export function createIntegrationsRouter(
       );
       res.redirect(303, `${page}?${params.toString()}`);
     };
-  router.get('/integrations/google/callback', callback('google_sheets'));
-  router.get('/integrations/notion/callback', callback('notion'));
+  const limitCallbacks = createOAuthCallbackRateLimiter();
+  router.get('/integrations/google/callback', limitCallbacks, callback('google_sheets'));
+  router.get('/integrations/notion/callback', limitCallbacks, callback('notion'));
 
   router.patch('/forms/:formId/integrations/:integrationId', ...realEditors, async (req, res) => {
     const { paused } = updateIntegrationInputSchema.parse(req.body);
