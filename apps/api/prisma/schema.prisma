@@ -34,6 +34,10 @@ model User {
   passwordVersion Int                @default(0) @map("password_version")
   /// The person's own preferences (see `accountPreferencesSchema` in packages/shared).
   preferences     Json               @default("{}")
+  /// May use /admin. Set only from the command line (`admin:grant`), never through the API.
+  isAdmin         Boolean            @default(false) @map("is_admin")
+  /// When a workspace they own started its free trial: one trial per account.
+  trialUsedAt     DateTime?          @map("trial_used_at")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
   memberships     Membership[]
@@ -44,6 +48,7 @@ model User {
   brandKits       BrandKit[]
   integrations    Integration[]
   feedback        Feedback[]
+  adminActions    AdminAction[]
 
   @@map("users")
 }
@@ -68,25 +73,41 @@ enum PlanStatus {
 }
 
 model Workspace {
-  id                String       @id @default(cuid())
-  name              String
-  slug              String       @unique
-  /// No payments yet: every workspace is on FREE. ENTITLEMENTS_MODE decides whether it matters.
-  plan              Plan         @default(FREE)
-  planStatus        PlanStatus   @default(ACTIVE) @map("plan_status")
+  id                 String          @id @default(cuid())
+  name               String
+  slug               String          @unique
+  /// What the workspace pays for (or is trying), kept in step with its subscription by
+  /// Razorpay's webhooks. ENTITLEMENTS_MODE decides whether it matters.
+  plan               Plan            @default(FREE)
+  planStatus         PlanStatus      @default(ACTIVE) @map("plan_status")
   /// When a TRIALING plan falls back to FREE.
-  trialEndsAt       DateTime?    @map("trial_ends_at")
+  trialEndsAt        DateTime?       @map("trial_ends_at")
+  /// When a PAST_DUE plan falls back to FREE, if payment has not come by then.
+  graceEndsAt        DateTime?       @map("grace_ends_at")
+  /// A plan given by an admin (testers, friends), on top of what is paid for, until
+  /// `complimentaryUntil`.
+  complimentaryPlan  Plan?           @map("complimentary_plan")
+  complimentaryUntil DateTime?       @map("complimentary_until")
+  /// The Razorpay customer that pays for it, made with its first subscription.
+  razorpayCustomerId String?         @unique @map("razorpay_customer_id")
+  /// The plan it had before it last fell back to FREE, and when: shown as "what changed"
+  /// until the owner dismisses it or upgrades.
+  downgradedFrom     Plan?           @map("downgraded_from")
+  downgradedAt       DateTime?       @map("downgraded_at")
   /// The brand kit new forms start with. Cleared when that kit is deleted.
-  defaultBrandKitId String?      @unique @map("default_brand_kit_id")
+  defaultBrandKitId  String?         @unique @map("default_brand_kit_id")
   /// Time zone, date format and new forms' notifications (`workspacePreferencesSchema`).
-  preferences       Json         @default("{}")
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
-  memberships       Membership[]
-  forms             Form[]
-  invites           Invite[]
-  brandKits         BrandKit[]   @relation("WorkspaceBrandKits")
-  defaultBrandKit   BrandKit?    @relation("DefaultBrandKit", fields: [defaultBrandKitId], references: [id], onDelete: SetNull)
+  preferences        Json            @default("{}")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  memberships        Membership[]
+  forms              Form[]
+  invites            Invite[]
+  brandKits          BrandKit[]      @relation("WorkspaceBrandKits")
+  defaultBrandKit    BrandKit?       @relation("DefaultBrandKit", fields: [defaultBrandKitId], references: [id], onDelete: SetNull)
+  subscriptions      Subscription[]
+  payments           Payment[]
+  billingNotices     BillingNotice[]
 
   @@map("workspaces")
 }
@@ -482,4 +503,139 @@ model Feedback {
 
   @@index([createdAt(sort: Desc)])
   @@map("feedback")
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+
+  @@map("billing_interval")
+}
+
+/// A Razorpay subscription's status, as Razorpay names it.
+enum SubscriptionStatus {
+  /// Made, not paid for yet: Checkout has not finished.
+  CREATED
+  /// The payment method is authorised; the first charge is on its way.
+  AUTHENTICATED
+  ACTIVE
+  /// A renewal failed; Razorpay is retrying.
+  PENDING
+  /// Every retry failed.
+  HALTED
+  CANCELLED
+  /// Every billing cycle has been charged.
+  COMPLETED
+  EXPIRED
+  PAUSED
+
+  @@map("subscription_status")
+}
+
+/// A workspace's Razorpay subscription. Razorpay's webhooks keep it, and the workspace's plan,
+/// up to date; the client is never trusted to say a payment went through.
+model Subscription {
+  id                     String             @id @default(cuid())
+  workspaceId            String             @map("workspace_id")
+  razorpaySubscriptionId String             @unique @map("razorpay_subscription_id")
+  razorpayCustomerId     String?            @map("razorpay_customer_id")
+  plan                   Plan
+  interval               BillingInterval
+  status                 SubscriptionStatus @default(CREATED)
+  currentPeriodStart     DateTime?          @map("current_period_start")
+  currentPeriodEnd       DateTime?          @map("current_period_end")
+  /// Ends when the period it is in ends, instead of renewing.
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  /// Why the owner cancelled, if they said.
+  cancelReason           String?            @map("cancel_reason")
+  /// When Checkout's signature was checked on the server. The plan still waits for the
+  /// webhook: a signature only says Checkout finished.
+  verifiedAt             DateTime?          @map("verified_at")
+  /// When the Razorpay event behind the current status happened, so an older event that
+  /// arrives late does not undo a newer one.
+  lastEventAt            DateTime?          @map("last_event_at")
+  /// Who started it; kept, without them, if they delete their account.
+  createdById            String?            @map("created_by_id")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  workspace              Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payments               Payment[]
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("subscriptions")
+}
+
+enum PaymentStatus {
+  PAID
+  FAILED
+
+  @@map("payment_status")
+}
+
+/// A charge for a subscription, paid or failed.
+model Payment {
+  id                String        @id @default(cuid())
+  workspaceId       String        @map("workspace_id")
+  subscriptionId    String?       @map("subscription_id")
+  razorpayPaymentId String        @unique @map("razorpay_payment_id")
+  /// In paise.
+  amount            Int
+  currency          String
+  status            PaymentStatus
+  invoiceId         String?       @map("invoice_id")
+  invoiceUrl        String?       @map("invoice_url")
+  /// Razorpay's reason for a failed payment.
+  failureReason     String?       @map("failure_reason")
+  paidAt            DateTime?     @map("paid_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  workspace         Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("payments")
+}
+
+/// Every Razorpay webhook received, by Razorpay's event id: a repeat is skipped. Processed by
+/// the job queue, so the webhook answers at once.
+model RazorpayEvent {
+  /// Razorpay's X-Razorpay-Event-Id.
+  id          String    @id
+  type        String
+  payload     Json
+  receivedAt  DateTime  @default(now()) @map("received_at")
+  processedAt DateTime? @map("processed_at")
+  /// Why processing failed, the last time it did.
+  error       String?
+
+  @@index([receivedAt(sort: Desc)])
+  @@map("razorpay_events")
+}
+
+/// A billing email or warning sent once: per workspace, kind (e.g. trial_reminder_7) and
+/// period (the trial's end, a billing period's start).
+model BillingNotice {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  kind        String
+  periodKey   String    @map("period_key")
+  sentAt      DateTime  @default(now()) @map("sent_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, kind, periodKey])
+  @@map("billing_notices")
+}
+
+/// What an admin did in /admin, kept for the record.
+model AdminAction {
+  id          String   @id @default(cuid())
+  /// Kept, without them, if the admin deletes their account.
+  adminId     String?  @map("admin_id")
+  workspaceId String?  @map("workspace_id")
+  action      String
+  details     Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  admin       User?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("admin_actions")
 }
