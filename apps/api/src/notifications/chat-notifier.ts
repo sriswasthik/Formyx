@@ -10,9 +10,10 @@ import type { WebhookTransport } from '../lib/webhook-transport.js';
 import { parsePublishedTheme } from '../services/form-service.js';
 import { createSubmissionService } from '../services/submission-service.js';
 import { chatMessageBody } from './chat-message.js';
+import { formAllows } from '../services/entitlement-service.js';
 
 interface ChatNotifierDependencies {
-  env: Pick<Env, 'APP_URL'>;
+  env: Pick<Env, 'APP_URL' | 'ENTITLEMENTS_MODE'>;
   logger: Logger;
   prisma: Database;
   events: EventBus;
@@ -101,8 +102,11 @@ export function registerChatNotifier({
         where: { id: formId },
         select: { slackWebhookEncrypted: true, discordWebhookEncrypted: true },
       });
+      if (!form?.slackWebhookEncrypted && !form?.discordWebhookEncrypted) return;
+      // Paused, with the channels kept, while the plan lacks it.
+      if (!(await formAllows(prisma, env.ENTITLEMENTS_MODE, formId, 'chat_notifications'))) return;
       for (const service of CHAT_SERVICES) {
-        if (!form?.[COLUMN[service]]) continue;
+        if (!form[COLUMN[service]]) continue;
         await jobs.send('chat.post', { formId, service, submissionId: submission.id, change });
       }
     } catch (error) {

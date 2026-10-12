@@ -7,6 +7,7 @@ import { createEntitlementService } from '../services/entitlement-service.js';
 import { createAccountRouter } from './account.js';
 import { createAnalyticsRouter } from './analytics.js';
 import { createAuthRouter } from './auth.js';
+import { createBillingRouter } from './billing.js';
 import { createBrandKitsRouter } from './brand-kits.js';
 import { createFeedbackRouter } from './feedback.js';
 import { createFormSettingsRouter } from './form-settings.js';
@@ -16,6 +17,7 @@ import { createHealthRouter } from './health.js';
 import { createNotificationsRouter } from './notifications.js';
 import { createPinCodesRouter } from './pin-codes.js';
 import { createPublicFormsRouter } from './public-forms.js';
+import { createRazorpayWebhookRouter } from './razorpay-webhook.js';
 import { createRealtimeRouter } from './realtime.js';
 import { createSubmissionsRouter } from './submissions.js';
 import { createUploadsRouter } from './uploads.js';
@@ -54,6 +56,8 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createWebhooksRouter(deps, guards));
   router.use(createIntegrationsRouter(deps, guards));
   router.use(createFeedbackRouter(deps, guards));
+  router.use(createBillingRouter(deps, guards));
+  router.use(createRazorpayWebhookRouter(deps));
 
   return router;
 }

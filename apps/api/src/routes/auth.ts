@@ -1,6 +1,7 @@
-import { loginInputSchema, registerInputSchema } from '@formyx/shared';
+import { loginInputSchema, registerInputSchema, TRIAL_PLAN } from '@formyx/shared';
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
+import { trialsStart } from '../billing/trial.js';
 import { createDemoAccounts } from '../demo/demo-seed.js';
 import { AppError } from '../lib/app-error.js';
 import { createPasswordHasher } from '../lib/password.js';
@@ -14,7 +15,11 @@ export function createAuthRouter(
   { requireAuth }: AuthGuards,
 ): Router {
   const router = Router();
-  const auth = createAuthService({ prisma, passwords: createPasswordHasher(env.BCRYPT_COST) });
+  const auth = createAuthService({
+    prisma,
+    passwords: createPasswordHasher(env.BCRYPT_COST),
+    mode: env.ENTITLEMENTS_MODE,
+  });
   const limit = createAuthRateLimiters(env);
   const demo = createDemoAccounts(prisma);
 
@@ -36,10 +41,11 @@ export function createAuthRouter(
   router.post('/register', limit.register, async (req, res) => {
     const me = await auth.register(registerInputSchema.parse(req.body));
     await signIn(res, me.user.id);
-    analytics.track(
-      { name: 'signed_up' },
-      { userId: me.user.id, workspaceId: me.workspaces[0]?.id },
-    );
+    const actor = { userId: me.user.id, workspaceId: me.workspaces[0]?.id };
+    analytics.track({ name: 'signed_up' }, actor);
+    if (trialsStart(env.ENTITLEMENTS_MODE)) {
+      analytics.track({ name: 'trial_started', properties: { targetPlan: TRIAL_PLAN } }, actor);
+    }
     res.status(201).json(me);
   });
 

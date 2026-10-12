@@ -34,6 +34,8 @@ describe('parseEnv', () => {
       GOOGLE_SHEETS_URL: 'https://sheets.googleapis.com',
       NOTION_API_URL: 'https://api.notion.com',
       POSTHOG_HOST: 'https://eu.i.posthog.com',
+      RAZORPAY_API_URL: 'https://api.razorpay.com',
+      ENFORCEMENT_MODE: 'soft',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
     expect(parseEnv(REQUIRED).ENCRYPTION_KEYS).toBeUndefined();

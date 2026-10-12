@@ -1,5 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { slugify, type LoginInput, type MeResponse, type RegisterInput } from '@formyx/shared';
+import {
+  slugify,
+  type EntitlementsMode,
+  type LoginInput,
+  type MeResponse,
+  type RegisterInput,
+} from '@formyx/shared';
+import { trialPlan, trialsStart } from '../billing/trial.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import type { PasswordHasher } from '../lib/password.js';
@@ -88,9 +95,12 @@ export interface AuthService {
 export function createAuthService({
   prisma,
   passwords,
+  mode = 'all_unlocked',
 }: {
   prisma: Database;
   passwords: PasswordHasher;
+  /** Where plans are enforced, the first workspace starts a free trial. */
+  mode?: EntitlementsMode;
 }): AuthService {
   async function isEmailRegistered(email: string): Promise<boolean> {
     return (await prisma.user.count({ where: { email } })) > 0;
@@ -104,12 +114,16 @@ export function createAuthService({
 
       for (let attempt = 1; ; attempt++) {
         try {
+          const now = new Date();
+          const trial = trialsStart(mode);
           // A nested create runs in one transaction: all three rows are written, or none.
           const user = await prisma.user.create({
             data: {
               name,
               email,
               passwordHash,
+              // The personal workspace takes the account's one free trial.
+              ...(trial && { trialUsedAt: now }),
               memberships: {
                 create: {
                   role: 'OWNER',
@@ -117,6 +131,7 @@ export function createAuthService({
                     create: {
                       name: personalWorkspaceName(name),
                       slug: personalWorkspaceSlug(name),
+                      ...(trial && trialPlan(now)),
                     },
                   },
                 },

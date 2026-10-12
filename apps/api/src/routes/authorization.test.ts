@@ -8,12 +8,13 @@ import {
   type Role,
 } from '@formyx/shared';
 import request from 'supertest';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createSecretBox } from '../lib/webhook-signature.js';
 import { createTestApp, TEST_JWT_SECRET } from '../test/create-test-app.js';
 import { matchesRoute, recordRoutes } from '../test/route-inventory.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
 import { createFakeCloudinary } from '../test/fake-cloudinary.js';
+import { checkoutSignature, startFakeRazorpay } from '../test/fake-razorpay.js';
 import { createPublishedForm, createSubmission } from '../test/responses.js';
 import { createTeam, requestAs } from '../test/team.js';
 import { closedPort } from '../test/webhook-receiver.js';
@@ -25,10 +26,20 @@ import { closedPort } from '../test/webhook-receiver.js';
  * or to SIGNED_IN or PUBLIC below: the last test fails for an endpoint in none of them.
  */
 
+// Billing talks to a fake Razorpay, so owners' calls get as far as a real checkout would.
+const razorpay = await startFakeRazorpay();
+afterAll(async () => {
+  await razorpay.close();
+});
+
 const { result: app, routes } = recordRoutes(() =>
   createTestApp(
     // Configured, so connecting reaches the point of sending people to Google.
-    { GOOGLE_CLIENT_ID: 'google-client', GOOGLE_CLIENT_SECRET: 'google-secret' },
+    {
+      GOOGLE_CLIENT_ID: 'google-client',
+      GOOGLE_CLIENT_SECRET: 'google-secret',
+      ...razorpay.env,
+    },
     { storage: createFakeCloudinary().storage },
   ),
 );
@@ -414,7 +425,97 @@ const ENDPOINTS: Endpoint[] = [
     ok: 200,
     call: (as, f) => as.put(`${workspace(f)}/default-brand-kit`, { brandKitId: f.brandKitId }),
   },
+  // Billing: owners only
+  {
+    name: 'read billing',
+    minRole: 'OWNER',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/billing`),
+  },
+  {
+    name: 'list payments',
+    minRole: 'OWNER',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/billing/payments`),
+  },
+  {
+    name: 'start a subscription',
+    minRole: 'OWNER',
+    ok: 201,
+    prepare: (f) => prisma.subscription.deleteMany({ where: { workspaceId: f.workspaceId } }),
+    call: (as, f) =>
+      as.post(`${workspace(f)}/billing/subscribe`, { plan: 'PRO', interval: 'monthly' }),
+  },
+  {
+    name: 'confirm a checkout',
+    minRole: 'OWNER',
+    ok: 200,
+    prepare: (f) => runningSubscription(f, { status: 'CREATED' }),
+    call: (as, f) =>
+      as.post(`${workspace(f)}/billing/verify`, {
+        razorpayPaymentId: 'pay_matrix',
+        razorpaySubscriptionId: MATRIX_SUBSCRIPTION,
+        razorpaySignature: checkoutSignature('pay_matrix', MATRIX_SUBSCRIPTION),
+      }),
+  },
+  {
+    name: 'cancel the plan',
+    minRole: 'OWNER',
+    ok: 200,
+    prepare: (f) => runningSubscription(f),
+    call: (as, f) => as.post(`${workspace(f)}/billing/cancel`, {}),
+  },
+  {
+    name: 'resume the plan',
+    minRole: 'OWNER',
+    ok: 201,
+    prepare: (f) => runningSubscription(f, { cancelAtPeriodEnd: true }),
+    call: (as, f) => as.post(`${workspace(f)}/billing/resume`),
+  },
+  {
+    name: 'change the plan',
+    minRole: 'OWNER',
+    ok: 200,
+    prepare: (f) => runningSubscription(f),
+    call: (as, f) =>
+      as.post(`${workspace(f)}/billing/change-plan`, { plan: 'BUSINESS', interval: 'monthly' }),
+  },
+  {
+    name: 'dismiss what a downgrade changed',
+    minRole: 'OWNER',
+    ok: 204,
+    call: (as, f) => as.post(`${workspace(f)}/billing/dismiss-downgrade`),
+  },
 ];
+
+const MATRIX_SUBSCRIPTION = 'sub_matrix';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The workspace's one subscription, running on Pro (here and in the fake Razorpay). */
+async function runningSubscription(
+  f: Fixture,
+  data: { status?: 'CREATED' | 'ACTIVE'; cancelAtPeriodEnd?: boolean } = {},
+) {
+  await prisma.subscription.deleteMany({ where: { workspaceId: f.workspaceId } });
+  await prisma.subscription.create({
+    data: {
+      workspaceId: f.workspaceId,
+      razorpaySubscriptionId: MATRIX_SUBSCRIPTION,
+      plan: 'PRO',
+      interval: 'MONTHLY',
+      status: data.status ?? 'ACTIVE',
+      cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
+      currentPeriodStart: new Date(Date.now() - DAY_MS),
+      currentPeriodEnd: new Date(Date.now() + 29 * DAY_MS),
+    },
+  });
+  razorpay.subscriptions.set(MATRIX_SUBSCRIPTION, {
+    id: MATRIX_SUBSCRIPTION,
+    plan_id: 'plan_promonthly',
+    status: 'active',
+    total_count: 120,
+  });
+}
 
 type Caller = Role | 'OUTSIDER' | 'SIGNED_OUT';
 const CALLERS: Caller[] = ['OWNER', 'EDITOR', 'VIEWER', 'OUTSIDER', 'SIGNED_OUT'];
@@ -563,6 +664,11 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['GET', '/api/public/pincodes/500001'],
   ['GET', '/api/integrations/google/callback'],
   ['GET', '/api/integrations/notion/callback'],
+  [
+    'POST',
+    '/api/webhooks/razorpay',
+    'only Razorpay can sign it: a wrong signature costs one HMAC, under the API-wide limit',
+  ],
   ...(
     [
       ['GET', ''],

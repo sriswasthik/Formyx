@@ -52,6 +52,11 @@ export const INTEGRATION_FEATURE: Record<IntegrationKind, FeatureId> = {
   notion: 'notion',
 };
 
+/** The plan feature a stored integration needs. */
+export function storedIntegrationFeature(kind: StoredKind): FeatureId {
+  return INTEGRATION_FEATURE[KIND[kind]];
+}
+
 /** Why connecting didn't work, for the Integrations page to explain. */
 export type ConnectError = 'denied' | 'expired' | 'not_allowed' | 'failed';
 

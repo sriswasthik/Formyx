@@ -1,7 +1,8 @@
-import { readLiveSettings, type FormMeta } from '@formyx/shared';
+import { readLiveSettings, type EntitlementsMode, type FormMeta } from '@formyx/shared';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
 import { renderSocialImage } from '../lib/social-image.js';
+import { formAllows } from './entitlement-service.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
 
 /*
@@ -37,7 +38,11 @@ async function findBySlug(prisma: Database, slug: string) {
   return old ? prisma.form.findUnique({ where: { id: old.formId }, select }) : null;
 }
 
-export function createFormMetaService(prisma: Database, appUrl: string): FormMetaService {
+export function createFormMetaService(
+  prisma: Database,
+  appUrl: string,
+  mode: EntitlementsMode,
+): FormMetaService {
   const images = new Map<string, Buffer>();
 
   async function load(slug: string) {
@@ -46,8 +51,17 @@ export function createFormMetaService(prisma: Database, appUrl: string): FormMet
     if (!form || !schema || !form.publishedAt) {
       throw new AppError(404, 'NOT_FOUND', 'Form not found');
     }
-    const sharing = readLiveSettings(form.liveSettings).sharing;
-    const access = readLiveSettings(form.liveSettings).access;
+    const settings = readLiveSettings(form.liveSettings);
+    const { access } = settings;
+    let { sharing } = settings;
+    // A form's own image and icon need the plan; without it, the generated ones show.
+    if (
+      (sharing.socialImageUrl || sharing.faviconUrl) &&
+      !(await formAllows(prisma, mode, form.id, 'custom_social'))
+    ) {
+      const { socialImageUrl: _image, faviconUrl: _icon, ...rest } = sharing;
+      sharing = rest;
+    }
     return {
       form,
       schema,

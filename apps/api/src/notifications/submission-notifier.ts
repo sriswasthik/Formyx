@@ -5,13 +5,14 @@ import type { EventBus } from '../lib/events.js';
 import type { JobQueue } from '../jobs/queue.js';
 import type { Encryption } from '../lib/encryption.js';
 import type { Database } from '../lib/prisma.js';
+import { formAllows } from '../services/entitlement-service.js';
 import { createNotificationService } from '../services/notification-service.js';
 import { createSubmissionService } from '../services/submission-service.js';
 import { queueEmails } from './email-jobs.js';
 import { renderSubmissionEmail } from './submission-email.js';
 
 interface NotifierDependencies {
-  env: Pick<Env, 'APP_URL'>;
+  env: Pick<Env, 'APP_URL' | 'ENTITLEMENTS_MODE'>;
   logger: Logger;
   prisma: Database;
   jobs: JobQueue;
@@ -46,9 +47,15 @@ export function registerSubmissionNotifier({
       const { notifications: settings } = readLiveSettings(form?.liveSettings);
       if (settings.frequency === 'daily') return;
       const members = await notifications.recipients(formId);
+      // Addresses beyond the members need the plan; without it, only members hear.
+      const extras =
+        settings.emails.length > 0 &&
+        (await formAllows(prisma, env.ENTITLEMENTS_MODE, formId, 'extra_recipients'))
+          ? settings.emails
+          : [];
       // Each address once, members first.
       const recipients = [
-        ...new Set([...members.map(({ email }) => email), ...settings.emails].map(normalizeEmail)),
+        ...new Set([...members.map(({ email }) => email), ...extras].map(normalizeEmail)),
       ];
       if (recipients.length === 0) return;
 

@@ -1,5 +1,7 @@
 import {
+  effectivePlan,
   FEATURES,
+  hasFeature,
   missingFeatures,
   resolveEntitlements,
   type Entitlements,
@@ -26,6 +28,36 @@ export function upgradeRequired(features: FeatureId[]): AppError {
   });
 }
 
+/** The workspace columns its plan comes from (see `effectivePlan`). */
+export const WORKSPACE_BILLING_SELECT = {
+  plan: true,
+  planStatus: true,
+  trialEndsAt: true,
+  graceEndsAt: true,
+  complimentaryPlan: true,
+  complimentaryUntil: true,
+} as const;
+
+/**
+ * Whether the workspace that owns `formId` may use `featureId` right now. Work a feature does
+ * in the background (emails, chat posts, syncing) checks this as it happens: after a plan
+ * ends it pauses, with its settings kept for when the plan comes back.
+ */
+export async function formAllows(
+  prisma: Database,
+  mode: EntitlementsMode,
+  formId: string,
+  featureId: FeatureId,
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (mode === 'all_unlocked') return true;
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    select: { workspace: { select: WORKSPACE_BILLING_SELECT } },
+  });
+  return form ? hasFeature(effectivePlan(form.workspace, now), featureId) : false;
+}
+
 export function createEntitlementService(
   prisma: Database,
   mode: EntitlementsMode,
@@ -34,7 +66,7 @@ export function createEntitlementService(
   async function forWorkspace(workspaceId: string): Promise<Entitlements> {
     const billing = await prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: { plan: true, planStatus: true, trialEndsAt: true },
+      select: WORKSPACE_BILLING_SELECT,
     });
     if (!billing) throw new AppError(404, 'NOT_FOUND', 'Workspace not found');
     return resolveEntitlements(billing, mode, now());

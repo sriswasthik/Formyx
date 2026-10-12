@@ -35,6 +35,8 @@ export function createUploadsRouter(
     secret: env.JWT_SECRET,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mailer,
+    entitlementsMode: env.ENTITLEMENTS_MODE,
+    enforcementMode: env.ENFORCEMENT_MODE,
   });
   const limit = createUploadRateLimiter();
 

@@ -11,10 +11,12 @@ import {
   normalizeEmail,
   readLiveSettings,
   readWorkspacePreferences,
+  resolveEntitlements,
   respondentEmailStep,
   sanitizeAnswers,
   storedAnswerSchema,
   submissionMetadataSchema,
+  themeForFeatures,
   toAnswerIssues,
   toPublicSchema,
   VERIFICATION_CODE_LENGTH,
@@ -22,6 +24,9 @@ import {
   type Answers,
   type ClosedFormDetails,
   type EditLoadResponse,
+  type EnforcementMode,
+  type Entitlements,
+  type EntitlementsMode,
   type FormSchema,
   type LiveSettings,
   type ProgressInput,
@@ -36,6 +41,7 @@ import {
 } from '@formyx/shared';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
+import { countResponses, workspaceUsagePeriod } from '../billing/usage.js';
 import { AppError } from '../lib/app-error.js';
 import {
   isUnlockTokenValid,
@@ -47,6 +53,7 @@ import type { Mailer } from '../lib/mailer.js';
 import type { PasswordHasher } from '../lib/password.js';
 import type { Database } from '../lib/prisma.js';
 import { renderCodeEmail } from '../notifications/code-email.js';
+import { WORKSPACE_BILLING_SELECT } from './entitlement-service.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
 import type { UploadChecks } from './upload-checks.js';
 
@@ -125,7 +132,7 @@ const publicSelect = {
   liveSettings: true,
   passwordHash: true,
   passwordVersion: true,
-  workspace: { select: { preferences: true } },
+  workspace: { select: { id: true, preferences: true, ...WORKSPACE_BILLING_SELECT } },
   _count: { select: { submissions: true } },
 } satisfies Prisma.FormSelect;
 
@@ -313,7 +320,15 @@ export interface PublicFormServiceOptions {
   passwords: Pick<PasswordHasher, 'verify' | 'verifyAgainstDummy'>;
   /** Sends the codes that confirm respondents' addresses. */
   mailer: Mailer;
+  /** Whether plans decide what a form may use (see ENTITLEMENTS_MODE). */
+  entitlementsMode: EntitlementsMode;
+  /** What happens once the workspace has had its plan's responses (see ENFORCEMENT_MODE). */
+  enforcementMode: EnforcementMode;
 }
+
+/** Shown, in `hard` enforcement, once a workspace has had its plan's responses this period. */
+export const RESPONSE_LIMIT_MESSAGE =
+  'This form isn’t taking responses right now. Please try again later.';
 
 export function createPublicFormService({
   prisma,
@@ -321,7 +336,24 @@ export function createPublicFormService({
   secret,
   passwords,
   mailer,
+  entitlementsMode,
+  enforcementMode,
 }: PublicFormServiceOptions): PublicFormService {
+  /**
+   * Whether new visitors are turned away for the response limit: only in `hard` enforcement,
+   * once the workspace has had its plan's responses this period. Responses from people already
+   * filling the form in are still saved (`submit` doesn't check), so none are lost.
+   */
+  async function overResponseLimit(form: LiveForm, entitlements: Entitlements): Promise<boolean> {
+    const limit = entitlements.limits.responses_per_month;
+    if (enforcementMode !== 'hard' || entitlementsMode !== 'enforced' || limit === null) {
+      return false;
+    }
+    const workspaceId = form.record.workspace.id;
+    const period = await workspaceUsagePeriod(prisma, workspaceId);
+    return (await countResponses(prisma, workspaceId, period)) >= limit;
+  }
+
   /** The form at `slug`, or at the address it had before its slug changed. */
   async function findRecord(db: Pick<Database, 'form' | 'formSlug'>, slug: string) {
     const current = await db.form.findUnique({ where: { slug }, select: publicSelect });
@@ -393,6 +425,16 @@ export function createPublicFormService({
       const form = await find(slug);
       const locale = localeOf(form);
       const state = availability(form);
+      const entitlements = resolveEntitlements(form.record.workspace, entitlementsMode);
+      if (state.state === 'open' && (await overResponseLimit(form, entitlements))) {
+        return {
+          status: 'closed',
+          slug: form.slug,
+          title: form.title,
+          locale,
+          message: RESPONSE_LIMIT_MESSAGE,
+        };
+      }
       if (state.state === 'closed') {
         const message = form.settings.access.closedMessage?.trim();
         return {
@@ -404,9 +446,11 @@ export function createPublicFormService({
         };
       }
       // Respondents see the theme as published; forms published before themes were
-      // snapshotted fall back to the current one.
-      const theme = parsePublishedTheme(form.record.publishedTheme ?? form.record.theme);
-      if (!theme) throw new Error('A published form has no theme');
+      // snapshotted fall back to the current one. Pro looks the plan no longer includes are
+      // drawn with the closest free ones; the saved theme stays as it is.
+      const published = parsePublishedTheme(form.record.publishedTheme ?? form.record.theme);
+      if (!published) throw new Error('A published form has no theme');
+      const { theme } = themeForFeatures(published, entitlements.features);
       if (state.state === 'not_open') {
         return {
           status: 'not_open',

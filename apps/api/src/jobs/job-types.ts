@@ -18,7 +18,7 @@ export interface JobPayloads {
    */
   'email.send': {
     formId: string | null;
-    kind: 'response' | 'autoresponder' | 'digest' | 'feedback';
+    kind: 'response' | 'autoresponder' | 'digest' | 'feedback' | 'billing';
     /** `EmailMessage[]` as JSON, sealed. */
     sealedMessages: string;
     recipients: number;
@@ -46,6 +46,8 @@ export interface JobPayloads {
   'integration.backfill': { formId: string; integrationId: string; fresh?: boolean };
   /** Digests, retention and clean-up, once an hour. */
   'upkeep.hourly': { hour: string };
+  /** A Razorpay webhook event, stored by id in razorpay_events, applied to billing. */
+  'billing.event': { eventId: string };
 }
 
 export type JobName = keyof JobPayloads;
@@ -112,6 +114,15 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     timeoutSeconds: 1800,
     singleQueued: true,
   },
+  // One at a time, so two events for one subscription are never applied at once. Payments
+  // matter: tries go on for about a day (Razorpay itself retries a webhook for 24 hours).
+  'billing.event': {
+    attempts: 10,
+    firstRetrySeconds: 30,
+    maxRetrySeconds: 3600 * 4,
+    concurrency: 1,
+    timeoutSeconds: 120,
+  },
 };
 
 /** What a failed job was about, for the failed-jobs list. */
@@ -143,7 +154,9 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
             ? 'the daily digest'
             : job.kind === 'feedback'
               ? 'feedback to the team'
-              : `the new response email${count === 1 ? '' : 's'}`;
+              : job.kind === 'billing'
+                ? 'a billing email to the workspace’s owners'
+                : `the new response email${count === 1 ? '' : 's'}`;
       return { formId: job.formId, summary: `Send ${what}` };
     }
     case 'chat.post': {
@@ -170,6 +183,8 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
         summary: job.fresh ? 'Copy every response again' : 'Copy every response so far',
       };
     }
+    case 'billing.event':
+      return { formId: null, summary: 'Apply a payment update from Razorpay' };
     default:
       return { formId: null, summary: 'Hourly upkeep: digests and deleting old responses' };
   }
