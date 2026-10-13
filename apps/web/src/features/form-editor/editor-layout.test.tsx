@@ -237,4 +237,11 @@ describe('EditorLayout', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Design Studio' })).not.toBeInTheDocument();
   });
+
+  it('opens on the Design Studio when the link asks for it', () => {
+    const form = makeFormDetail([createField('short_text')]);
+    renderWithEditor(<EditorLayout form={form} status={null} />, form, 'desktop', '?panel=design');
+    expect(screen.getByRole('tab', { name: 'Design', selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('main', { name: 'Design preview' })).toBeInTheDocument();
+  });
 });

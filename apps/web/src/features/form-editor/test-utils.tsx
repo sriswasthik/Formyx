@@ -64,6 +64,7 @@ export function renderWithEditor(
   ui: React.ReactElement,
   form: FormDetail = makeFormDetail(),
   screen: 'desktop' | 'mobile' = 'desktop',
+  search = '',
 ) {
   setScreen(screen);
   const store: EditorStore = createEditorStore({
@@ -84,7 +85,7 @@ export function renderWithEditor(
       },
       { path: '/app/forms', element: <p>All forms</p> },
     ],
-    { initialEntries: [`/app/forms/${form.id}/edit`] },
+    { initialEntries: [`/app/forms/${form.id}/edit${search}`] },
   );
   const result = render(<RouterProvider router={router} />);
   return { ...result, store, router, user: userEvent.setup() };
