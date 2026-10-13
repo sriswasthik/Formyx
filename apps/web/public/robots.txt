@@ -3,4 +3,5 @@ User-agent: *
 Allow: /
 Disallow: /app/
 Disallow: /invite/
+Disallow: /unsubscribe/
 Disallow: /api/

@@ -280,6 +280,14 @@ export const routes: RouteObject[] = [
       },
       // The link in an invite email; it works signed in or out.
       {
+        path: 'unsubscribe/:token',
+        handle: { title: 'Email preferences' } satisfies RouteHandle,
+        lazy: async () => {
+          const { UnsubscribePage } = await import('@/features/emails/unsubscribe-page');
+          return { Component: UnsubscribePage };
+        },
+      },
+      {
         path: 'invite/:token',
         handle: { title: 'Invite' } satisfies RouteHandle,
         lazy: async () => {
