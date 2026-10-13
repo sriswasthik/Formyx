@@ -79,6 +79,12 @@ export const accountPreferencesSchema = z.object({
    * under an id that can't be traced back to me. Off: nothing about me is sent.
    */
   productAnalytics: z.boolean(),
+  /**
+   * Emails that help me get going and remind me of what I set up: a welcome, my first form
+   * published and first response, a trial about to end, a nudge after two weeks away. Every
+   * one links to turning this off. Emails I need (sign-in codes, invites, payments) still come.
+   */
+  productEmails: z.boolean(),
 });
 export type AccountPreferences = z.infer<typeof accountPreferencesSchema>;
 
@@ -89,6 +95,7 @@ export function createDefaultAccountPreferences(): AccountPreferences {
     language: 'en',
     emailOnNewForms: false,
     productAnalytics: true,
+    productEmails: true,
   };
 }
 
@@ -117,3 +124,14 @@ export const soleOwnerDetailsSchema = z.object({
   workspaces: z.array(z.object({ id: z.string(), name: z.string() })),
 });
 export type SoleOwnerDetails = z.infer<typeof soleOwnerDetailsSchema>;
+
+/**
+ * `POST /api/public/unsubscribe` and `/resubscribe`: the token from a lifecycle email's link
+ * turns "Tips and reminders" off (or back on) without signing in. Mail apps' one-click
+ * unsubscribe sends it in the query instead.
+ */
+export const unsubscribeInputSchema = z.object({ token: z.string().min(16).max(256) });
+export type UnsubscribeInput = z.infer<typeof unsubscribeInputSchema>;
+
+export const unsubscribeResponseSchema = z.object({ productEmails: z.boolean() });
+export type UnsubscribeResponse = z.infer<typeof unsubscribeResponseSchema>;
