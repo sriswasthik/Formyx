@@ -50,7 +50,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:gap-16">
           {COLUMNS.map((column) => (
             <nav key={column.title} aria-label={column.title}>
-              <h2 className="text-13 font-medium">{column.title}</h2>
+              <p className="text-13 font-medium">{column.title}</p>
               <ul className="mt-3 flex flex-col gap-2">
                 {column.links.map((link) => (
                   <li key={link.to}>

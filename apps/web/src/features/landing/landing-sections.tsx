@@ -72,7 +72,7 @@ export function PricingTeaser() {
           </p>
           <div className="mt-8 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
             <Button asChild size="lg">
-              <Link to="/signup">Get started free</Link>
+              <Link to="/signup">Start for free</Link>
             </Button>
             <Button asChild size="lg" variant="secondary">
               <Link to="/pricing">Compare plans</Link>

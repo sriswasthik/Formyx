@@ -89,7 +89,7 @@ export function WelcomeDialog({
         if (!open && !pending) onSkip();
       }}
     >
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -172,7 +172,8 @@ export function WelcomeDialog({
                       htmlFor={`suggested-${template.id}`}
                       className={`${optionClass} flex-col p-2`}
                     >
-                      <TemplateThumbnail template={template} className="border" />
+                      {/* On phones the names say enough, and the buttons stay in view. */}
+                      <TemplateThumbnail template={template} className="hidden border sm:flex" />
                       <span className="flex items-start gap-2 px-1 pb-1">
                         <RadioGroupItem
                           id={`suggested-${template.id}`}
