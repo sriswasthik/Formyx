@@ -225,6 +225,13 @@ export const routes: RouteObject[] = [
                       return { Component: BillingPage };
                     },
                   },
+                  {
+                    path: 'referrals',
+                    lazy: async () => {
+                      const { ReferralsPage } = await import('@/features/settings/referrals-page');
+                      return { Component: ReferralsPage };
+                    },
+                  },
                 ],
               },
             ],

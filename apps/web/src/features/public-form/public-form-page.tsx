@@ -215,7 +215,7 @@ function LiveForm({
   const screens = useLazyModule(accessScreens, needsScreens);
   const footer =
     embedded || !form.theme.branding.showFormyxBadge ? undefined : (
-      <MadeWithFormyx label={messages.nav.madeWith} />
+      <MadeWithFormyx label={messages.nav.madeWith} slug={form.slug} />
     );
   const frame = { title: form.title, theme: form.theme, locale, variant, footer } as const;
 

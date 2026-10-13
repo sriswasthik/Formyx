@@ -5,6 +5,7 @@ const SECTIONS = [
   { to: '/app/settings', label: 'Preferences', end: true },
   { to: '/app/settings/workspace', label: 'Workspace', end: false },
   { to: '/app/settings/billing', label: 'Billing', end: false },
+  { to: '/app/settings/referrals', label: 'Referrals', end: false },
 ] as const;
 
 /** Settings pages under one heading, with links between them. */
