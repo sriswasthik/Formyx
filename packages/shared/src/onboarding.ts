@@ -75,14 +75,17 @@ export function completedSteps(facts: OnboardingFacts): Record<OnboardingStep, b
   };
 }
 
+const onboardingStepSchema = z.enum(ONBOARDING_STEPS);
+
 /** `GET /api/account/onboarding`. */
-export interface OnboardingResponse {
+export const onboardingResponseSchema = z.object({
   /** Show the welcome now. */
-  welcome: boolean;
-  useCase: UseCase | null;
-  /** The checklist, or `null` once it is done or dismissed (or for older accounts). */
-  checklist: Record<OnboardingStep, boolean> | null;
-}
+  welcome: z.boolean(),
+  useCase: useCaseSchema.nullable(),
+  /** Which steps are done; `null` once all are, or dismissed (and for older accounts). */
+  checklist: z.record(onboardingStepSchema, z.boolean()).nullable(),
+});
+export type OnboardingResponse = z.infer<typeof onboardingResponseSchema>;
 
 export function onboardingResponse(facts: OnboardingFacts): OnboardingResponse {
   const { state } = facts;

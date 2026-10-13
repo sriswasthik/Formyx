@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { Button } from '@/components/ui/button';
+import { DashboardOnboarding } from '@/features/onboarding/dashboard-onboarding';
 import { CreateWorkspaceDialog } from '@/features/workspaces/create-workspace-dialog';
 import { useActiveWorkspace } from '@/features/workspaces/use-active-workspace';
 import { useNow } from '@/lib/use-now';
@@ -94,10 +95,14 @@ function useCreateAndOpen(workspaceId: string) {
  * `?template=<id>`, where "Use this template" in the gallery leads (through sign-up if need
  * be): creates the form from it once and opens it. Only editors can; others just stay here.
  */
-function useTemplateFromLink(canEdit: boolean, create: (templateId: FormTemplateId) => void) {
+function useTemplateFromLink(
+  canEdit: boolean,
+  create: (templateId: FormTemplateId) => void,
+): boolean {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('template');
   const handled = useRef(false);
+  const [arrivedWithTemplate] = useState(requested !== null);
 
   useEffect(() => {
     if (requested === null || handled.current) return;
@@ -114,6 +119,8 @@ function useTemplateFromLink(canEdit: boolean, create: (templateId: FormTemplate
     if (canEdit) create(templateId.data);
     else toast.error('Only editors can create forms in this workspace');
   }, [requested, canEdit, create, setSearchParams]);
+
+  return arrivedWithTemplate;
 }
 
 interface FormDialog {
@@ -135,7 +142,7 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
   const duplicateForm = useDuplicateForm(workspace.id);
   const deleteForm = useDeleteForm(workspace.id);
   const { create, pendingTemplate } = useCreateAndOpen(workspace.id);
-  useTemplateFromLink(canEdit, create);
+  const arrivedWithTemplate = useTemplateFromLink(canEdit, create);
 
   const [newFormOpen, setNewFormOpen] = useState(false);
   const [dialog, setDialog] = useState<FormDialog | null>(null);
@@ -237,6 +244,17 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
   return (
     // Layouts respond to the space next to the sidebar, not the viewport.
     <div className="@container flex flex-col gap-6">
+      {canEdit && (
+        <DashboardOnboarding
+          arrivedWithTemplate={arrivedWithTemplate}
+          forms={forms}
+          onNewForm={() => {
+            setNewFormOpen(true);
+          }}
+          onCreate={create}
+          pending={pendingTemplate !== null}
+        />
+      )}
       <FormsToolbar
         search={searchInput}
         onSearchChange={setSearchInput}
