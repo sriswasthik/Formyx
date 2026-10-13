@@ -12,6 +12,7 @@ export * from './health.js';
 export * from './i18n/index.js';
 export * from './integrations/index.js';
 export * from './json.js';
+export * from './onboarding.js';
 export * from './logic/index.js';
 export * from './random.js';
 export * from './realtime.js';
