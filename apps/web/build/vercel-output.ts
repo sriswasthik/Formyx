@@ -1,8 +1,17 @@
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import ts from 'typescript';
 import type { Plugin } from 'vite';
+import { PAGES_DIR } from './static-pages.ts';
 
 /** One entry of a Vercel Build Output API (v3) `config.json` routes list. */
 export type VercelRoute =
@@ -16,6 +25,8 @@ interface DeployOptions {
   realtimeUrl?: string | undefined;
   /** The built index.html, whose inline scripts the content security policy allows by hash. */
   html: string;
+  /** Paths with their own page (see build/static-pages.ts), e.g. `/templates/wedding-rsvp`. */
+  pages?: readonly string[];
 }
 
 /** `sha256-…` sources for each inline `<script>` in `html`, for `script-src`. */
@@ -109,7 +120,12 @@ const FORM_PERMISSIONS = 'camera=(), microphone=(self), geolocation=(), payment=
  * built files served as they are; every other path gets the app (client-side routing). Public
  * forms may be embedded anywhere; nothing else may be framed.
  */
-export function vercelRoutes({ apiUrl, realtimeUrl, html }: DeployOptions): VercelRoute[] {
+export function vercelRoutes({
+  apiUrl,
+  realtimeUrl,
+  html,
+  pages = [],
+}: DeployOptions): VercelRoute[] {
   const api = originOf(apiUrl, 'API_URL');
   const scriptHashes = inlineScriptHashes(html);
   const policy = (frameAncestors: string, payments = false) =>
@@ -145,10 +161,37 @@ export function vercelRoutes({ apiUrl, realtimeUrl, html }: DeployOptions): Verc
     },
     { src: '^/api/(.*)$', dest: `${api.origin}${api.pathname.replace(/\/$/, '')}/api/$1` },
     { handle: 'filesystem' },
+    ...pageRoutes(pages),
     // A public form's page carries its own title and preview (see form-meta-edge.ts).
     { src: '^/f/[^/]+/?$', dest: `/${FORM_PAGE_FUNCTION}` },
     { src: '^/.*$', dest: '/index.html' },
   ];
+}
+
+/** Public pages with their own title and description in the <head>, served from their files. */
+export function pageRoutes(pages: readonly string[]): VercelRoute[] {
+  const paths = pages.map((path) => path.replace(/^\//, ''));
+  if (paths.length === 0) return [];
+  for (const path of paths) {
+    if (!/^[a-z0-9-]+(\/[a-z0-9-]+)*$/.test(path)) throw new Error(`Unsafe page path: /${path}`);
+  }
+  return [{ src: `^/(${paths.join('|')})/?$`, dest: `/${PAGES_DIR}/$1.html` }];
+}
+
+/** The paths of the pages build/static-pages.ts wrote under `outDir`. */
+export function builtPages(outDir: string): string[] {
+  const dir = join(outDir, PAGES_DIR);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .filter((file) => file.endsWith('.html'))
+    .map(
+      (file) =>
+        `/${file
+          .split(sep)
+          .join('/')
+          .replace(/\.html$/, '')}`,
+    )
+    .sort();
 }
 
 /** The edge function that writes a form's details into its page. */
@@ -206,6 +249,7 @@ export function vercelOutput(): Plugin {
         apiUrl,
         realtimeUrl,
         html: readFileSync(join(outDir, 'index.html'), 'utf8'),
+        pages: builtPages(outDir),
       });
       writeFileSync(
         join(output, 'config.json'),
