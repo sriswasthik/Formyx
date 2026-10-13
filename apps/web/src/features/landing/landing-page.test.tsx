@@ -44,7 +44,8 @@ describe('LandingPage', () => {
   it('has a working demo form whose look can be changed', async () => {
     const user = userEvent.setup();
     renderLanding();
-    const demo = await screen.findByRole('region', { name: 'Try Formyx' });
+    // The demo loads lazily, after the hero: slow on a busy machine.
+    const demo = await screen.findByRole('region', { name: 'Try Formyx' }, { timeout: 10_000 });
     expect(within(demo).getByRole('radio', { name: 'Sunrise mesh' })).toBeChecked();
     await user.click(within(demo).getByRole('radio', { name: 'Midnight' }));
     expect(within(demo).getByRole('radio', { name: 'Midnight' })).toBeChecked();

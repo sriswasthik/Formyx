@@ -224,8 +224,10 @@ describe('keeping the sheet up to date', () => {
 
     await respond(form.slug, { fld_name: 'Ada', fld_notes: 'Vegetarian', fld_guests: 1 });
 
+    // The header is written before the row: wait for both.
     await vi.waitFor(() => {
       expect(google.sheet().rows[0]?.at(-1)).toBe('Notes');
+      expect(google.sheet().rows[1]?.[2]).toBe('Ada');
     });
     const row = google.sheet().rows[1] ?? [];
     expect(row[2]).toBe('Ada');
@@ -239,12 +241,13 @@ describe('keeping the sheet up to date', () => {
 
     await respond(form.slug, { fld_name: 'Ada' });
 
-    await vi.waitFor(() => {
+    // The row lands before the integration's status is saved: wait for both.
+    await vi.waitFor(async () => {
       expect(google.sheet().rows).toHaveLength(2);
+      const stored = await integration();
+      expect(stored.status).toBe('ACTIVE');
+      expect(stored.lastError).toBeNull();
     });
-    const stored = await integration();
-    expect(stored.status).toBe('ACTIVE');
-    expect(stored.lastError).toBeNull();
   });
 
   it('asks for a reconnect when access is revoked, and catches up after it', async () => {
