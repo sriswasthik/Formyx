@@ -1,179 +1,59 @@
-import { createDefaultSettings, createEmptyForm, createField, createOption } from './factories.js';
-import { createDefaultLogic } from './logic-factories.js';
-import type { ChoiceFieldType, FieldType } from './field-types.js';
-import type { FieldOfType } from './fields.js';
-import { FORM_SCHEMA_VERSION } from './form-schema-shape.js';
-import type { FormSchema } from './form-schema.js';
+import { createEmptyForm } from './factories.js';
 import type { FormTemplateId } from './template-ids.js';
+import { BUSINESS_TEMPLATES } from './templates/business.js';
+import type { FormTemplate, TemplateCategory } from './templates/builders.js';
+import { COMMUNITY_TEMPLATES } from './templates/community.js';
+import { EDUCATION_TEMPLATES } from './templates/education.js';
+import { EVENT_TEMPLATES } from './templates/events.js';
+import { FEEDBACK_TEMPLATES } from './templates/feedback.js';
+import { HR_TEMPLATES } from './templates/hr.js';
+import { QUIZ_TEMPLATES } from './templates/quizzes.js';
 
-export interface FormTemplate {
-  id: FormTemplateId;
-  name: string;
-  description: string;
-  /** Title of a form created from the template. */
-  defaultTitle: string;
-  /** A fresh schema with new ids on every call. */
-  build: () => FormSchema;
-}
+export {
+  TEMPLATE_CATEGORIES,
+  TEMPLATE_CATEGORY_LABELS,
+  type FormTemplate,
+  type TemplateCategory,
+} from './templates/builders.js';
 
-type FieldProps<T extends FieldType> = Partial<Omit<FieldOfType<T>, 'id' | 'type'>>;
+const BLANK: FormTemplate = {
+  id: 'blank',
+  slug: 'blank',
+  name: 'Blank form',
+  description: 'Start from scratch and add your own questions.',
+  seoDescription: 'Start from a blank form and build exactly what you need.',
+  category: null,
+  presetId: null,
+  defaultTitle: 'Untitled form',
+  build: createEmptyForm,
+};
 
-function field<T extends FieldType>(type: T, props: FieldProps<T>): FieldOfType<T> {
-  return { ...createField(type), ...props };
-}
-
-function choice<T extends ChoiceFieldType>(
-  type: T,
-  labels: string[],
-  props: FieldProps<T>,
-): FieldOfType<T> {
-  return { ...createField(type), options: labels.map(createOption), ...props };
-}
-
-/** Id of the option labelled `label`; templates use it to point conditions at options. */
-function optionId(target: { options: { id: string; label: string }[] }, label: string): string {
-  const option = target.options.find((candidate) => candidate.label === label);
-  if (!option) throw new Error(`Template option "${label}" does not exist`);
-  return option.id;
-}
-
-function buildEventRegistration(): FormSchema {
-  const diet = choice('dropdown', ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Other'], {
-    label: 'Dietary requirements',
-    placeholder: 'Select one',
-  });
-
-  return {
-    version: FORM_SCHEMA_VERSION,
-    fields: [
-      field('short_text', { label: 'Full name', required: true, placeholder: 'Ada Lovelace' }),
-      field('email', {
-        label: 'Email',
-        description: 'We will send your ticket here.',
-        required: true,
-        placeholder: 'you@example.com',
-      }),
-      field('phone', {
-        label: 'Phone number',
-        description: 'Only used if we need to reach you on the day.',
-      }),
-      choice(
-        'multi_choice',
-        [
-          'Opening keynote',
-          'Design systems workshop',
-          'Building for accessibility',
-          'Evening networking',
-        ],
-        { label: 'Which sessions will you attend?', required: true },
-      ),
-      diet,
-      field('long_text', {
-        label: 'Tell us about your dietary needs',
-        placeholder: 'Allergies, intolerances or preferences',
-        conditions: [
-          { sourceFieldId: diet.id, operator: 'equals', value: optionId(diet, 'Other') },
-        ],
-      }),
-      field('number', {
-        label: 'How many guests are you bringing?',
-        description: 'Up to 5 per registration.',
-        placeholder: '0',
-        validation: { min: 0, max: 5 },
-      }),
-      choice('single_choice', ['Newsletter', 'Social media', 'A friend or colleague', 'Other'], {
-        label: 'How did you hear about the event?',
-      }),
-      field('statement', {
-        label:
-          "That's everything. We'll email your ticket and the full schedule a week before the event.",
-      }),
-    ],
-    settings: {
-      ...createDefaultSettings(),
-      submitButtonText: 'Register',
-    },
-    logic: createDefaultLogic("You're registered! Check your inbox for a confirmation email."),
-  };
-}
-
-function buildFeedbackSurvey(): FormSchema {
-  const satisfaction = field('rating', {
-    label: 'Overall, how satisfied are you with our product?',
-    required: true,
-    ratingScale: 5,
-    // Numbers, as the template has always had (new rating questions start as stars).
-    ratingStyle: 'numbers',
-  });
-  const followUp = choice('single_choice', ['Yes', 'No'], {
-    label: 'May we follow up with you about your feedback?',
-    required: true,
-  });
-
-  return {
-    version: FORM_SCHEMA_VERSION,
-    fields: [
-      satisfaction,
-      field('rating', {
-        label: 'How likely are you to recommend us to a friend or colleague?',
-        description: '1 is not at all likely, 10 is extremely likely.',
-        required: true,
-        ratingScale: 10,
-        ratingStyle: 'numbers',
-      }),
-      field('long_text', { label: 'What do you like most?' }),
-      field('long_text', {
-        label: 'What could we do better?',
-        description: 'The more specific, the better.',
-        conditions: [{ sourceFieldId: satisfaction.id, operator: 'less_than', value: 4 }],
-      }),
-      choice('multi_choice', ['Form builder', 'Conditional logic', 'Analytics', 'Integrations'], {
-        label: 'Which features do you use most?',
-      }),
-      followUp,
-      field('email', {
-        label: 'Your email',
-        required: true,
-        placeholder: 'you@example.com',
-        conditions: [
-          { sourceFieldId: followUp.id, operator: 'equals', value: optionId(followUp, 'Yes') },
-        ],
-      }),
-    ],
-    settings: {
-      ...createDefaultSettings(),
-      submitButtonText: 'Send feedback',
-    },
-    logic: createDefaultLogic('Thank you! Your feedback helps us build a better product.'),
-  };
-}
-
+/** Every template: blank first, then the gallery's, by category. */
 export const FORM_TEMPLATES: readonly FormTemplate[] = [
-  {
-    id: 'blank',
-    name: 'Blank form',
-    description: 'Start from scratch and add your own questions.',
-    defaultTitle: 'Untitled form',
-    build: createEmptyForm,
-  },
-  {
-    id: 'event_registration',
-    name: 'Event registration',
-    description: 'Collect attendee details, session choices and dietary needs.',
-    defaultTitle: 'Event registration',
-    build: buildEventRegistration,
-  },
-  {
-    id: 'feedback_survey',
-    name: 'Feedback survey',
-    description: 'Measure satisfaction and learn what to improve, with smart follow-ups.',
-    defaultTitle: 'Feedback survey',
-    build: buildFeedbackSurvey,
-  },
+  BLANK,
+  ...EVENT_TEMPLATES,
+  ...FEEDBACK_TEMPLATES,
+  ...HR_TEMPLATES,
+  ...EDUCATION_TEMPLATES,
+  ...BUSINESS_TEMPLATES,
+  ...QUIZ_TEMPLATES,
+  ...COMMUNITY_TEMPLATES,
 ];
 
 export function getFormTemplate(id: FormTemplateId): FormTemplate {
   const template = FORM_TEMPLATES.find((candidate) => candidate.id === id);
   if (!template) throw new Error(`Unknown form template "${id}"`);
   return template;
+}
+
+/** The template at /templates/<slug>, if there is one. */
+export function templateBySlug(slug: string): FormTemplate | undefined {
+  return FORM_TEMPLATES.find((template) => template.slug === slug && template.category !== null);
+}
+
+/** The gallery's templates (blank isn't one), optionally of one category. */
+export function galleryTemplates(category?: TemplateCategory): FormTemplate[] {
+  return FORM_TEMPLATES.filter(
+    (template) => template.category !== null && (!category || template.category === category),
+  );
 }
