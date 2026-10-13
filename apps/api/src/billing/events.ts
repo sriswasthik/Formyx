@@ -1,6 +1,9 @@
 import type { Logger } from 'pino';
 import type { $Enums } from '../generated/prisma/client.js';
 import { renderPaymentFailedEmail, renderPlanEndedEmail } from '../notifications/billing-email.js';
+import { queueEmails } from '../notifications/email-jobs.js';
+import { renderReferralRewardEmail } from '../notifications/referral-email.js';
+import { rewardReferrer } from '../referrals/referrals.js';
 import { sendBillingNotice, type NoticeDependencies } from './notices.js';
 import { activatePlan, downgradeToFree, markPastDue } from './plan-changes.js';
 import {
@@ -27,6 +30,9 @@ export const HANDLED_EVENTS = [
   'subscription.halted',
   'subscription.cancelled',
   'subscription.completed',
+  // A referral reward pauses a paying referrer's subscription for a month (see referrals/).
+  'subscription.paused',
+  'subscription.resumed',
   'payment.failed',
 ] as const;
 
@@ -110,12 +116,35 @@ async function applyEvent(deps: EventDependencies, body: RazorpayWebhookBody): P
     const stored = await updateSubscription(deps, subscription, eventAt);
     if (stored && payment && body.event === 'subscription.charged') {
       await recordPayment(deps, stored, payment, 'PAID');
+      await rewardReferral(deps, stored.workspaceId);
     }
     return;
   }
   if (payment && body.event === 'payment.failed') {
     await paymentFailed(deps, payment, eventAt);
   }
+}
+
+/** A friend's payment earns whoever referred them a free month (referrals/), and tells them. */
+async function rewardReferral(deps: EventDependencies, workspaceId: string): Promise<void> {
+  const rewarded = await rewardReferrer(deps, workspaceId);
+  if (!rewarded) return;
+  const referrer = await deps.prisma.user.findUnique({
+    where: { id: rewarded.referrerId },
+    select: { email: true, isDemo: true },
+  });
+  if (!referrer || referrer.isDemo) return;
+  const email = renderReferralRewardEmail({
+    friendName: rewarded.friendName,
+    reward: rewarded.reward,
+    referralsUrl: `${deps.env.APP_URL}/app/settings/referrals`,
+  });
+  await queueEmails(deps.jobs, deps.encryption, {
+    formId: null,
+    kind: 'billing',
+    messages: [{ to: referrer.email, ...email }],
+    idempotencyKey: `referral-reward:${rewarded.referralId}`,
+  });
 }
 
 interface StoredSubscription {

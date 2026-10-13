@@ -44,6 +44,10 @@ model User {
   /// When they last used the app, to the hour (set by `requireAuth`); for the "we miss you"
   /// email. Null until they first come back after it shipped.
   lastActiveAt    DateTime?          @map("last_active_at")
+  /// Their referral link's code (`/?ref=<code>`), made the first time they look at it.
+  referralCode    String?            @unique @map("referral_code")
+  /// What brought them, when known (`signupSourceSchema`): the badge on a free form, say.
+  signupSource    String?            @map("signup_source")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
   memberships     Membership[]
@@ -56,6 +60,8 @@ model User {
   feedback        Feedback[]
   adminActions    AdminAction[]
   lifecycleEmails LifecycleEmail[]
+  referralsMade   Referral[]         @relation("referrer")
+  referredBy      Referral?          @relation("friend")
 
   @@index([lastActiveAt])
   @@map("users")
@@ -663,4 +669,29 @@ model LifecycleEmail {
 
   @@unique([userId, kind, periodKey])
   @@map("lifecycle_emails")
+}
+
+/// Someone who signed up through a referral link, and the reward for whoever shared it.
+model Referral {
+  id                   String    @id @default(cuid())
+  referrerId           String    @map("referrer_id")
+  /// One referral per account: whoever's link they signed up through.
+  friendId             String    @unique @map("friend_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  /// When the friend first paid, and the referrer got their month (null until then).
+  rewardedAt           DateTime? @map("rewarded_at")
+  /// `complimentary` (a month of Pro on their workspace) or `paused` (their own paid
+  /// subscription skips a month).
+  reward               String?
+  rewardWorkspaceId    String?   @map("reward_workspace_id")
+  /// For `paused`: the Razorpay subscription, and when the hourly job resumes it.
+  pausedSubscriptionId String?   @map("paused_subscription_id")
+  resumeAt             DateTime? @map("resume_at")
+  resumedAt            DateTime? @map("resumed_at")
+  referrer             User      @relation("referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  friend               User      @relation("friend", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([resumeAt])
+  @@map("referrals")
 }

@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import {
+  REFERRED_TRIAL_DAYS,
   slugify,
+  TRIAL_DAYS,
   type EntitlementsMode,
   type LoginInput,
   type MeResponse,
@@ -11,6 +13,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import type { PasswordHasher } from '../lib/password.js';
 import type { Database } from '../lib/prisma.js';
+import { referrerByCode } from '../referrals/referrals.js';
 
 /** Same message for unknown emails and wrong passwords, so it never confirms an account exists. */
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
@@ -109,8 +112,10 @@ export function createAuthService({
   }
 
   return {
-    async register({ name, email, password }) {
+    async register({ name, email, password, referralCode, source }) {
       if (await isEmailRegistered(email)) throw emailTaken();
+      // A friend's code: a longer trial, and a reward for them later. An unknown code is ignored.
+      const referrerId = referralCode ? await referrerByCode(prisma, referralCode) : null;
 
       const passwordHash = await passwords.hash(password);
 
@@ -126,6 +131,8 @@ export function createAuthService({
               passwordHash,
               // New accounts get the welcome and the getting-started checklist.
               onboarding: { startedAt: now.toISOString() },
+              signupSource: source ?? null,
+              ...(referrerId && { referredBy: { create: { referrerId } } }),
               // The personal workspace takes the account's one free trial.
               ...(trial && { trialUsedAt: now }),
               memberships: {
@@ -135,7 +142,7 @@ export function createAuthService({
                     create: {
                       name: personalWorkspaceName(name),
                       slug: personalWorkspaceSlug(name),
-                      ...(trial && trialPlan(now)),
+                      ...(trial && trialPlan(now, referrerId ? REFERRED_TRIAL_DAYS : TRIAL_DAYS)),
                     },
                   },
                 },

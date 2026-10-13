@@ -20,6 +20,7 @@ import { createPinCodesRouter } from './pin-codes.js';
 import { createPublicFormsRouter } from './public-forms.js';
 import { createRazorpayWebhookRouter } from './razorpay-webhook.js';
 import { createRealtimeRouter } from './realtime.js';
+import { createReferralsRouter } from './referrals.js';
 import { createSubmissionsRouter } from './submissions.js';
 import { createUnsubscribeRouter } from './unsubscribe.js';
 import { createUploadsRouter } from './uploads.js';
@@ -46,6 +47,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use('/public/forms', createPublicFormsRouter(deps));
   router.use('/public/pincodes', createPinCodesRouter(deps));
   router.use('/public', createUnsubscribeRouter(deps));
+  router.use(createReferralsRouter(deps, guards));
   router.use('/uploads', createUploadsRouter(deps, guards));
   // The forms router goes first: it marks everything under /forms as not cacheable.
   router.use(createFormsRouter(deps, guards));

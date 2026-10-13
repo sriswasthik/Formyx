@@ -9,12 +9,12 @@ import type { Database } from '../lib/prisma.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The plan columns of a workspace starting its trial at `now`. */
-export function trialPlan(now: Date) {
+/** The plan columns of a workspace starting its trial at `now` (a referred friend's is longer). */
+export function trialPlan(now: Date, days: number = TRIAL_DAYS) {
   return {
     plan: TRIAL_PLAN,
     planStatus: 'TRIALING' as const,
-    trialEndsAt: new Date(now.getTime() + TRIAL_DAYS * DAY_MS),
+    trialEndsAt: new Date(now.getTime() + days * DAY_MS),
   };
 }
 

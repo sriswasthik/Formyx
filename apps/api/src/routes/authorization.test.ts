@@ -648,6 +648,7 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/account/delete'],
   ['POST', '/api/invites/token/accept'],
   ['POST', '/api/feedback'],
+  ['GET', '/api/referrals'],
   // Admins only; everyone else signed in gets 403 (see admin.test.ts).
   ['GET', '/api/admin/workspaces'],
   ['GET', '/api/admin/workspaces/id'],
@@ -672,6 +673,7 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['GET', '/api/public/pincodes/500001'],
   ['POST', '/api/public/unsubscribe'],
   ['POST', '/api/public/resubscribe'],
+  ['GET', '/api/public/referrals/K7MQ2XPA'],
   ['GET', '/api/integrations/google/callback'],
   ['GET', '/api/integrations/notion/callback'],
   [

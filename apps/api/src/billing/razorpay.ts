@@ -160,6 +160,9 @@ export interface RazorpayClient {
   fetchSubscription(id: string): Promise<RazorpaySubscription>;
   /** Cancels now, or at the end of the current period. */
   cancelSubscription(id: string, atCycleEnd: boolean): Promise<RazorpaySubscription>;
+  /** Stops charging until resumed: a referral reward skips a month this way. */
+  pauseSubscription(id: string): Promise<RazorpaySubscription>;
+  resumeSubscription(id: string): Promise<RazorpaySubscription>;
   /** Moves to another plan, now or from the next period. */
   updateSubscription(
     id: string,
@@ -222,6 +225,10 @@ export function createRazorpayClient(env: RazorpayEnv): RazorpayClient {
       call('POST', `/subscriptions/${encodeURIComponent(id)}/cancel`, {
         cancel_at_cycle_end: atCycleEnd ? 1 : 0,
       }),
+    pauseSubscription: (id) =>
+      call('POST', `/subscriptions/${encodeURIComponent(id)}/pause`, { pause_at: 'now' }),
+    resumeSubscription: (id) =>
+      call('POST', `/subscriptions/${encodeURIComponent(id)}/resume`, { resume_at: 'now' }),
     updateSubscription: (id, { planId, at }) =>
       call('PATCH', `/subscriptions/${encodeURIComponent(id)}`, {
         plan_id: planId,

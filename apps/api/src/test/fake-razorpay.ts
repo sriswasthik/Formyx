@@ -153,6 +153,15 @@ export async function startFakeRazorpay() {
           send(res, 200, subscription);
           return;
         }
+        if (method === 'POST' && (parts[3] === 'pause' || parts[3] === 'resume')) {
+          if (parts[3] === 'pause' && subscription.status !== 'active') {
+            badRequest(res, 'Only an active subscription can be paused');
+            return;
+          }
+          subscription.status = parts[3] === 'pause' ? 'paused' : 'active';
+          send(res, 200, subscription);
+          return;
+        }
         if (method === 'PATCH' && parts.length === 3) {
           const planId = String(body.plan_id);
           if (!plans.has(planId)) {

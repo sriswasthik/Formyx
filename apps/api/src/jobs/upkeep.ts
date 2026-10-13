@@ -4,7 +4,9 @@ import type { Encryption } from '../lib/encryption.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { Database } from '../lib/prisma.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
+import { billingConfigured, createRazorpayClient } from '../billing/razorpay.js';
 import { runBillingUpkeep } from '../billing/upkeep.js';
+import { resumePausedSubscriptions } from '../referrals/referrals.js';
 import { queueInactiveEmails } from '../lifecycle/lifecycle.js';
 import { queueEmails } from '../notifications/email-jobs.js';
 import { applyRetention, pruneExpired, sendDigests } from './jobs.js';
@@ -46,7 +48,7 @@ export function registerUpkeep({
   mailer: Mailer;
   storage: UploadStorage | null;
   logger: Logger;
-  env: Pick<Env, 'APP_URL' | 'JWT_SECRET'>;
+  env: Env;
   encryption: Encryption;
 }): void {
   jobs.handle('upkeep.hourly', async () => {
@@ -66,8 +68,12 @@ export function registerUpkeep({
       const pruned = await pruneExpired(deps);
       const billing = await runBillingUpkeep({ prisma, jobs, encryption, env, logger });
       const inactive = await queueInactiveEmails({ prisma, jobs });
+      // Subscriptions a referral reward paused, back on once their free month is up.
+      const resumed = billingConfigured(env)
+        ? await resumePausedSubscriptions({ prisma, logger, razorpay: createRazorpayClient(env) })
+        : 0;
       logger.info(
-        { digests, retention, pruned, billing, inactive, ms: Date.now() - started },
+        { digests, retention, pruned, billing, inactive, resumed, ms: Date.now() - started },
         'Hourly upkeep done',
       );
     } finally {
