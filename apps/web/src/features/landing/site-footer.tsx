@@ -23,6 +23,7 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'Support',
     links: [
+      { label: 'Help centre', to: '/help' },
       { label: 'Contact us', to: '/contact' },
       { label: 'Log in', to: '/login' },
     ],

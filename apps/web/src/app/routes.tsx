@@ -122,6 +122,23 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        path: 'help',
+        handle: { title: 'Help centre' } satisfies RouteHandle,
+        lazy: async () => {
+          const { HelpCentrePage } = await import('@/features/help/help-centre-page');
+          return { Component: HelpCentrePage };
+        },
+      },
+      {
+        path: 'help/:slug',
+        // Replaced by the article's title once it is found.
+        handle: { title: 'Help' } satisfies RouteHandle,
+        lazy: async () => {
+          const { HelpArticlePage } = await import('@/features/help/help-article-page');
+          return { Component: HelpArticlePage };
+        },
+      },
+      {
         path: 'changelog',
         handle: { title: 'Changelog' } satisfies RouteHandle,
         lazy: async () => {

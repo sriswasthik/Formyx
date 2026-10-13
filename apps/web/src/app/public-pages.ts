@@ -1,4 +1,5 @@
 import { galleryTemplates, TEMPLATE_CATEGORY_LABELS } from '@formyx/shared';
+import { HELP_ARTICLES } from '../features/help/articles';
 import { FEATURE_PAGE_LINKS } from '../features/marketing/feature-links';
 
 /*
@@ -53,6 +54,17 @@ export function publicPages(): PublicPage[] {
       path: link.path,
       title: titled(link.seoTitle),
       description: link.seoDescription,
+    })),
+    {
+      path: '/help',
+      title: titled('Help centre'),
+      description:
+        'Short guides to every part of Formyx: building, designing, logic, sharing, responses, integrations and billing.',
+    },
+    ...HELP_ARTICLES.map((article) => ({
+      path: `/help/${article.slug}`,
+      title: titled(article.title),
+      description: article.summary,
     })),
     {
       path: '/contact',

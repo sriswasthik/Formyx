@@ -66,6 +66,10 @@ export function ContactPage() {
 
         <p className="mt-10 text-14 text-muted-foreground">
           Many answers are already in our{' '}
+          <Link to="/help" className={linkClass}>
+            help centre
+          </Link>
+          , our{' '}
           <Link to="/pricing" className={linkClass}>
             pricing questions
           </Link>
