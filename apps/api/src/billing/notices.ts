@@ -1,8 +1,10 @@
-import { readWorkspacePreferences } from '@formyx/shared';
+import { readAccountPreferences, readWorkspacePreferences } from '@formyx/shared';
 import type { Env } from '../config/env.js';
 import type { JobQueue } from '../jobs/queue.js';
 import type { Encryption } from '../lib/encryption.js';
+import type { EmailMessage } from '../lib/mailer.js';
 import type { Database } from '../lib/prisma.js';
+import { unsubscribeHeaders, unsubscribeLinks } from '../lifecycle/lifecycle.js';
 import type { BillingEmailContext } from '../notifications/billing-email.js';
 import { queueEmails } from '../notifications/email-jobs.js';
 import type { RenderedEmail } from '../notifications/email-layout.js';
@@ -18,7 +20,7 @@ export interface NoticeDependencies {
   prisma: Database;
   jobs: JobQueue;
   encryption: Encryption;
-  env: Pick<Env, 'APP_URL'>;
+  env: Pick<Env, 'APP_URL' | 'JWT_SECRET'>;
 }
 
 /** The billing settings page of a workspace. */
@@ -34,11 +36,17 @@ export async function sendBillingNotice(
     kind,
     periodKey,
     render,
+    optional = false,
   }: {
     workspaceId: string;
     kind: string;
     periodKey: string;
     render: (context: BillingEmailContext) => RenderedEmail;
+    /**
+     * A reminder rather than news of a change (a trial ending soon): it goes only to owners
+     * who want tips and reminders, each with their own link to stop them.
+     */
+    optional?: boolean;
   },
 ): Promise<boolean> {
   const { prisma } = deps;
@@ -55,24 +63,34 @@ export async function sendBillingNotice(
       preferences: true,
       memberships: {
         where: { role: 'OWNER' },
-        select: { user: { select: { email: true, isDemo: true } } },
+        select: { user: { select: { id: true, email: true, isDemo: true, preferences: true } } },
       },
     },
   });
   if (!workspace) return false;
   // The shared demo account never gets email.
   const owners = workspace.memberships
-    .filter(({ user }) => !user.isDemo)
-    .map(({ user }) => user.email);
-  const email = render({
+    .map(({ user }) => user)
+    .filter((user) => !user.isDemo)
+    .filter((user) => !optional || readAccountPreferences(user.preferences).productEmails);
+  const context: BillingEmailContext = {
     workspaceName: workspace.name,
     billingUrl: billingUrl(deps.env.APP_URL, workspaceId),
     timeZone: readWorkspacePreferences(workspace.preferences).timeZone,
+  };
+  const messages = owners.map((owner): EmailMessage => {
+    if (!optional) return { to: owner.email, ...render(context) };
+    const links = unsubscribeLinks(deps.env, owner.id);
+    return {
+      to: owner.email,
+      ...render({ ...context, unsubscribeUrl: links.page }),
+      headers: unsubscribeHeaders(links.oneClick),
+    };
   });
   await queueEmails(deps.jobs, deps.encryption, {
     formId: null,
     kind: 'billing',
-    messages: owners.map((to) => ({ to, ...email })),
+    messages,
     idempotencyKey: `billing:${workspaceId}:${kind}:${periodKey}`,
   });
   await prisma.billingNotice.createMany({

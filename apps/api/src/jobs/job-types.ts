@@ -48,7 +48,20 @@ export interface JobPayloads {
   'upkeep.hourly': { hour: string };
   /** A Razorpay webhook event, stored by id in razorpay_events, applied to billing. */
   'billing.event': { eventId: string };
+  /**
+   * One lifecycle email to one account (see lifecycle/lifecycle.ts). Rendered when it runs,
+   * so it checks the person still wants it and has not had it already.
+   */
+  'lifecycle.send': {
+    userId: string;
+    kind: LifecycleKind;
+    /** "" for one-off emails; the day they were last active for `inactive`. */
+    periodKey: string;
+    formId?: string | undefined;
+  };
 }
+
+export type LifecycleKind = 'welcome' | 'first_form_published' | 'first_response' | 'inactive';
 
 export type JobName = keyof JobPayloads;
 
@@ -123,6 +136,13 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     concurrency: 1,
     timeoutSeconds: 120,
   },
+  'lifecycle.send': {
+    attempts: 5,
+    firstRetrySeconds: 60,
+    maxRetrySeconds: 3600,
+    concurrency: 2,
+    timeoutSeconds: 120,
+  },
 };
 
 /** What a failed job was about, for the failed-jobs list. */
@@ -185,6 +205,13 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
     }
     case 'billing.event':
       return { formId: null, summary: 'Apply a payment update from Razorpay' };
+    case 'lifecycle.send': {
+      const job = data as JobPayloads['lifecycle.send'];
+      return {
+        formId: job.formId ?? null,
+        summary: `Send the ${job.kind.replaceAll('_', ' ')} email`,
+      };
+    }
     default:
       return { formId: null, summary: 'Hourly upkeep: digests and deleting old responses' };
   }

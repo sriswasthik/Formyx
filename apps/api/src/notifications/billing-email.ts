@@ -9,6 +9,7 @@ import {
   singleLine,
   type RenderedEmail,
 } from './email-layout.js';
+import { lifecycleFooter } from './lifecycle-email.js';
 
 /*
  * Emails to a workspace's owners about its plan: the trial ending, a payment that failed, a
@@ -21,6 +22,8 @@ export interface BillingEmailContext {
   billingUrl: string;
   /** For dates; the workspace's own time zone. */
   timeZone: string;
+  /** For reminders people may turn off (see `sendBillingNotice`): their own link to do so. */
+  unsubscribeUrl?: string | undefined;
 }
 
 function formatDate(date: Date, timeZone: string): string {
@@ -41,13 +44,17 @@ function render(
   }: { subject: string; title: string; lines: string[]; action: string },
 ): RenderedEmail {
   const workspace = singleLine(context.workspaceName);
+  const reason = `You get this email because you own ${workspace} on Formyx.`;
+  const footer = context.unsubscribeUrl
+    ? lifecycleFooter(context.unsubscribeUrl, reason)
+    : { text: reason, html: escapeHtml(reason) };
   const text = [
     title,
     '',
     ...lines.flatMap((line) => [line, '']),
     `${action}: ${context.billingUrl}`,
     '',
-    `You get this email because you own ${workspace} on Formyx.`,
+    footer.text,
   ].join('\n');
   const html = emailPage({
     subject,
@@ -63,7 +70,7 @@ function render(
           )
           .join('\n        ')}
         ${button(action, context.billingUrl)}`,
-    footer: escapeHtml(`You get this email because you own ${workspace} on Formyx.`),
+    footer: footer.html,
   });
   return { subject, html, text };
 }

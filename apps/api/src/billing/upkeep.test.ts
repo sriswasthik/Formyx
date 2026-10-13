@@ -1,6 +1,8 @@
+import { createDefaultAccountPreferences } from '@formyx/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { pino } from 'pino';
 import { encryptionFromEnv } from '../lib/encryption.js';
+import { createUnsubscribeToken } from '../lib/unsubscribe-token.js';
 import { registerEmailJobs } from '../notifications/email-jobs.js';
 import { createFakeMailer, createTestQueue, TEST_JWT_SECRET } from '../test/create-test-app.js';
 import { resetDatabase, testPrisma as prisma } from '../test/database.js';
@@ -34,7 +36,7 @@ async function run(now = NOW) {
     prisma,
     jobs,
     encryption,
-    env: { APP_URL: 'https://app.formyx.test' },
+    env: { APP_URL: 'https://app.formyx.test', JWT_SECRET: TEST_JWT_SECRET },
     logger,
     now: () => now,
   });
@@ -78,6 +80,29 @@ describe('trial reminders', () => {
       'Your Pro trial ends in 1 day',
     ]);
     expect(mailer.sent[0]?.messages.map(({ to }) => to)).toEqual(['owner@example.com']);
+  });
+
+  it('are tips: each owner’s carries their own way to stop them, and those who did get none', async () => {
+    const second = await prisma.user.create({
+      data: {
+        name: 'Grace',
+        email: 'grace@example.com',
+        passwordHash: 'x',
+        preferences: { ...createDefaultAccountPreferences(), productEmails: false },
+      },
+    });
+    await prisma.membership.create({
+      data: { userId: second.id, workspaceId: team.workspaceId, role: 'OWNER' },
+    });
+    await trial(7 * DAY_MS);
+    await run();
+
+    const [reminder, ...others] = mailer.sent.flatMap(({ messages }) => messages);
+    expect(others).toEqual([]);
+    expect(reminder?.to).toBe('owner@example.com');
+    const token = createUnsubscribeToken(team.users.OWNER, TEST_JWT_SECRET);
+    expect(reminder?.text).toContain(`/unsubscribe/${token}`);
+    expect(reminder?.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
   });
 
   it('says nothing about a trial ending in more than a week', async () => {

@@ -27,7 +27,7 @@ import { createUploadChecks } from '../services/upload-checks.js';
  * Routes are declared with full paths because they span two resources.
  */
 export function createFormsRouter(
-  { prisma, env, storage, analytics }: AppDependencies,
+  { prisma, env, storage, analytics, events }: AppDependencies,
   { requireAuth, requireWorkspaceRole, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
@@ -151,9 +151,11 @@ export function createFormsRouter(
     async (req, res) => {
       const input = publishFormInputSchema.parse(req.body ?? {});
       const form: FormDetail = await forms.publish(routeParam(req, 'formId'), input);
+      const { userId } = getAuth(req);
       for (const event of publishEvents(form)) {
-        analytics.track(event, { userId: getAuth(req).userId, workspaceId: form.workspaceId });
+        analytics.track(event, { userId, workspaceId: form.workspaceId });
       }
+      events.emit('form.published', { formId: form.id, userId });
       res.json(form);
     },
   );

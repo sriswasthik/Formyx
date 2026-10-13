@@ -41,6 +41,9 @@ model User {
   /// The welcome and getting-started checklist (`onboardingStateSchema` in packages/shared).
   /// Empty for accounts from before onboarding, which never see either.
   onboarding      Json               @default("{}")
+  /// When they last used the app, to the hour (set by `requireAuth`); for the "we miss you"
+  /// email. Null until they first come back after it shipped.
+  lastActiveAt    DateTime?          @map("last_active_at")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
   memberships     Membership[]
@@ -52,7 +55,9 @@ model User {
   integrations    Integration[]
   feedback        Feedback[]
   adminActions    AdminAction[]
+  lifecycleEmails LifecycleEmail[]
 
+  @@index([lastActiveAt])
   @@map("users")
 }
 
@@ -642,4 +647,20 @@ model AdminAction {
 
   @@index([createdAt(sort: Desc)])
   @@map("admin_actions")
+}
+
+/// Lifecycle emails sent (welcome, first form published, first response, inactive): each kind
+/// once per account and period, however often its trigger fires.
+model LifecycleEmail {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  /// `welcome`, `first_form_published`, `first_response` or `inactive`.
+  kind      String
+  /// What makes a repeat a new email: "" for one-offs, the day they were last active for `inactive`.
+  periodKey String   @default("") @map("period_key")
+  sentAt    DateTime @default(now()) @map("sent_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, periodKey])
+  @@map("lifecycle_emails")
 }

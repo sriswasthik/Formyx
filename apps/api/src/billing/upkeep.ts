@@ -65,6 +65,7 @@ export async function runBillingUpkeep(deps: BillingUpkeepDependencies) {
       periodKey: trialEndsAt.toISOString(),
       render: (context) =>
         renderTrialReminderEmail(context, { daysLeft, trialEndsAt, plan: workspace.plan }),
+      optional: true,
     });
     if (sent) counts.reminders += 1;
   }

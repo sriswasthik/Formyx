@@ -11,6 +11,8 @@ export interface EmailMessage {
   text: string;
   /** Where replies go, when not to the sender (an autoresponder's form owner, say). */
   replyTo?: string | undefined;
+  /** Extra headers, such as `List-Unsubscribe` on lifecycle emails. */
+  headers?: Record<string, string> | undefined;
 }
 
 export interface Mailer {
@@ -32,13 +34,14 @@ export function createResendMailer({ apiKey, from }: { apiKey: string; from: str
       for (let start = 0; start < messages.length; start += RESEND_BATCH_LIMIT) {
         const chunk = messages.slice(start, start + RESEND_BATCH_LIMIT);
         const { error } = await resend.batch.send(
-          chunk.map(({ to, subject, html, text, replyTo }) => ({
+          chunk.map(({ to, subject, html, text, replyTo, headers }) => ({
             from,
             to: [to],
             subject,
             html,
             text,
             ...(replyTo && { replyTo }),
+            ...(headers && { headers }),
           })),
           { idempotencyKey: `${idempotencyKey}:${start}` },
         );

@@ -670,6 +670,8 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
     'limits respondents in its first handler, and needs a session for everything else',
   ],
   ['GET', '/api/public/pincodes/500001'],
+  ['POST', '/api/public/unsubscribe'],
+  ['POST', '/api/public/resubscribe'],
   ['GET', '/api/integrations/google/callback'],
   ['GET', '/api/integrations/notion/callback'],
   [

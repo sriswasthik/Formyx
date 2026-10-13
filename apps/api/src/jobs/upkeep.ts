@@ -5,6 +5,7 @@ import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { Database } from '../lib/prisma.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
 import { runBillingUpkeep } from '../billing/upkeep.js';
+import { queueInactiveEmails } from '../lifecycle/lifecycle.js';
 import { queueEmails } from '../notifications/email-jobs.js';
 import { applyRetention, pruneExpired, sendDigests } from './jobs.js';
 import type { JobQueue } from './queue.js';
@@ -45,7 +46,7 @@ export function registerUpkeep({
   mailer: Mailer;
   storage: UploadStorage | null;
   logger: Logger;
-  env: Pick<Env, 'APP_URL'>;
+  env: Pick<Env, 'APP_URL' | 'JWT_SECRET'>;
   encryption: Encryption;
 }): void {
   jobs.handle('upkeep.hourly', async () => {
@@ -64,8 +65,9 @@ export function registerUpkeep({
       const retention = await applyRetention(deps);
       const pruned = await pruneExpired(deps);
       const billing = await runBillingUpkeep({ prisma, jobs, encryption, env, logger });
+      const inactive = await queueInactiveEmails({ prisma, jobs });
       logger.info(
-        { digests, retention, pruned, billing, ms: Date.now() - started },
+        { digests, retention, pruned, billing, inactive, ms: Date.now() - started },
         'Hourly upkeep done',
       );
     } finally {

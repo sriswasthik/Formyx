@@ -11,7 +11,7 @@ import { createAuthRateLimiters } from '../middleware/rate-limit.js';
 import { createAuthService } from '../services/auth-service.js';
 
 export function createAuthRouter(
-  { env, prisma, analytics }: AppDependencies,
+  { env, prisma, analytics, events }: AppDependencies,
   { requireAuth }: AuthGuards,
 ): Router {
   const router = Router();
@@ -43,6 +43,7 @@ export function createAuthRouter(
     await signIn(res, me.user.id);
     const actor = { userId: me.user.id, workspaceId: me.workspaces[0]?.id };
     analytics.track({ name: 'signed_up' }, actor);
+    events.emit('account.created', { userId: me.user.id });
     if (trialsStart(env.ENTITLEMENTS_MODE)) {
       analytics.track({ name: 'trial_started', properties: { targetPlan: TRIAL_PLAN } }, actor);
     }

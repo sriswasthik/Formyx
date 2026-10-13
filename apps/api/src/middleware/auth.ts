@@ -33,7 +33,10 @@ export function getMembership(req: Request): MembershipContext {
 }
 
 export interface AuthGuards {
-  /** Rejects requests without a valid session cookie. Does not touch the database. */
+  /**
+   * Rejects requests without a valid session cookie, or whose account is gone or has changed
+   * its password. Notes when the account was last active, to the hour.
+   */
   requireAuth: RequestHandler;
   /**
    * Refuses the shared demo account (403 DEMO_RESTRICTED), for actions that reach outside
@@ -91,6 +94,20 @@ export function assertRole(role: Role | null, minRole: Role): asserts role is Ro
   }
 }
 
+const ACTIVITY_GRANULARITY_MS = 60 * 60 * 1000;
+
+/**
+ * Records that the account is in use, at most once an hour, without holding up the request
+ * (for the "we miss you" email: lifecycle/lifecycle.ts). A failure only costs a nudge.
+ */
+function noteActivity(prisma: Database, userId: string, lastActiveAt: Date | null): void {
+  const now = new Date();
+  if (lastActiveAt && now.getTime() - lastActiveAt.getTime() < ACTIVITY_GRANULARITY_MS) return;
+  void prisma.user
+    .updateMany({ where: { id: userId }, data: { lastActiveAt: now } })
+    .catch(() => undefined);
+}
+
 export function createAuthGuards({
   env,
   prisma,
@@ -109,7 +126,7 @@ export function createAuthGuards({
       session &&
       (await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { passwordVersion: true },
+        select: { passwordVersion: true, lastActiveAt: true },
       }));
     if (!session || user?.passwordVersion !== session.passwordVersion) {
       // A signed but stale session: drop the cookie, so the browser stops sending it.
@@ -118,6 +135,7 @@ export function createAuthGuards({
       return;
     }
     req.auth = { userId: session.userId };
+    noteActivity(prisma, session.userId, user.lastActiveAt);
     next();
   };
 
