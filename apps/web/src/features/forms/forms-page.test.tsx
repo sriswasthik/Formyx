@@ -487,6 +487,41 @@ describe('FormsPage: changing forms', () => {
     });
     expect(api.writes()[0]?.body).toEqual({ templateId: 'feedback_survey' });
   });
+
+  it('finds templates in the New form dialog by search and category', async () => {
+    installFakeApi([FEEDBACK]);
+    const { user } = renderDashboard();
+    await findFormList();
+
+    await user.click(screen.getByRole('button', { name: 'New form' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New form' });
+    const radios = () =>
+      within(within(dialog).getByRole('radiogroup', { name: 'Start from' }))
+        .getAllByRole('radio')
+        .map((radio) => radio.getAttribute('id'));
+
+    await user.click(within(dialog).getByRole('radio', { name: 'Quizzes' }));
+    expect(radios()).toEqual([
+      'template-blank',
+      'template-general_knowledge_quiz',
+      'template-safety_training_quiz',
+    ]);
+
+    await user.click(within(dialog).getByRole('radio', { name: 'All' }));
+    await user.type(within(dialog).getByRole('searchbox', { name: 'Search templates' }), 'wedding');
+    expect(radios()).toEqual(['template-blank', 'template-wedding_rsvp']);
+
+    await user.type(within(dialog).getByRole('searchbox', { name: 'Search templates' }), 'zzz');
+    expect(within(dialog).getByText(/No templates match/)).toBeVisible();
+  });
+
+  it('opens every template from the empty workspace', async () => {
+    installFakeApi([]);
+    const { user } = renderDashboard();
+
+    await user.click(await screen.findByRole('button', { name: /Browse all \d+ templates/ }));
+    expect(await screen.findByRole('dialog', { name: 'New form' })).toBeVisible();
+  });
 });
 
 describe('FormsPage: viewers', () => {

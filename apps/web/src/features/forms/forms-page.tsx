@@ -177,7 +177,14 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
     );
   } else if (forms.length === 0) {
     content = (
-      <FormsEmptyState canCreate={canEdit} onCreate={create} pendingTemplate={pendingTemplate} />
+      <FormsEmptyState
+        canCreate={canEdit}
+        onCreate={create}
+        pendingTemplate={pendingTemplate}
+        onBrowse={() => {
+          setNewFormOpen(true);
+        }}
+      />
     );
   } else {
     content = (
