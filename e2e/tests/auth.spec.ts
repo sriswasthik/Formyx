@@ -5,6 +5,7 @@ import {
   E2E_PASSWORD,
   fillLogIn,
   openSidebar,
+  skipWelcome,
   trackConsoleProblems,
   uniqueEmail,
 } from './helpers.js';
@@ -63,12 +64,14 @@ test('signs up, logs out and logs back in', async ({ page }, testInfo) => {
 
   await page.goto('/');
   await page.getByRole('link', { name: 'Get started' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Create your account' })).toBeVisible();
   await page.getByLabel('Name').fill('Grace Hopper');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(E2E_PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
 
   await expect(page).toHaveURL(/\/app\/forms$/);
+  await skipWelcome(page);
   const sidebar = await openSidebar(page, testInfo);
   await expect(
     sidebar.getByRole('button', { name: "Switch workspace, current workspace: Grace's workspace" }),

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import { E2E_PASSWORD, trackConsoleProblems, uniqueEmail } from './helpers.js';
+import { E2E_PASSWORD, skipWelcome, trackConsoleProblems, uniqueEmail } from './helpers.js';
 
 // The whole story, as a new user lives it: sign up, build a form from a template with a
 // conditional question, publish it, receive a response from someone else live, export it.
@@ -27,6 +27,7 @@ test('signs up, builds a form with logic, publishes, gets a live response and ex
   await page.getByLabel('Password', { exact: true }).fill(E2E_PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/app\/forms$/);
+  await skipWelcome(page);
 
   // A form from a template.
   await page.getByRole('button', { name: 'New form' }).first().click();
@@ -69,7 +70,8 @@ test('signs up, builds a form with logic, publishes, gets a live response and ex
   const respondentProblems = trackConsoleProblems(respondent);
   await respondent.goto(link);
   await respondent.getByRole('textbox', { name: /Full name/ }).fill('Ada Lovelace');
-  await respondent.getByRole('textbox', { name: /^Email/ }).fill('ada@example.com');
+  // The template's look numbers its questions ("2. Email"); it has one email question.
+  await respondent.getByRole('textbox', { name: /Email/ }).fill('ada@example.com');
   await respondent
     .getByRole('group', { name: /Which sessions will you attend/ })
     .getByText('Opening keynote')

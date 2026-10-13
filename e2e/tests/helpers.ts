@@ -46,6 +46,16 @@ export async function latestEmailTo(to: string): Promise<{ subject: string; text
   return found;
 }
 
+/**
+ * A new account's dashboard opens on the welcome (what Formyx is for, then templates): skips
+ * it, as someone who wants to look around first would.
+ */
+export async function skipWelcome(page: Page): Promise<void> {
+  const welcome = page.getByRole('dialog', { name: /Welcome to Formyx/ });
+  await welcome.getByRole('button', { name: 'Skip for now' }).click();
+  await expect(welcome).toBeHidden();
+}
+
 /** A fresh address per call, so runs never collide with accounts from earlier runs. */
 export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@example.com`;
