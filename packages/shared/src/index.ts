@@ -15,6 +15,7 @@ export * from './json.js';
 export * from './onboarding.js';
 export * from './logic/index.js';
 export * from './random.js';
+export * from './referrals.js';
 export * from './realtime.js';
 export * from './roles.js';
 export * from './settings/index.js';
