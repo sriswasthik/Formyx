@@ -41,7 +41,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   };
 
   router.use(createApiRateLimiter(deps.env));
-  router.use('/health', createHealthRouter());
+  router.use('/health', createHealthRouter(deps));
   router.use('/auth', createAuthRouter(deps, guards));
   router.use('/realtime', createRealtimeRouter(deps, guards));
   router.use('/public/forms', createPublicFormsRouter(deps));

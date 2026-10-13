@@ -660,6 +660,7 @@ const SIGNED_IN: [method: string, url: string][] = [
 /** Public endpoints, and why any of them may go without a limit of its own. */
 const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['GET', '/api/health', 'answers uptime checks and touches nothing'],
+  ['GET', '/api/health/ready'],
   ['POST', '/api/auth/register'],
   ['POST', '/api/auth/login'],
   ['POST', '/api/auth/demo'],

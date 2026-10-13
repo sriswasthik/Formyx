@@ -30,9 +30,7 @@ export type SignupSource = z.infer<typeof signupSourceSchema>;
 
 /** What a `ref` link parameter means. */
 export type RefParam =
-  | { kind: 'source'; source: SignupSource }
-  | { kind: 'referral'; code: string }
-  | null;
+  { kind: 'source'; source: SignupSource } | { kind: 'referral'; code: string } | null;
 
 export function parseRefParam(value: string | null | undefined): RefParam {
   if (!value) return null;
