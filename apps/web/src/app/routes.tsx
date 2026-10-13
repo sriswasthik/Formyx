@@ -58,6 +58,70 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        path: 'features/design-studio',
+        handle: { title: 'Design Studio' } satisfies RouteHandle,
+        lazy: async () => {
+          const { DesignStudioPage } = await import('@/features/marketing/feature-pages');
+          return { Component: DesignStudioPage };
+        },
+      },
+      {
+        path: 'features/logic',
+        handle: { title: 'Logic' } satisfies RouteHandle,
+        lazy: async () => {
+          const { LogicPage } = await import('@/features/marketing/feature-pages');
+          return { Component: LogicPage };
+        },
+      },
+      {
+        path: 'features/integrations',
+        handle: { title: 'Integrations' } satisfies RouteHandle,
+        lazy: async () => {
+          const { IntegrationsPage } = await import('@/features/marketing/feature-pages');
+          return { Component: IntegrationsPage };
+        },
+      },
+      {
+        path: 'terms',
+        handle: { title: 'Terms of service' } satisfies RouteHandle,
+        lazy: async () => {
+          const { TermsPage } = await import('@/features/legal/policies');
+          return { Component: TermsPage };
+        },
+      },
+      {
+        path: 'privacy',
+        handle: { title: 'Privacy policy' } satisfies RouteHandle,
+        lazy: async () => {
+          const { PrivacyPage } = await import('@/features/legal/policies');
+          return { Component: PrivacyPage };
+        },
+      },
+      {
+        path: 'refunds',
+        handle: { title: 'Refund and cancellation policy' } satisfies RouteHandle,
+        lazy: async () => {
+          const { RefundsPage } = await import('@/features/legal/policies');
+          return { Component: RefundsPage };
+        },
+      },
+      {
+        path: 'shipping',
+        handle: { title: 'Shipping and delivery policy' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ShippingPage } = await import('@/features/legal/policies');
+          return { Component: ShippingPage };
+        },
+      },
+      {
+        path: 'contact',
+        handle: { title: 'Contact us' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ContactPage } = await import('@/features/legal/contact-page');
+          return { Component: ContactPage };
+        },
+      },
+      {
         path: 'changelog',
         handle: { title: 'Changelog' } satisfies RouteHandle,
         lazy: async () => {

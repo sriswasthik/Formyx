@@ -1,4 +1,5 @@
 import { galleryTemplates, TEMPLATE_CATEGORY_LABELS } from '@formyx/shared';
+import { FEATURE_PAGE_LINKS } from '../features/marketing/feature-links';
 
 /*
  * The public pages search engines and link previews should know about. At build time,
@@ -48,6 +49,39 @@ export function publicPages(): PublicPage[] {
         isPartOf: { '@type': 'WebSite', name: 'Formyx' },
       },
     })),
+    ...FEATURE_PAGE_LINKS.map((link) => ({
+      path: link.path,
+      title: titled(link.seoTitle),
+      description: link.seoDescription,
+    })),
+    {
+      path: '/contact',
+      title: titled('Contact us'),
+      description: 'How to reach the people behind Formyx: email, when we reply, and our address.',
+    },
+    {
+      path: '/terms',
+      title: titled('Terms of service'),
+      description:
+        'The rules for using Formyx, in plain words: accounts, your content, plans and payments.',
+    },
+    {
+      path: '/privacy',
+      title: titled('Privacy policy'),
+      description:
+        'What Formyx collects, why, who sees it, and how to ask for your data to be deleted.',
+    },
+    {
+      path: '/refunds',
+      title: titled('Refund and cancellation policy'),
+      description: 'How cancelling a Formyx plan works, and when we refund a payment.',
+    },
+    {
+      path: '/shipping',
+      title: titled('Shipping and delivery policy'),
+      description:
+        'How a Formyx plan you buy is delivered: online, as soon as the payment is confirmed.',
+    },
     {
       path: '/changelog',
       title: titled('Changelog'),
