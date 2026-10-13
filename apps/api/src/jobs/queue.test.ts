@@ -1,5 +1,7 @@
 import { pino } from 'pino';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as Monitoring from '../lib/monitoring.js';
+import { reportError } from '../lib/monitoring.js';
 import { resetJobs, testDatabaseUrl } from '../test/database.js';
 import { JOB_POLICIES, type JobName, type JobPolicy } from './job-types.js';
 import {
@@ -10,6 +12,11 @@ import {
   type JobContext,
   type JobQueue,
 } from './queue.js';
+
+vi.mock('../lib/monitoring.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof Monitoring>()),
+  reportError: vi.fn(),
+}));
 
 /** A promise and the function that settles it. */
 function deferred<T>() {
@@ -219,5 +226,36 @@ describe('pg-boss queue, working on its own', () => {
     await queue.start();
     await queue.drain();
     expect(handler).toHaveBeenCalledWith(email('d'), expect.objectContaining({ attempt: 1 }));
+  });
+});
+
+describe('alerts', () => {
+  it('tell Sentry when Formyx’s own work gives up, but not when an outside service is down', async () => {
+    vi.mocked(reportError).mockClear();
+    const queue = createMemoryQueue({
+      logger,
+      policies: immediate,
+      onFailed: () => Promise.resolve(),
+    });
+    queue.handle(
+      'billing.event',
+      flaky(99, () => new Error('Razorpay said 503')),
+    );
+    queue.handle(
+      'email.send',
+      flaky(99, () => new Error('Resend said 503')),
+    );
+    await queue.start();
+    await queue.send('billing.event', { eventId: 'evt_1' });
+    await queue.send('email.send', email('c'));
+    await queue.drain();
+
+    expect(vi.mocked(reportError).mock.calls).toEqual([
+      [
+        expect.objectContaining({ message: 'Razorpay said 503' }),
+        { job: 'billing.event', attempts: 3 },
+      ],
+    ]);
+    await queue.stop();
   });
 });

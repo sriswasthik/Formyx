@@ -78,6 +78,11 @@ export interface JobPolicy {
   timeoutSeconds: number;
   /** At most one queued and one running (`stately`), so a repeating job is never doubled. */
   singleQueued?: boolean;
+  /**
+   * A failure for good goes to Sentry, whose alert rules email whoever looks after Formyx:
+   * Formyx's own work (payments, upkeep, its emails), not someone's outside service being down.
+   */
+  alert?: boolean;
 }
 
 export const JOB_POLICIES: Record<JobName, JobPolicy> = {
@@ -126,6 +131,7 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     concurrency: 1,
     timeoutSeconds: 1800,
     singleQueued: true,
+    alert: true,
   },
   // One at a time, so two events for one subscription are never applied at once. Payments
   // matter: tries go on for about a day (Razorpay itself retries a webhook for 24 hours).
@@ -135,6 +141,7 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     maxRetrySeconds: 3600 * 4,
     concurrency: 1,
     timeoutSeconds: 120,
+    alert: true,
   },
   'lifecycle.send': {
     attempts: 5,
@@ -142,6 +149,7 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     maxRetrySeconds: 3600,
     concurrency: 2,
     timeoutSeconds: 120,
+    alert: true,
   },
 };
 
