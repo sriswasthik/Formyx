@@ -3,8 +3,10 @@ import {
   changePasswordInputSchema,
   deleteAccountInputSchema,
   readWorkspacePreferences,
+  updateOnboardingInputSchema,
   workspacePreferencesSchema,
   type AccountPreferences,
+  type OnboardingResponse,
   type WorkspacePreferences,
 } from '@formyx/shared';
 import { Router } from 'express';
@@ -14,6 +16,7 @@ import { clearSessionCookie, setSessionCookie } from '../lib/session.js';
 import { createAuthRateLimiters } from '../middleware/rate-limit.js';
 import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createAccountService } from '../services/account-service.js';
+import { createOnboardingService } from '../services/onboarding-service.js';
 
 /**
  * The signed-in person's own preferences and account, and a workspace's preferences (read
@@ -28,6 +31,7 @@ export function createAccountRouter(
     prisma,
     passwords: createPasswordHasher(env.BCRYPT_COST),
   });
+  const onboarding = createOnboardingService(prisma);
   // The same limits as logging in: these take the current password.
   const limit = createAuthRateLimiters(env);
 
@@ -39,6 +43,18 @@ export function createAccountRouter(
   router.put('/account/preferences', requireAuth, async (req, res) => {
     const input = accountPreferencesSchema.parse(req.body);
     const body: AccountPreferences = await accounts.setPreferences(getAuth(req).userId, input);
+    res.json(body);
+  });
+
+  // The welcome after sign-up and the getting-started checklist.
+  router.get('/account/onboarding', requireAuth, async (req, res) => {
+    const body: OnboardingResponse = await onboarding.get(getAuth(req).userId);
+    res.json(body);
+  });
+
+  router.patch('/account/onboarding', requireAuth, async (req, res) => {
+    const input = updateOnboardingInputSchema.parse(req.body);
+    const body: OnboardingResponse = await onboarding.update(getAuth(req).userId, input);
     res.json(body);
   });
 

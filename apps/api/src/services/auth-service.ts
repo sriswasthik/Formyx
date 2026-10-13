@@ -124,6 +124,8 @@ export function createAuthService({
               name,
               email,
               passwordHash,
+              // New accounts get the welcome and the getting-started checklist.
+              onboarding: { startedAt: now.toISOString() },
               // The personal workspace takes the account's one free trial.
               ...(trial && { trialUsedAt: now }),
               memberships: {

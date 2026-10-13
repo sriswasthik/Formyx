@@ -38,6 +38,9 @@ model User {
   isAdmin         Boolean            @default(false) @map("is_admin")
   /// When a workspace they own started its free trial: one trial per account.
   trialUsedAt     DateTime?          @map("trial_used_at")
+  /// The welcome and getting-started checklist (`onboardingStateSchema` in packages/shared).
+  /// Empty for accounts from before onboarding, which never see either.
+  onboarding      Json               @default("{}")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
   memberships     Membership[]

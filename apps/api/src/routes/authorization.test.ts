@@ -642,6 +642,8 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/workspaces'],
   ['GET', '/api/account/preferences'],
   ['PUT', '/api/account/preferences'],
+  ['GET', '/api/account/onboarding'],
+  ['PATCH', '/api/account/onboarding'],
   ['POST', '/api/account/password'],
   ['POST', '/api/account/delete'],
   ['POST', '/api/invites/token/accept'],

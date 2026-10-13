@@ -1,5 +1,6 @@
 import {
   createFormInputSchema,
+  isSameJson,
   listFormsQuerySchema,
   publishFormInputSchema,
   schemaImageUrls,
@@ -18,6 +19,7 @@ import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createBrandKitService } from '../services/brand-kit-service.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormService } from '../services/form-service.js';
+import { createOnboardingService } from '../services/onboarding-service.js';
 import { createUploadChecks } from '../services/upload-checks.js';
 
 /**
@@ -33,6 +35,7 @@ export function createFormsRouter(
   const forms = createFormService(prisma, entitlements);
   const brandKits = createBrandKitService(prisma, entitlements);
   const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
+  const onboarding = createOnboardingService(prisma);
 
   /**
    * Checks images new to this form were uploaded for it: the theme's (logo, cover, image
@@ -109,7 +112,15 @@ export function createFormsRouter(
     const input = updateFormInputSchema.parse(req.body);
     const formId = routeParam(req, 'formId');
     await checkImages(formId, input);
+    // "Customise the design" on the getting-started checklist. Every save sends the look, so
+    // it counts only when the look changed.
+    const { userId } = getAuth(req);
+    const lookBefore =
+      input.theme && (await onboarding.awaitingDesign(userId))
+        ? (await forms.get(formId)).theme
+        : null;
     const form: FormDetail = await forms.update(formId, input);
+    if (lookBefore && !isSameJson(lookBefore, form.theme)) await onboarding.markDesigned(userId);
     res.json(form);
   });
 
