@@ -207,18 +207,24 @@ export const envSchema = z.object({
   /** Where feedback from the app is emailed. Empty: it is only stored. */
   FEEDBACK_EMAIL: optionalSecret.pipe(z.email({ error: 'Must be an email address' }).optional()),
   /**
-   * Razorpay API keys, for subscriptions. Test mode only for now: a live key (`rzp_live_`) is
-   * refused. Without the keys, the webhook secret and all four plan ids, checkout is off.
+   * Razorpay API keys, for subscriptions. Without the keys, the webhook secret and all four
+   * plan ids, checkout is off. Test keys (`rzp_test_`) unless RAZORPAY_LIVE is on.
    */
   RAZORPAY_KEY_ID: optionalSecret.pipe(
     z
       .string()
-      .regex(
-        /^rzp_test_\w+$/,
-        'Use a Razorpay test key (rzp_test_...); live keys are not allowed yet',
-      )
+      .regex(/^rzp_(test|live)_\w+$/, 'Must be a Razorpay key id (rzp_test_... or rzp_live_...)')
       .optional(),
   ),
+  /**
+   * Takes real payments: live keys (`rzp_live_`) are refused without it, and test keys with it.
+   * Turned on by hand, only after a final run through checkout in test mode
+   * (docs/launch-checklist.md).
+   */
+  RAZORPAY_LIVE: z
+    .enum(['true', 'false'], { error: 'Use true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
   RAZORPAY_KEY_SECRET: optionalSecret,
   /** Signs Razorpay's webhooks; set in the Razorpay dashboard with the webhook's URL. */
   RAZORPAY_WEBHOOK_SECRET: optionalSecret,
@@ -250,10 +256,31 @@ export class EnvError extends Error {
   }
 }
 
+/**
+ * Live payments only on purpose: a live key without RAZORPAY_LIVE, or RAZORPAY_LIVE with a test
+ * key (or none), stops the API from starting rather than charging, or failing to charge, anyone.
+ */
+function checkRazorpayMode(env: Env): void {
+  const key = env.RAZORPAY_KEY_ID;
+  const live = key?.startsWith('rzp_live_') ?? false;
+  if (live && !env.RAZORPAY_LIVE) {
+    throw new EnvError(
+      'RAZORPAY_KEY_ID is a live key, but RAZORPAY_LIVE is not true. Set RAZORPAY_LIVE=true only ' +
+        'after a final test-mode run of checkout (docs/launch-checklist.md).',
+    );
+  }
+  if (env.RAZORPAY_LIVE && !live) {
+    throw new EnvError(
+      'RAZORPAY_LIVE is true, so RAZORPAY_KEY_ID must be a live key (rzp_live_...).',
+    );
+  }
+}
+
 export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = envSchema.safeParse(source);
   if (!result.success) {
     throw new EnvError(z.prettifyError(result.error));
   }
+  checkRazorpayMode(result.data);
   return result.data;
 }

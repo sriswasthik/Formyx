@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { EnvError, parseEnv } from './env.js';
+import { EnvError, envSchema, parseEnv } from './env.js';
 
 const REQUIRED = {
   DATABASE_URL: 'postgresql://formyx:formyx@localhost:5432/formyx',
@@ -35,6 +36,7 @@ describe('parseEnv', () => {
       NOTION_API_URL: 'https://api.notion.com',
       POSTHOG_HOST: 'https://eu.i.posthog.com',
       RAZORPAY_API_URL: 'https://api.razorpay.com',
+      RAZORPAY_LIVE: false,
       ENFORCEMENT_MODE: 'soft',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
@@ -100,5 +102,41 @@ describe('parseEnv', () => {
     const source = { ...REQUIRED, ...overrides };
     expect(() => parseEnv(source)).toThrow(EnvError);
     expect(() => parseEnv(source)).toThrow(variable);
+  });
+});
+
+describe('RAZORPAY_LIVE', () => {
+  const live = { RAZORPAY_KEY_ID: 'rzp_live_AbC123', RAZORPAY_KEY_SECRET: 'secret' };
+  const test = { RAZORPAY_KEY_ID: 'rzp_test_AbC123', RAZORPAY_KEY_SECRET: 'secret' };
+
+  it('is off by default, and test keys work without it', () => {
+    expect(parseEnv({ ...REQUIRED, ...test }).RAZORPAY_LIVE).toBe(false);
+  });
+
+  it('refuses live keys until it is turned on', () => {
+    expect(() => parseEnv({ ...REQUIRED, ...live })).toThrow(/RAZORPAY_LIVE is not true/);
+    expect(parseEnv({ ...REQUIRED, ...live, RAZORPAY_LIVE: 'true' }).RAZORPAY_LIVE).toBe(true);
+  });
+
+  it('refuses test keys, or none, once it is on', () => {
+    expect(() => parseEnv({ ...REQUIRED, ...test, RAZORPAY_LIVE: 'true' })).toThrow(
+      /must be a live key/,
+    );
+    expect(() => parseEnv({ ...REQUIRED, RAZORPAY_LIVE: 'true' })).toThrow(EnvError);
+  });
+});
+
+describe('.env.example', () => {
+  /** Set by the host, or used only by the test runner. */
+  const NOT_IN_BOTH = { schemaOnly: ['RENDER_GIT_COMMIT'], exampleOnly: ['TEST_DATABASE_URL'] };
+
+  it('lists every setting the API reads, and nothing it does not', () => {
+    const example = readFileSync(new URL('../../.env.example', import.meta.url), 'utf8');
+    const listed = new Set(
+      [...example.matchAll(/^(?:# ?)?([A-Z][A-Z0-9_]+)=/gm)].map((match) => match[1] ?? ''),
+    );
+    const read = new Set(Object.keys(envSchema.shape));
+    expect([...read].filter((key) => !listed.has(key))).toEqual(NOT_IN_BOTH.schemaOnly);
+    expect([...listed].filter((key) => !read.has(key))).toEqual(NOT_IN_BOTH.exampleOnly);
   });
 });

@@ -79,8 +79,8 @@ describe('webhook signatures', () => {
 });
 
 describe('settings', () => {
-  it('refuses live keys', () => {
-    expect(() => env({ RAZORPAY_KEY_ID: 'rzp_live_abc123' })).toThrow(/test key/);
+  it('refuses live keys unless RAZORPAY_LIVE is on', () => {
+    expect(() => env({ RAZORPAY_KEY_ID: 'rzp_live_abc123' })).toThrow(/RAZORPAY_LIVE/);
     expect(env({ RAZORPAY_KEY_ID: 'rzp_test_abc123' }).RAZORPAY_KEY_ID).toBe('rzp_test_abc123');
   });
 
