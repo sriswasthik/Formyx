@@ -41,6 +41,23 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        path: 'templates',
+        handle: { title: 'Form templates' } satisfies RouteHandle,
+        lazy: async () => {
+          const { TemplatesPage } = await import('@/features/templates/templates-page');
+          return { Component: TemplatesPage };
+        },
+      },
+      {
+        path: 'templates/:slug',
+        // Replaced by "<template> template" once it is found.
+        handle: { title: 'Template' } satisfies RouteHandle,
+        lazy: async () => {
+          const { TemplatePage } = await import('@/features/templates/template-page');
+          return { Component: TemplatePage };
+        },
+      },
+      {
         path: 'changelog',
         handle: { title: 'Changelog' } satisfies RouteHandle,
         lazy: async () => {

@@ -1,12 +1,13 @@
 import {
+  formTemplateIdSchema,
   hasRole,
   type FormSummary,
   type FormTemplateId,
   type WorkspaceSummary,
 } from '@formyx/shared';
 import { Building2, Plus, RotateCw, SearchX } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
@@ -89,6 +90,32 @@ function useCreateAndOpen(workspaceId: string) {
   };
 }
 
+/**
+ * `?template=<id>`, where "Use this template" in the gallery leads (through sign-up if need
+ * be): creates the form from it once and opens it. Only editors can; others just stay here.
+ */
+function useTemplateFromLink(canEdit: boolean, create: (templateId: FormTemplateId) => void) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('template');
+  const handled = useRef(false);
+
+  useEffect(() => {
+    if (requested === null || handled.current) return;
+    handled.current = true;
+    setSearchParams(
+      (current) => {
+        current.delete('template');
+        return current;
+      },
+      { replace: true },
+    );
+    const templateId = formTemplateIdSchema.safeParse(requested);
+    if (!templateId.success) return;
+    if (canEdit) create(templateId.data);
+    else toast.error('Only editors can create forms in this workspace');
+  }, [requested, canEdit, create, setSearchParams]);
+}
+
 interface FormDialog {
   kind: 'rename' | 'delete';
   form: FormSummary;
@@ -108,6 +135,7 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
   const duplicateForm = useDuplicateForm(workspace.id);
   const deleteForm = useDeleteForm(workspace.id);
   const { create, pendingTemplate } = useCreateAndOpen(workspace.id);
+  useTemplateFromLink(canEdit, create);
 
   const [newFormOpen, setNewFormOpen] = useState(false);
   const [dialog, setDialog] = useState<FormDialog | null>(null);

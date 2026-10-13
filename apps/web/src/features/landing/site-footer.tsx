@@ -12,11 +12,14 @@ export function SiteFooter() {
           <LogoMark className="size-5" />
           <span className="tabular-nums">© {new Date().getFullYear()} Formyx</span>
         </div>
-        <nav aria-label="Footer" className="flex gap-6">
+        <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
           {/* A plain link: the browser scrolls to the section, from any page. */}
           <a href="/#features" className={linkClass}>
             Features
           </a>
+          <Link to="/templates" className={linkClass}>
+            Templates
+          </Link>
           <Link to="/pricing" className={linkClass}>
             Pricing
           </Link>

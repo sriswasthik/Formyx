@@ -515,6 +515,29 @@ describe('FormsPage: changing forms', () => {
     expect(within(dialog).getByText(/No templates match/)).toBeVisible();
   });
 
+  it('creates the form a gallery link asks for, once, and opens it', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ path: '/app/forms?template=feedback_survey' });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
+    });
+    expect(api.writes().map((request) => request.body)).toEqual([
+      { templateId: 'feedback_survey' },
+    ]);
+  });
+
+  it('drops an unknown template from the link without creating anything', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ path: '/app/forms?template=nope' });
+
+    await findFormList();
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('');
+    });
+    expect(api.writes()).toEqual([]);
+  });
+
   it('opens every template from the empty workspace', async () => {
     installFakeApi([]);
     const { user } = renderDashboard();
@@ -540,6 +563,18 @@ describe('FormsPage: viewers', () => {
 
     const items = await screen.findAllByRole('menuitem');
     expect(items.map((item) => item.textContent)).toEqual(['Open', 'Responses']);
+  });
+
+  it('do not create forms from a gallery link', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ me: viewer, path: '/app/forms?template=feedback_survey' });
+
+    await findFormList();
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('');
+    });
+    expect(router.state.location.pathname).toBe('/app/forms');
+    expect(api.writes()).toEqual([]);
   });
 
   it('are not offered templates in an empty workspace', async () => {
