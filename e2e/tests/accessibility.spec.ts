@@ -91,8 +91,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const page = await context.newPage();
       await page.goto('/');
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      // The hero's last item to fade in.
-      await expectNoSeriousViolations(page, page.getByRole('link', { name: 'Start building' }));
+      // The editor picture loads after the hero.
+      await expectNoSeriousViolations(page, page.getByRole('img', { name: /The Formyx editor/ }));
       await context.close();
     });
 

@@ -1,5 +1,5 @@
 import type { MeResponse } from '@formyx/shared';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -58,7 +58,9 @@ describe('Try the demo', () => {
   it('is only offered when the build turns the demo on', () => {
     renderApp(null, '/');
     expect(screen.queryByRole('button', { name: 'Try the demo' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'See how it works' })).toBeInTheDocument();
+    // The last call to action is then sign-up alone.
+    const cta = screen.getByRole('region', { name: 'Your next form deserves better.' });
+    expect(within(cta).getAllByRole('link')).toHaveLength(1);
   });
 
   it('signs in to the demo workspace and opens its forms', async () => {

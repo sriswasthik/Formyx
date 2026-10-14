@@ -35,7 +35,7 @@ test('signed-in visitors go from the landing page straight into the app', async 
   const problems = trackConsoleProblems(page);
 
   await page.goto('/');
-  await page.getByRole('link', { name: 'Start building' }).click();
+  await page.getByRole('link', { name: 'Start for free' }).first().click();
 
   await expect(page).toHaveURL(/\/app\/forms$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Forms' })).toBeVisible();

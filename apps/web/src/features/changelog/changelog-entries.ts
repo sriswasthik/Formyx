@@ -17,10 +17,11 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     id: '2026-10-brand',
     date: '2026-10-14',
-    title: 'A new logo',
-    summary: 'An F made of the things Formyx is made of: two inputs and a checkbox.',
+    title: 'A fresh look for Formyx',
+    summary: 'A new logo, an F made of two inputs and a checkbox, and a new homepage.',
     items: [
       'The new logo across the site, the app and every email, drawn to stay sharp down to 16px.',
+      'A new homepage, with the editor and real forms in their looks front and centre.',
       'Formyx can be added to a phone’s home screen, with its own icon.',
       'Embedded forms show “Made with Formyx” too, opening in a new tab, unless the badge is turned off.',
       'A new picture for links to Formyx shared in chats and posts.',

@@ -5,6 +5,8 @@ import { useSyncExternalStore } from 'react';
  * "What's new" without loading them. changelog.test.ts checks the two agree.
  */
 export const LATEST_CHANGELOG_ID = '2026-10-brand';
+/** Its title, for the landing page's announcement. */
+export const LATEST_CHANGELOG_TITLE = 'A fresh look for Formyx';
 
 const STORAGE_KEY = 'formyx-changelog-seen';
 const listeners = new Set<() => void>();
