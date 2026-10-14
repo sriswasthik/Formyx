@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
  * The newest changelog entry's id, kept apart from the entries so the app shell can show
  * "What's new" without loading them. changelog.test.ts checks the two agree.
  */
-export const LATEST_CHANGELOG_ID = '2026-10-launch';
+export const LATEST_CHANGELOG_ID = '2026-10-brand';
 
 const STORAGE_KEY = 'formyx-changelog-seen';
 const listeners = new Set<() => void>();

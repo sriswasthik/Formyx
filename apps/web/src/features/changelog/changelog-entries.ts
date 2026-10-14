@@ -15,6 +15,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-brand',
+    date: '2026-10-14',
+    title: 'A new logo',
+    summary: 'An F made of the things Formyx is made of: two inputs and a checkbox.',
+    items: [
+      'The new logo across the site, the app and every email, drawn to stay sharp down to 16px.',
+      'Formyx can be added to a phone’s home screen, with its own icon.',
+      'Embedded forms show “Made with Formyx” too, opening in a new tab, unless the badge is turned off.',
+      'A new picture for links to Formyx shared in chats and posts.',
+    ],
+  },
+  {
     id: '2026-10-launch',
     date: '2026-10-13',
     title: 'Templates, a help centre and a warmer welcome',
