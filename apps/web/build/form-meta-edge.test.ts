@@ -12,7 +12,10 @@ const HTML = `<!doctype html>
       content="Formyx is a form builder."
     />
     <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <!-- Link previews. %APP_URL% is the site's address (VITE_APP_URL), filled in at build. -->
     <meta property="og:title" content="Formyx" />
     <meta property="og:image" content="https://formyx.app/og-image.png" />
@@ -69,7 +72,11 @@ describe('injectFormMeta', () => {
       PAGE,
     );
     expect(withIcon).toContain('<link rel="icon" href="https://res.cloudinary.com/x/icon.png" />');
+    // None of the site's own icons is left to compete with it.
     expect(withIcon).not.toContain('/favicon.svg');
+    expect(withIcon).not.toContain('/favicon.ico');
+    expect(withIcon).not.toContain('/apple-touch-icon.png');
+    expect(withIcon).toContain('<link rel="manifest" href="/manifest.webmanifest" />');
   });
 
   it('leaves the description out when the form has none', () => {
