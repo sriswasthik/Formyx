@@ -1,0 +1,105 @@
+name: Nightly backup
+
+# Every night: dump the production database with a read-only role, encrypt the dump, keep it
+# as an artifact for 30 days, then prove it can be restored by restoring the encrypted copy
+# into a throwaway Postgres and checking what came back. A failed run emails the repository's
+# owners (GitHub notifies about failed scheduled workflows). Setup: docs/launch-checklist.md.
+
+on:
+  schedule:
+    # 21:30 UTC is 03:00 in India, when the fewest forms are being filled in.
+    - cron: '30 21 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Dump, encrypt and test a restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      # Where the backup is restored to check it; thrown away with the run.
+      restore:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: restore
+          POSTGRES_PASSWORD: restore
+          POSTGRES_DB: formyx_restore
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U restore -d formyx_restore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # A role that can only read (see docs/launch-checklist.md), never the app's own.
+      SOURCE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      RESTORE_URL: postgresql://restore:restore@localhost:5433/formyx_restore
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the secrets are set
+        run: |
+          if [ -z "$SOURCE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Set BACKUP_DATABASE_URL and BACKUP_PASSPHRASE in the repository's Actions secrets (docs/launch-checklist.md)."
+            exit 1
+          fi
+
+      # The database runs Postgres 17; pg_dump must be at least as new.
+      - name: Install the Postgres 17 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Count rows in production
+        run: .github/scripts/backup-counts.sh "$SOURCE_URL" > source-counts.txt
+
+      - name: Dump
+        run: |
+          pg_dump --format=custom --schema=public --no-owner --no-privileges \
+            --file=formyx.dump "$SOURCE_URL"
+          ls -lh formyx.dump
+
+      - name: Encrypt
+        run: |
+          name="formyx-$(date -u +%Y-%m-%dT%H%M)Z.dump.gpg"
+          gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" --output "$name" formyx.dump
+          shred -u formyx.dump
+          echo "BACKUP_FILE=$name" >> "$GITHUB_ENV"
+
+      - name: Keep it for 30 days
+        uses: actions/upload-artifact@v7
+        with:
+          name: database-backup
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
+          if-no-files-found: error
+
+      # From the encrypted file, as someone restoring it would: proves the passphrase and the
+      # artifact both work, not just the dump.
+      - name: Restore the encrypted copy
+        run: |
+          gpg --batch --yes --pinentry-mode loopback --decrypt \
+            --passphrase "$BACKUP_PASSPHRASE" --output restore.dump "$BACKUP_FILE"
+          # --clean: the fresh database already has an empty public schema.
+          pg_restore --exit-on-error --clean --if-exists --no-owner --no-privileges \
+            --dbname="$RESTORE_URL" restore.dump
+          shred -u restore.dump
+
+      - name: Check what came back
+        run: |
+          .github/scripts/backup-counts.sh "$RESTORE_URL" > restored-counts.txt
+          .github/scripts/verify-backup.sh source-counts.txt restored-counts.txt \
+            apps/api/prisma/migrations "$RESTORE_URL"

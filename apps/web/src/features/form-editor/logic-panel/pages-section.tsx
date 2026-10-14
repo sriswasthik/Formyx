@@ -172,7 +172,7 @@ function PageCard({ page, pages, number, onUpdate }: PageCardProps) {
       <div className="flex flex-col gap-3">
         <h5 className="flex items-center gap-1.5 text-13 font-medium">
           After this page
-          {!hasFeature('advanced_logic') && <ProBadge />}
+          {!hasFeature('advanced_logic') && <ProBadge feature="advanced_logic" />}
         </h5>
         {jumps.length === 0 && (
           <p className="text-13 text-muted-foreground">

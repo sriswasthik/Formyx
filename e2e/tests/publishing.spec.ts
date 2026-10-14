@@ -8,7 +8,8 @@ const DIET_DETAILS = /Tell us about your dietary needs/;
 /** Fills in the event registration's required questions. */
 async function fillRegistration(page: Page) {
   await page.getByRole('textbox', { name: /Full name/ }).fill('Ada Lovelace');
-  await page.getByRole('textbox', { name: /^Email/ }).fill('ada@example.com');
+  // The template's look numbers its questions ("2. Email"); it has one email question.
+  await page.getByRole('textbox', { name: /Email/ }).fill('ada@example.com');
   // People click the option's row; the checkbox itself is drawn by the form.
   await page.locator('label', { hasText: 'Opening keynote' }).click();
   await expect(page.getByRole('checkbox', { name: 'Opening keynote' })).toBeChecked();

@@ -210,7 +210,7 @@ describe('publishing a Pro look', () => {
     return makeFormDetail([named], { theme: studio.theme });
   }
 
-  it('explains Pro plans instead of publishing, when the plan lacks what it uses', async () => {
+  it('offers Pro instead of publishing, when the plan lacks what it uses', async () => {
     const server = installFakeServer(studioForm(), { entitlements: freePlan('enforced') });
     const { user } = renderEditorPage();
     // Wait for the plan: the Design panel says what publishing needs.
@@ -219,8 +219,8 @@ describe('publishing a Pro look', () => {
 
     await user.click(screen.getByRole('button', { name: 'Publish' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Pro plans are coming soon' });
-    const features = within(dialog).getByRole('list', { name: 'Pro styles in this form' });
+    const dialog = await screen.findByRole('dialog', { name: 'Upgrade to Pro' });
+    const features = within(dialog).getByRole('list', { name: 'Pro features in this form' });
     expect(
       within(features)
         .getAllByRole('listitem')
@@ -229,7 +229,7 @@ describe('publishing a Pro look', () => {
     // Checked before asking the API.
     expect(server.actions).toEqual([]);
 
-    await user.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Not now' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Publish' })).toHaveFocus();
@@ -245,7 +245,7 @@ describe('publishing a Pro look', () => {
 
     await user.click(screen.getByRole('button', { name: 'Publish' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Pro plans are coming soon' });
+    const dialog = await screen.findByRole('dialog', { name: 'Upgrade to Pro' });
     expect(within(dialog).getByText('Premium textures')).toBeInTheDocument();
     expect(server.actions).toEqual(['publish:1']);
     // The editor catches up with the new plan.

@@ -125,9 +125,11 @@ export const CanvasField = memo(function CanvasField({
         />
         <div className="pointer-events-none relative px-3 py-4 sm:px-4">
           {logic && (
+            // The form's own text colour, not its muted one: this note sits over textured and
+            // patterned backgrounds too, at a small size.
             <p
               id={`logic-${id}`}
-              className="mb-2 flex min-w-0 items-center gap-2 text-12 text-(--form-muted)"
+              className="mb-2 flex min-w-0 items-center gap-2 text-12 text-(--form-fg)"
             >
               <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-(--form-accent-subtle) px-1.5 font-medium text-(--form-fg) [&_svg]:size-3 [&_svg]:text-(--form-accent)">
                 <Split aria-hidden />

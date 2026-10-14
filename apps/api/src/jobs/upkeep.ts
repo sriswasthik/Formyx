@@ -4,14 +4,18 @@ import type { Encryption } from '../lib/encryption.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { Database } from '../lib/prisma.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
+import { billingConfigured, createRazorpayClient } from '../billing/razorpay.js';
+import { runBillingUpkeep } from '../billing/upkeep.js';
+import { resumePausedSubscriptions } from '../referrals/referrals.js';
+import { queueInactiveEmails } from '../lifecycle/lifecycle.js';
 import { queueEmails } from '../notifications/email-jobs.js';
 import { applyRetention, pruneExpired, sendDigests } from './jobs.js';
 import type { JobQueue } from './queue.js';
 
 /*
  * Once an hour, a little after the hour: daily digests (each form at its own hour, in its
- * workspace's time zone), deleting responses older than a form keeps them, and clearing
- * expired codes and drafts. The job queues the next one when it is done; the queue keeps at
+ * workspace's time zone), deleting responses older than a form keeps them, clearing expired
+ * codes and drafts, and billing's reminders and plan endings (billing/upkeep.ts). The job queues the next one when it is done; the queue keeps at
  * most one waiting, so restarts and extra instances never double it.
  */
 
@@ -44,7 +48,7 @@ export function registerUpkeep({
   mailer: Mailer;
   storage: UploadStorage | null;
   logger: Logger;
-  env: Pick<Env, 'APP_URL'>;
+  env: Env;
   encryption: Encryption;
 }): void {
   jobs.handle('upkeep.hourly', async () => {
@@ -62,7 +66,16 @@ export function registerUpkeep({
       const digests = await sendDigests(deps);
       const retention = await applyRetention(deps);
       const pruned = await pruneExpired(deps);
-      logger.info({ digests, retention, pruned, ms: Date.now() - started }, 'Hourly upkeep done');
+      const billing = await runBillingUpkeep({ prisma, jobs, encryption, env, logger });
+      const inactive = await queueInactiveEmails({ prisma, jobs });
+      // Subscriptions a referral reward paused, back on once their free month is up.
+      const resumed = billingConfigured(env)
+        ? await resumePausedSubscriptions({ prisma, logger, razorpay: createRazorpayClient(env) })
+        : 0;
+      logger.info(
+        { digests, retention, pruned, billing, inactive, resumed, ms: Date.now() - started },
+        'Hourly upkeep done',
+      );
     } finally {
       await scheduleNextUpkeep(jobs);
     }

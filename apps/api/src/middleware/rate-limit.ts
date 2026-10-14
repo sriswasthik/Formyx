@@ -225,3 +225,15 @@ export function createApiRateLimiter(env: Pick<Env, 'API_RATE_LIMIT_MAX' | 'JWT_
   });
   return Object.assign(limiter, { [API_WIDE]: true });
 }
+
+/** Billing changes reach Razorpay, so each owner gets room to retry, not to hammer it. */
+const BILLING_LIMIT = 30;
+
+export function createBillingRateLimiter() {
+  return limitedTo(
+    BILLING_LIMIT,
+    // Runs after requireAuth, so there is always a user.
+    (req) => `user:${req.auth?.userId ?? ipKeyGenerator(req.ip ?? '')}`,
+    'Too many billing requests. Try again in a few minutes.',
+  );
+}

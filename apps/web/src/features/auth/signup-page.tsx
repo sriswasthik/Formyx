@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router';
 import { AuthLayout, AuthLink } from './auth-layout';
 import { getRedirectEmail } from './redirect';
+import { ReferralInvite } from './referral-invite';
 import { SignupForm } from './signup-form';
 
 export function SignupPage() {
@@ -20,6 +21,7 @@ export function SignupPage() {
         </>
       }
     >
+      <ReferralInvite />
       <SignupForm defaultEmail={getRedirectEmail(state)} />
     </AuthLayout>
   );

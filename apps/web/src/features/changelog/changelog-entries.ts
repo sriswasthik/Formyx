@@ -15,6 +15,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-launch',
+    date: '2026-10-13',
+    title: 'Templates, a help centre and a warmer welcome',
+    summary: 'Easier to start, easier to find your way, and a reason to tell a friend.',
+    items: [
+      'A template gallery with 34 forms in seven categories, each with a live preview you can fill in.',
+      'A short welcome for new accounts, and a getting-started checklist on the dashboard.',
+      'A help centre with a guide to every feature, and a “Help” menu in the app and the editor.',
+      'Refer a friend: they get 60 days of Pro, and you get a month free when they first pay.',
+      'A few helpful emails, each with a one-click way to stop them; turn them off in Preferences.',
+    ],
+  },
+  {
     id: '2026-10-beta',
     date: '2026-10-12',
     title: 'Beta: feedback, changelog and a sturdier Formyx',

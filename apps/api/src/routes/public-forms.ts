@@ -53,6 +53,8 @@ export function createPublicFormsRouter({
     secret: env.JWT_SECRET,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mailer,
+    entitlementsMode: env.ENTITLEMENTS_MODE,
+    enforcementMode: env.ENFORCEMENT_MODE,
   });
   const drafts = createDraftService({
     prisma,
@@ -61,7 +63,7 @@ export function createPublicFormsRouter({
     openForm: (slug, accessToken) => forms.openForm(slug, accessToken),
   });
   const limit = createPublicRateLimiters(env);
-  const meta = createFormMetaService(prisma, env.APP_URL);
+  const meta = createFormMetaService(prisma, env.APP_URL, env.ENTITLEMENTS_MODE);
 
   // Closing a form must take effect at once, so nothing may cache these responses.
   router.use((_req, res, next) => {

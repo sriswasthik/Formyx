@@ -2,6 +2,7 @@ import type { FieldType, FormDetail } from '@formyx/shared';
 import { Plus } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -37,6 +38,12 @@ interface EditorLayoutProps {
   navigation?: ReactNode;
   /** Publishing controls for the top bar. */
   actions?: ReactNode;
+}
+
+/** `?panel=design` opens the editor on the Design Studio (the getting-started checklist links there). */
+function useOpensOnDesign(): boolean {
+  const [searchParams] = useSearchParams();
+  return searchParams.get('panel') === 'design';
 }
 
 /** Adds a question at the end, then focuses it on the canvas. */
@@ -79,7 +86,8 @@ function DesktopEditor({ status, navigation, actions }: EditorLayoutProps) {
   const selectedId = useEditorStore((state) => state.selectedFieldId);
   const selectField = useEditorStore((state) => state.selectField);
   const [view, setView] = useState<EditorView>('build');
-  const [panel, setPanel] = useState<SidebarTab>('settings');
+  const opensOnDesign = useOpensOnDesign();
+  const [panel, setPanel] = useState<SidebarTab>(opensOnDesign ? 'design' : 'settings');
   const add = useAddField();
   useEditorShortcuts(view === 'build');
 
@@ -155,7 +163,8 @@ type MobileTab = 'build' | 'design' | 'logic' | 'settings' | 'preview';
 /** Phones and tablets: Build / Design / Logic / Settings / Preview tabs; the palette in a sheet. */
 function MobileEditor({ status, navigation, actions }: EditorLayoutProps) {
   const theme = useEditorStore((state) => state.theme);
-  const [tab, setTab] = useState<MobileTab>('build');
+  const opensOnDesign = useOpensOnDesign();
+  const [tab, setTab] = useState<MobileTab>(opensOnDesign ? 'design' : 'build');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const add = useAddField();
   useEditorShortcuts(tab === 'build');

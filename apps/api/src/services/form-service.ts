@@ -26,6 +26,9 @@ import {
   type UpdateFormInput,
   storedFormSchemaSchema,
   storedFormThemeSchema,
+  THEME_PRESETS,
+  themeForFeatures,
+  type ThemePresetId,
 } from '@formyx/shared';
 import type { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
@@ -200,9 +203,24 @@ export interface FormService {
   reopen(formId: string): Promise<FormDetail>;
 }
 
+/**
+ * The look a template's forms start with: its preset as the workspace's plan draws it, so a
+ * form never starts with Pro features it could not publish; or the default theme.
+ */
+async function templateTheme(
+  entitlements: Pick<EntitlementService, 'forWorkspace'>,
+  workspaceId: string,
+  presetId: ThemePresetId | null,
+): Promise<FormTheme> {
+  const preset = presetId && THEME_PRESETS.find((candidate) => candidate.id === presetId);
+  if (!preset) return createDefaultTheme();
+  const { features } = await entitlements.forWorkspace(workspaceId);
+  return themeForFeatures(structuredClone(preset.theme), features).theme;
+}
+
 export function createFormService(
   prisma: Database,
-  entitlements: Pick<EntitlementService, 'assertFeatures'>,
+  entitlements: Pick<EntitlementService, 'assertFeatures' | 'forWorkspace'>,
 ): FormService {
   async function insert(form: NewForm): Promise<FormDetail> {
     for (let attempt = 1; ; attempt++) {
@@ -255,7 +273,10 @@ export function createFormService(
         createdById: userId,
         title: title ?? template.defaultTitle,
         draftSchema: inLanguage(template.build(), account.language),
-        theme: kit ? applyBrandKit(createDefaultTheme(), kit) : createDefaultTheme(),
+        // The workspace's default brand kit, if it has one; otherwise the template's own look.
+        theme: kit
+          ? applyBrandKit(createDefaultTheme(), kit)
+          : await templateTheme(entitlements, workspaceId, template.presetId),
         liveSettings: createDefaultLiveSettings(defaultFormNotifications(defaults)),
       });
       if (account.emailOnNewForms) {

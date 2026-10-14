@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { contentSecurityPolicy, inlineScriptHashes, vercelRoutes } from './vercel-output.ts';
+import {
+  contentSecurityPolicy,
+  inlineScriptHashes,
+  pageRoutes,
+  vercelRoutes,
+} from './vercel-output.ts';
 
 const BOOT = "document.documentElement.dataset.theme='dark';";
 const HTML = `<!doctype html><html><head>
@@ -114,6 +119,23 @@ describe('vercelRoutes', () => {
     expect(headersFor('/app/forms')['Permissions-Policy']).toContain('microphone=()');
   });
 
+  it('lets the app’s pages, and never public forms, open Razorpay Checkout', () => {
+    const app = headersFor('/app/settings/billing');
+    expect(app['Content-Security-Policy']).toContain("script-src 'self' 'sha256-");
+    expect(app['Content-Security-Policy']).toMatch(
+      /script-src [^;]*https:\/\/checkout\.razorpay\.com/,
+    );
+    expect(app['Content-Security-Policy']).toMatch(/frame-src [^;]*https:\/\/api\.razorpay\.com/);
+    expect(app['Content-Security-Policy']).toMatch(
+      /connect-src [^;]*https:\/\/lumberjack\.razorpay\.com/,
+    );
+    expect(app['Permissions-Policy']).toContain('payment=(self "https://api.razorpay.com")');
+
+    const form = headersFor('/f/customer-survey-x7k2');
+    expect(form['Content-Security-Policy']).not.toContain('razorpay');
+    expect(form['Permissions-Policy']).toContain('payment=()');
+  });
+
   it('leaves API responses to the API’s own headers', () => {
     expect(headersFor('/api/auth/me')).toEqual({});
   });
@@ -123,6 +145,35 @@ describe('vercelRoutes', () => {
       'public, max-age=31536000, immutable',
     );
     expect(headersFor('/embed.js')['Cache-Control']).toBe('public, max-age=300');
+  });
+
+  it('serves public pages from their own files, and nothing else from them', () => {
+    const withPages = vercelRoutes({
+      apiUrl: 'https://formyx-api.onrender.com',
+      html: HTML,
+      pages: ['/templates', '/templates/wedding-rsvp'],
+    });
+    const [route] = pageRoutes(['/templates', '/templates/wedding-rsvp']);
+    expect(route).toEqual({
+      src: '^/(templates|templates/wedding-rsvp)/?$',
+      dest: '/pages/$1.html',
+    });
+    // After built files, before the app's catch-all.
+    const at = withPages.findIndex(
+      (candidate) => 'src' in candidate && candidate.dest === '/pages/$1.html',
+    );
+    expect(at).toBeGreaterThan(withPages.findIndex((candidate) => 'handle' in candidate));
+    expect(at).toBeLessThan(withPages.length - 1);
+    const pattern = new RegExp(route && 'src' in route ? route.src : '$^');
+    expect('/templates/wedding-rsvp/'.replace(pattern, '/pages/$1.html')).toBe(
+      '/pages/templates/wedding-rsvp.html',
+    );
+    expect(pattern.test('/templates/nope')).toBe(false);
+    expect(pattern.test('/templates/wedding-rsvp/x')).toBe(false);
+  });
+
+  it('refuses a page path that would break the route', () => {
+    expect(() => pageRoutes(['/templates/(.*)'])).toThrow(/Unsafe page path/);
   });
 
   it('refuses an API address that is not a URL', () => {

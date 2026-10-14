@@ -72,4 +72,10 @@ describe('EditorLayout on phones and tablets', () => {
       'mesh',
     ]);
   });
+
+  it('opens on the Design tab when the link asks for it', () => {
+    const form = makeFormDetail([]);
+    renderWithEditor(<EditorLayout form={form} status={null} />, form, 'mobile', '?panel=design');
+    expect(screen.getByRole('tab', { name: 'Design', selected: true })).toBeInTheDocument();
+  });
 });

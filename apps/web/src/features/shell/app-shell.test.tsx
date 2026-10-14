@@ -122,8 +122,8 @@ describe('UserMenu', () => {
 
     expect(await screen.findByText('Log in page')).toBeInTheDocument();
     expect(queryClient.getQueryData(meQueryKey)).toBeNull();
-    const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe('/api/auth/logout');
+    // The shell also asks for the plan (for its banner); the logout is among the requests.
+    const [, init] = fetchMock.mock.calls.find(([url]) => url === '/api/auth/logout') ?? [];
     expect(init?.method).toBe('POST');
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBeNull();
   });

@@ -5,8 +5,10 @@ import { createApiRateLimiter } from '../middleware/rate-limit.js';
 import { createRequireFeature, type RequireFeature } from '../middleware/require-feature.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createAccountRouter } from './account.js';
+import { createAdminRouter } from './admin.js';
 import { createAnalyticsRouter } from './analytics.js';
 import { createAuthRouter } from './auth.js';
+import { createBillingRouter } from './billing.js';
 import { createBrandKitsRouter } from './brand-kits.js';
 import { createFeedbackRouter } from './feedback.js';
 import { createFormSettingsRouter } from './form-settings.js';
@@ -16,8 +18,11 @@ import { createHealthRouter } from './health.js';
 import { createNotificationsRouter } from './notifications.js';
 import { createPinCodesRouter } from './pin-codes.js';
 import { createPublicFormsRouter } from './public-forms.js';
+import { createRazorpayWebhookRouter } from './razorpay-webhook.js';
 import { createRealtimeRouter } from './realtime.js';
+import { createReferralsRouter } from './referrals.js';
 import { createSubmissionsRouter } from './submissions.js';
+import { createUnsubscribeRouter } from './unsubscribe.js';
 import { createUploadsRouter } from './uploads.js';
 import { createWebhooksRouter } from './webhooks.js';
 import { createWorkspacesRouter } from './workspaces.js';
@@ -36,11 +41,13 @@ export function createApiRouter(deps: AppDependencies): Router {
   };
 
   router.use(createApiRateLimiter(deps.env));
-  router.use('/health', createHealthRouter());
+  router.use('/health', createHealthRouter(deps));
   router.use('/auth', createAuthRouter(deps, guards));
   router.use('/realtime', createRealtimeRouter(deps, guards));
   router.use('/public/forms', createPublicFormsRouter(deps));
   router.use('/public/pincodes', createPinCodesRouter(deps));
+  router.use('/public', createUnsubscribeRouter(deps));
+  router.use(createReferralsRouter(deps, guards));
   router.use('/uploads', createUploadsRouter(deps, guards));
   // The forms router goes first: it marks everything under /forms as not cacheable.
   router.use(createFormsRouter(deps, guards));
@@ -54,6 +61,9 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createWebhooksRouter(deps, guards));
   router.use(createIntegrationsRouter(deps, guards));
   router.use(createFeedbackRouter(deps, guards));
+  router.use(createBillingRouter(deps, guards));
+  router.use(createRazorpayWebhookRouter(deps));
+  router.use(createAdminRouter(deps, guards));
 
   return router;
 }

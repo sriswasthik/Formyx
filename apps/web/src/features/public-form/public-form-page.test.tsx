@@ -111,7 +111,10 @@ describe('PublicFormPage', () => {
       await screen.findByRole('heading', { level: 1, name: 'Party RSVP' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Let us know by Friday.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Made with Formyx' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Made with Formyx' })).toHaveAttribute(
+      'href',
+      '/?ref=badge&form=party-abc12345',
+    );
     await waitFor(() => {
       expect(requests.filter((request) => request.path.endsWith('/view'))).toHaveLength(1);
     });

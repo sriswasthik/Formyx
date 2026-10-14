@@ -1,12 +1,27 @@
-import { resolveEntitlements, type EntitlementsMode } from '@formyx/shared';
+import {
+  resolveEntitlements,
+  type BillingSummary,
+  type EntitlementsMode,
+  type FeatureId,
+} from '@formyx/shared';
 import { render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { createTestQueryClient, jsonResponse, stubFetch } from '@/test/session';
+import { createMemoryRouter, RouterProvider } from 'react-router';
+import { ProtectedRoute } from '@/features/auth/protected-route';
+import { useWorkspaceStore } from '@/features/workspaces/workspace-store';
+import {
+  ADA,
+  createTestQueryClient,
+  jsonResponse,
+  renderWithProviders,
+  stubFetch,
+} from '@/test/session';
 import { ProBadge } from './pro-badge';
 import { UpgradeDialog } from './upgrade-dialog';
+import { useUpgradeStore } from './upgrade-store';
 import {
   describeEntitlements,
   UNKNOWN_ENTITLEMENTS,
@@ -74,25 +89,104 @@ describe('ProBadge', () => {
 });
 
 describe('UpgradeDialog', () => {
-  it('says Pro plans are coming soon and lists what the form uses', async () => {
-    const onOpenChange = vi.fn();
-    render(
-      <UpgradeDialog
-        open
-        onOpenChange={onOpenChange}
-        features={['mesh_gradients', 'remove_branding']}
-      />,
+  /** The dialog on a signed-in page, as Ada, in the workspace `workspaceId`. */
+  function renderDialog(
+    features: FeatureId[],
+    { workspaceId = 'ws_personal', checkoutAvailable = true } = {},
+  ) {
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+    stubFetch((path) =>
+      path.endsWith('/billing')
+        ? jsonResponse({
+            plan: 'FREE',
+            effectivePlan: 'FREE',
+            planStatus: 'ACTIVE',
+            trialEndsAt: null,
+            graceEndsAt: null,
+            complimentaryPlan: null,
+            complimentaryUntil: null,
+            subscription: null,
+            usage: {
+              periodStart: '2026-10-01T00:00:00.000Z',
+              periodEnd: '2026-11-01T00:00:00.000Z',
+              responses: { used: 0, limit: 100 },
+              storageBytes: { used: 0, limit: null },
+            },
+            downgrade: null,
+            enforcement: 'soft',
+            checkoutAvailable,
+          } satisfies BillingSummary)
+        : jsonResponse(freePlan('enforced')),
     );
+    const onOpenChange = vi.fn();
+    const router = createMemoryRouter(
+      [
+        {
+          path: 'app',
+          element: <ProtectedRoute />,
+          children: [
+            {
+              path: '*',
+              element: <UpgradeDialog open onOpenChange={onOpenChange} features={features} />,
+            },
+          ],
+        },
+      ],
+      { initialEntries: ['/app/forms'] },
+    );
+    renderWithProviders(<RouterProvider router={router} />, createTestQueryClient(ADA));
+    return onOpenChange;
+  }
 
-    const dialog = screen.getByRole('dialog', { name: 'Pro plans are coming soon' });
-    expect(dialog).toHaveAccessibleDescription(/switch them to free options in Design/);
+  it('lists what the form uses, and the plan that includes it', async () => {
+    const onOpenChange = renderDialog(['mesh_gradients', 'remove_branding']);
+
+    const dialog = screen.getByRole('dialog', { name: 'Upgrade to Pro' });
+    expect(dialog).toHaveAccessibleDescription(/publishing them takes Pro/);
     const items = within(within(dialog).getByRole('list')).getAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual([
       'Mesh gradients ProSoft, many-colour backgrounds.',
       'Remove Formyx branding ProHide "Made with Formyx" under your forms.',
     ]);
+    expect(within(dialog).getByText('₹299')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Upgrade to Pro' })).toBeEnabled();
+    });
 
-    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Not now' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('asks for Business when a feature needs it', () => {
+    renderDialog(['ai_insights']);
+    expect(screen.getByRole('dialog', { name: 'Upgrade to Business' })).toBeInTheDocument();
+  });
+
+  it('sends members who aren’t owners to an owner', () => {
+    renderDialog(['mesh_gradients'], { workspaceId: 'ws_team' });
+    const dialog = screen.getByRole('dialog', { name: 'Upgrade to Pro' });
+    expect(
+      within(dialog).getByText(/Only a workspace owner can change the plan/),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Upgrade to Pro' })).toBeNull();
+  });
+
+  it('says when payments aren’t set up', async () => {
+    renderDialog(['mesh_gradients'], { checkoutAvailable: false });
+    expect(
+      await screen.findByText('Payments aren’t set up on this server yet.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeDisabled();
+  });
+});
+
+describe('ProBadge for a feature', () => {
+  it('opens the upgrade dialog', async () => {
+    render(<ProBadge feature="quiz_mode" />);
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Quizzes is a Pro feature: see plans' }));
+    expect(useUpgradeStore.getState().features).toEqual(['quiz_mode']);
+    useUpgradeStore.getState().closeUpgrade();
   });
 });

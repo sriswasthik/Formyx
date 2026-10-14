@@ -1,6 +1,7 @@
 import { ArrowLeft, Eye, PencilRuler, Redo2, Undo2 } from 'lucide-react';
 import type * as React from 'react';
 import { Link } from 'react-router';
+import { HelpMenu } from '@/features/help/help-menu';
 import { ActionTooltip } from '@/components/action-tooltip';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -74,6 +75,9 @@ export function EditorTopBar({
         {navigation}
         {navigation && <Separator orientation="vertical" className="mx-1 hidden h-5 md:block" />}
         <UndoRedo />
+        <div className="hidden sm:block">
+          <HelpMenu variant="icon" />
+        </div>
         {view && onViewChange && (
           <ToggleGroup
             type="single"

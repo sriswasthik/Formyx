@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FormAlert } from '@/components/form-alert';
 import { FormField } from '@/components/form-field';
+import { clearAttribution, readAttribution } from '@/lib/attribution';
 import { PasswordInput } from '@/components/password-input';
 import { Input } from '@/components/ui/input';
 import { applyServerError } from './server-errors';
@@ -28,7 +29,13 @@ export function SignupForm({ defaultEmail = '' }: { defaultEmail?: string }) {
     setFormError(null);
     try {
       // On success GuestRoute moves the user on, as soon as the session is stored.
-      await signUp.mutateAsync(values);
+      const attribution = readAttribution();
+      await signUp.mutateAsync({
+        ...values,
+        ...(attribution?.referralCode && { referralCode: attribution.referralCode }),
+        ...(attribution?.source && { source: attribution.source }),
+      });
+      clearAttribution();
     } catch (error) {
       setFormError(applyServerError(error, ['name', 'email', 'password'], setError));
     }

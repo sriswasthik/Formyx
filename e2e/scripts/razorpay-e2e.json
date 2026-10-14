@@ -1,0 +1,23 @@
+{
+  "keyId": "rzp_test_e2e",
+  "keySecret": "e2e_razorpay_key_secret",
+  "webhookSecret": "e2e_razorpay_webhook_secret",
+  "plans": {
+    "RAZORPAY_PLAN_PRO_MONTHLY": {
+      "id": "plan_e2epromonthly",
+      "period": "monthly",
+      "amount": 29900
+    },
+    "RAZORPAY_PLAN_PRO_YEARLY": { "id": "plan_e2eproyearly", "period": "yearly", "amount": 299000 },
+    "RAZORPAY_PLAN_BUSINESS_MONTHLY": {
+      "id": "plan_e2ebusinessmonthly",
+      "period": "monthly",
+      "amount": 99900
+    },
+    "RAZORPAY_PLAN_BUSINESS_YEARLY": {
+      "id": "plan_e2ebusinessyearly",
+      "period": "yearly",
+      "amount": 999000
+    }
+  }
+}

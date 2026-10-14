@@ -33,6 +33,112 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        path: 'pricing',
+        handle: { title: 'Pricing' } satisfies RouteHandle,
+        lazy: async () => {
+          const { PricingPage } = await import('@/features/pricing/pricing-page');
+          return { Component: PricingPage };
+        },
+      },
+      {
+        path: 'templates',
+        handle: { title: 'Form templates' } satisfies RouteHandle,
+        lazy: async () => {
+          const { TemplatesPage } = await import('@/features/templates/templates-page');
+          return { Component: TemplatesPage };
+        },
+      },
+      {
+        path: 'templates/:slug',
+        // Replaced by "<template> template" once it is found.
+        handle: { title: 'Template' } satisfies RouteHandle,
+        lazy: async () => {
+          const { TemplatePage } = await import('@/features/templates/template-page');
+          return { Component: TemplatePage };
+        },
+      },
+      {
+        path: 'features/design-studio',
+        handle: { title: 'Design Studio' } satisfies RouteHandle,
+        lazy: async () => {
+          const { DesignStudioPage } = await import('@/features/marketing/feature-pages');
+          return { Component: DesignStudioPage };
+        },
+      },
+      {
+        path: 'features/logic',
+        handle: { title: 'Logic' } satisfies RouteHandle,
+        lazy: async () => {
+          const { LogicPage } = await import('@/features/marketing/feature-pages');
+          return { Component: LogicPage };
+        },
+      },
+      {
+        path: 'features/integrations',
+        handle: { title: 'Integrations' } satisfies RouteHandle,
+        lazy: async () => {
+          const { IntegrationsPage } = await import('@/features/marketing/feature-pages');
+          return { Component: IntegrationsPage };
+        },
+      },
+      {
+        path: 'terms',
+        handle: { title: 'Terms of service' } satisfies RouteHandle,
+        lazy: async () => {
+          const { TermsPage } = await import('@/features/legal/policies');
+          return { Component: TermsPage };
+        },
+      },
+      {
+        path: 'privacy',
+        handle: { title: 'Privacy policy' } satisfies RouteHandle,
+        lazy: async () => {
+          const { PrivacyPage } = await import('@/features/legal/policies');
+          return { Component: PrivacyPage };
+        },
+      },
+      {
+        path: 'refunds',
+        handle: { title: 'Refund and cancellation policy' } satisfies RouteHandle,
+        lazy: async () => {
+          const { RefundsPage } = await import('@/features/legal/policies');
+          return { Component: RefundsPage };
+        },
+      },
+      {
+        path: 'shipping',
+        handle: { title: 'Shipping and delivery policy' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ShippingPage } = await import('@/features/legal/policies');
+          return { Component: ShippingPage };
+        },
+      },
+      {
+        path: 'contact',
+        handle: { title: 'Contact us' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ContactPage } = await import('@/features/legal/contact-page');
+          return { Component: ContactPage };
+        },
+      },
+      {
+        path: 'help',
+        handle: { title: 'Help centre' } satisfies RouteHandle,
+        lazy: async () => {
+          const { HelpCentrePage } = await import('@/features/help/help-centre-page');
+          return { Component: HelpCentrePage };
+        },
+      },
+      {
+        path: 'help/:slug',
+        // Replaced by the article's title once it is found.
+        handle: { title: 'Help' } satisfies RouteHandle,
+        lazy: async () => {
+          const { HelpArticlePage } = await import('@/features/help/help-article-page');
+          return { Component: HelpArticlePage };
+        },
+      },
+      {
         path: 'changelog',
         handle: { title: 'Changelog' } satisfies RouteHandle,
         lazy: async () => {
@@ -98,6 +204,14 @@ export const routes: RouteObject[] = [
                 },
               },
               {
+                path: 'admin',
+                handle: { title: 'Admin' } satisfies RouteHandle,
+                lazy: async () => {
+                  const { AdminPage } = await import('@/features/admin/admin-page');
+                  return { Component: AdminPage };
+                },
+              },
+              {
                 path: 'settings',
                 handle: { title: 'Settings' } satisfies RouteHandle,
                 lazy: async () => {
@@ -119,6 +233,20 @@ export const routes: RouteObject[] = [
                       const { WorkspaceSettingsPage } =
                         await import('@/features/settings/workspace/workspace-settings-page');
                       return { Component: WorkspaceSettingsPage };
+                    },
+                  },
+                  {
+                    path: 'billing',
+                    lazy: async () => {
+                      const { BillingPage } = await import('@/features/billing/billing-page');
+                      return { Component: BillingPage };
+                    },
+                  },
+                  {
+                    path: 'referrals',
+                    lazy: async () => {
+                      const { ReferralsPage } = await import('@/features/settings/referrals-page');
+                      return { Component: ReferralsPage };
                     },
                   },
                 ],
@@ -175,6 +303,14 @@ export const routes: RouteObject[] = [
         },
       },
       // The link in an invite email; it works signed in or out.
+      {
+        path: 'unsubscribe/:token',
+        handle: { title: 'Email preferences' } satisfies RouteHandle,
+        lazy: async () => {
+          const { UnsubscribePage } = await import('@/features/emails/unsubscribe-page');
+          return { Component: UnsubscribePage };
+        },
+      },
       {
         path: 'invite/:token',
         handle: { title: 'Invite' } satisfies RouteHandle,

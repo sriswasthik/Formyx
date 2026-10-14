@@ -6,12 +6,26 @@ import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { isEmbedded } from '@/lib/embed';
 import { cx } from '@/lib/cx';
 
+/** Where the badge leads: home, marked as coming from the badge (and which form), for sign-ups. */
+function badgeLink(slug?: string): string {
+  const params = new URLSearchParams({ ref: 'badge' });
+  if (slug) params.set('form', slug);
+  return `/?${params.toString()}`;
+}
+
 /** A quiet credit under every public page. Uses the form's colours when inside one. */
-export function MadeWithFormyx({ label = 'Made with Formyx' }: { label?: string }) {
+export function MadeWithFormyx({
+  label = 'Made with Formyx',
+  slug,
+}: {
+  label?: string | undefined;
+  /** The form it sits under. */
+  slug?: string | undefined;
+}) {
   return (
     <footer className="px-6 pb-8 text-center">
       <Link
-        to="/"
+        to={badgeLink(slug)}
         className="rounded-sm text-12 text-(--form-muted,var(--muted-foreground)) underline-offset-4 transition-colors duration-150 ease-standard hover:text-(--form-fg,var(--foreground)) hover:underline"
       >
         {label}

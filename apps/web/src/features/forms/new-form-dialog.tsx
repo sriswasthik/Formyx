@@ -1,5 +1,11 @@
-import { formTemplateIdSchema, type FormTemplateId } from '@formyx/shared';
-import { LoaderCircle } from 'lucide-react';
+import {
+  formTemplateIdSchema,
+  TEMPLATE_CATEGORIES,
+  TEMPLATE_CATEGORY_LABELS,
+  type FormTemplateId,
+  type TemplateCategory,
+} from '@formyx/shared';
+import { LoaderCircle, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,10 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { questionCountLabel } from './format';
-import { TEMPLATE_OPTIONS } from './templates';
+import { filterTemplates, TEMPLATE_OPTIONS } from './templates';
+
+const ALL = 'all';
 
 interface NewFormDialogProps {
   open: boolean;
@@ -24,6 +34,10 @@ interface NewFormDialogProps {
 
 export function NewFormDialog({ open, onOpenChange, onCreate, pending }: NewFormDialogProps) {
   const [templateId, setTemplateId] = useState<FormTemplateId>('blank');
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<TemplateCategory | null>(null);
+  const shown = filterTemplates(TEMPLATE_OPTIONS, { query, category });
+  const selected = TEMPLATE_OPTIONS.find((option) => option.id === templateId);
 
   return (
     <Dialog
@@ -33,7 +47,7 @@ export function NewFormDialog({ open, onOpenChange, onCreate, pending }: NewForm
         if (!pending) onOpenChange(next);
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New form</DialogTitle>
           <DialogDescription>
@@ -46,15 +60,51 @@ export function NewFormDialog({ open, onOpenChange, onCreate, pending }: NewForm
             onCreate(templateId);
           }}
         >
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              aria-label="Search templates"
+              placeholder="Search templates"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+              }}
+              className="pl-9"
+            />
+          </div>
+          <ToggleGroup
+            type="single"
+            aria-label="Category"
+            value={category ?? ALL}
+            onValueChange={(value) => {
+              // Clicking the selected category again leaves it selected.
+              if (!value) return;
+              setCategory(TEMPLATE_CATEGORIES.find((id) => id === value) ?? null);
+            }}
+            className="mt-3 flex h-auto flex-wrap justify-start border-0 p-0"
+          >
+            <ToggleGroupItem value={ALL} className="h-8 border">
+              All
+            </ToggleGroupItem>
+            {TEMPLATE_CATEGORIES.map((id) => (
+              <ToggleGroupItem key={id} value={id} className="h-8 border">
+                {TEMPLATE_CATEGORY_LABELS[id]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           <RadioGroup
             aria-label="Start from"
             value={templateId}
             onValueChange={(value) => {
               setTemplateId(formTemplateIdSchema.parse(value));
             }}
-            className="gap-2"
+            className="mt-3 max-h-[min(24rem,45vh)] gap-2 overflow-y-auto p-0.5"
           >
-            {TEMPLATE_OPTIONS.map(({ id, name, description, icon: Icon, questionCount }) => (
+            {shown.map(({ id, name, description, icon: Icon, questionCount }) => (
               <Label
                 key={id}
                 htmlFor={`template-${id}`}
@@ -75,8 +125,19 @@ export function NewFormDialog({ open, onOpenChange, onCreate, pending }: NewForm
                 )}
               </Label>
             ))}
+            {shown.length === 1 && (
+              <p className="py-6 text-center text-13 text-muted-foreground">
+                No templates match. Try another word, or start from a blank form.
+              </p>
+            )}
           </RadioGroup>
-          <DialogFooter className="mt-6">
+          <DialogFooter className="mt-6 items-center">
+            <p
+              aria-live="polite"
+              className="mr-auto hidden min-w-0 truncate text-13 text-muted-foreground sm:block"
+            >
+              {selected && selected.id !== 'blank' && `Selected: ${selected.name}`}
+            </p>
             <Button
               variant="secondary"
               disabled={pending}

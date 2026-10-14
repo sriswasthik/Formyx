@@ -1,6 +1,7 @@
-import { apiErrorSchema, healthResponseSchema } from '@formyx/shared';
+import { apiErrorSchema, healthResponseSchema, readinessResponseSchema } from '@formyx/shared';
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { testPrisma } from './test/database.js';
 import { createTestApp } from './test/create-test-app.js';
 
 const app = createTestApp({ CORS_ORIGIN: 'http://localhost:5173' });
@@ -19,6 +20,26 @@ describe('GET /api/health', () => {
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['content-security-policy']).toBeDefined();
     expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+});
+
+describe('GET /api/health/ready', () => {
+  it('says the API can reach its database', async () => {
+    const res = await request(app).get('/api/health/ready').expect(200);
+    expect(readinessResponseSchema.parse(res.body)).toMatchObject({
+      status: 'ready',
+      database: 'ok',
+    });
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('answers 503 when the database does not', async () => {
+    vi.spyOn(testPrisma, '$queryRaw').mockRejectedValueOnce(new Error('down'));
+    const res = await request(app).get('/api/health/ready').expect(503);
+    expect(readinessResponseSchema.parse(res.body)).toMatchObject({
+      status: 'unavailable',
+      database: 'down',
+    });
   });
 });
 

@@ -1,4 +1,5 @@
-import type { Member, Role, WorkspaceSummary } from '@formyx/shared';
+import type { EntitlementsMode, Member, Role, WorkspaceSummary } from '@formyx/shared';
+import { claimTrial, trialPlan, trialsStart } from '../billing/trial.js';
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
 import { isUniqueViolation, workspaceSlug } from './auth-service.js';
@@ -66,18 +67,27 @@ async function lockOwners(tx: Transaction, workspaceId: string): Promise<string[
   return rows.map((row) => row.user_id);
 }
 
-export function createWorkspaceService(prisma: Database): WorkspaceService {
+export function createWorkspaceService(
+  prisma: Database,
+  mode: EntitlementsMode = 'all_unlocked',
+): WorkspaceService {
   return {
     async create(userId, name) {
       for (let attempt = 1; ; attempt++) {
         try {
-          const workspace = await prisma.workspace.create({
-            data: {
-              name,
-              slug: workspaceSlug(name),
-              memberships: { create: { userId, role: 'OWNER' } },
-            },
-            select: { id: true, name: true, slug: true },
+          const workspace = await prisma.$transaction(async (tx) => {
+            const now = new Date();
+            // The owner's first workspace gets their one free trial.
+            const trial = trialsStart(mode) && (await claimTrial(tx, userId, now));
+            return tx.workspace.create({
+              data: {
+                name,
+                slug: workspaceSlug(name),
+                ...(trial && trialPlan(now)),
+                memberships: { create: { userId, role: 'OWNER' } },
+              },
+              select: { id: true, name: true, slug: true },
+            });
           });
           return { ...workspace, role: 'OWNER' };
         } catch (error) {

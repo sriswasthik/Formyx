@@ -88,7 +88,7 @@ export function ValuesSection() {
       <p className="flex items-center gap-1.5 text-13 text-muted-foreground">
         Scores, prices and other numbers worked out from the answers, to show on end screens, pipe
         into text and decide jumps.
-        {!hasFeature('advanced_logic') && <ProBadge />}
+        {!hasFeature('advanced_logic') && <ProBadge feature="advanced_logic" />}
       </p>
 
       <ul className="flex flex-col gap-3" aria-label="Values">

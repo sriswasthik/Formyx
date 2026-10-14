@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { referralCodeSchema, signupSourceSchema } from './referrals.js';
 import { roleSchema } from './roles.js';
 
 export const NAME_MAX_LENGTH = 80;
@@ -54,6 +55,10 @@ export const registerInputSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   password: newPasswordSchema,
+  /** A friend's referral code, from their link. An unknown one is ignored. */
+  referralCode: referralCodeSchema.optional(),
+  /** What brought them, such as the badge on a free form. */
+  source: signupSourceSchema.optional(),
 });
 export type RegisterInput = z.infer<typeof registerInputSchema>;
 
@@ -70,6 +75,8 @@ export const sessionUserSchema = z.object({
   createdAt: z.iso.datetime(),
   /** True for the shared demo account, whose data resets nightly and which has limits. */
   isDemo: z.boolean().optional(),
+  /** Formyx's own admins, who may open /admin. Left out for everyone else. */
+  isAdmin: z.boolean().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

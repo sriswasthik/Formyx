@@ -1,9 +1,19 @@
 import { randomBytes } from 'node:crypto';
-import { slugify, type LoginInput, type MeResponse, type RegisterInput } from '@formyx/shared';
+import {
+  REFERRED_TRIAL_DAYS,
+  slugify,
+  TRIAL_DAYS,
+  type EntitlementsMode,
+  type LoginInput,
+  type MeResponse,
+  type RegisterInput,
+} from '@formyx/shared';
+import { trialPlan, trialsStart } from '../billing/trial.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import type { PasswordHasher } from '../lib/password.js';
 import type { Database } from '../lib/prisma.js';
+import { referrerByCode } from '../referrals/referrals.js';
 
 /** Same message for unknown emails and wrong passwords, so it never confirms an account exists. */
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
@@ -19,6 +29,7 @@ const meSelect = {
   email: true,
   createdAt: true,
   isDemo: true,
+  isAdmin: true,
   memberships: {
     orderBy: { createdAt: 'asc' },
     select: { role: true, workspace: { select: { id: true, name: true, slug: true } } },
@@ -35,6 +46,7 @@ function toMeResponse(user: MeRecord): MeResponse {
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       isDemo: user.isDemo,
+      ...(user.isAdmin && { isAdmin: true }),
     },
     workspaces: user.memberships.map(({ role, workspace }) => ({ ...workspace, role })),
   };
@@ -88,28 +100,41 @@ export interface AuthService {
 export function createAuthService({
   prisma,
   passwords,
+  mode = 'all_unlocked',
 }: {
   prisma: Database;
   passwords: PasswordHasher;
+  /** Where plans are enforced, the first workspace starts a free trial. */
+  mode?: EntitlementsMode;
 }): AuthService {
   async function isEmailRegistered(email: string): Promise<boolean> {
     return (await prisma.user.count({ where: { email } })) > 0;
   }
 
   return {
-    async register({ name, email, password }) {
+    async register({ name, email, password, referralCode, source }) {
       if (await isEmailRegistered(email)) throw emailTaken();
+      // A friend's code: a longer trial, and a reward for them later. An unknown code is ignored.
+      const referrerId = referralCode ? await referrerByCode(prisma, referralCode) : null;
 
       const passwordHash = await passwords.hash(password);
 
       for (let attempt = 1; ; attempt++) {
         try {
+          const now = new Date();
+          const trial = trialsStart(mode);
           // A nested create runs in one transaction: all three rows are written, or none.
           const user = await prisma.user.create({
             data: {
               name,
               email,
               passwordHash,
+              // New accounts get the welcome and the getting-started checklist.
+              onboarding: { startedAt: now.toISOString() },
+              signupSource: source ?? null,
+              ...(referrerId && { referredBy: { create: { referrerId } } }),
+              // The personal workspace takes the account's one free trial.
+              ...(trial && { trialUsedAt: now }),
               memberships: {
                 create: {
                   role: 'OWNER',
@@ -117,6 +142,7 @@ export function createAuthService({
                     create: {
                       name: personalWorkspaceName(name),
                       slug: personalWorkspaceSlug(name),
+                      ...(trial && trialPlan(now, referrerId ? REFERRED_TRIAL_DAYS : TRIAL_DAYS)),
                     },
                   },
                 },

@@ -7,6 +7,7 @@ import { fontPreload } from './build/font-preload.ts';
 import { formAssetPreload } from './build/form-asset-preload.ts';
 import { formMetaDev } from './build/form-meta-dev.ts';
 import { routePreload } from './build/route-preload.ts';
+import { staticPages } from './build/static-pages.ts';
 import { vercelOutput } from './build/vercel-output.ts';
 
 export default defineConfig(({ mode }) => {
@@ -45,6 +46,9 @@ export default defineConfig(({ mode }) => {
         controlsDir: 'src/features/form-renderer/controls',
         conversational: 'src/features/form-renderer/conversational/conversational-form.tsx',
       }),
+      // Public pages (templates, pricing...) with their own title and description before any
+      // script runs, and the sitemap (see src/app/public-pages.ts).
+      staticPages(appUrl),
       // Only on Vercel: routes, the /api proxy, security headers and the edge function that
       // gives each public form its own link preview (see build/vercel-output.ts).
       vercelOutput(),

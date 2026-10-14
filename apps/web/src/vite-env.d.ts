@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN?: string;
   /** The release errors are filed under, e.g. the commit being deployed. */
   readonly VITE_SENTRY_RELEASE?: string;
+  /** Razorpay Checkout's script; only end-to-end tests change it (a stand-in). */
+  readonly VITE_RAZORPAY_CHECKOUT_URL?: string;
 }
 
 interface ImportMeta {

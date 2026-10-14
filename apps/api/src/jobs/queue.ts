@@ -110,8 +110,11 @@ export async function runAttempt<N extends JobName>({
       return 'retry';
     }
     logger.error({ ...context, err: error, permanent }, 'Job failed for good');
-    // Failures outside Formyx (a receiver down) show under Failed jobs; bugs go to Sentry too.
-    if (isProgrammingError(error)) reportError(error, { job: name, attempts: attempt });
+    // Failures outside Formyx (a receiver down) show under Failed jobs; bugs, and Formyx's own
+    // work giving up (payments, upkeep), go to Sentry too, whose alerts email the team.
+    if (isProgrammingError(error) || policy.alert) {
+      reportError(error, { job: name, attempts: attempt });
+    }
     try {
       await onFailed({ name, jobId, data, attempts: attempt, error: describeError(error) });
     } catch (recordError) {

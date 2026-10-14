@@ -45,6 +45,7 @@ describe('account preferences', () => {
       language: 'te',
       emailOnNewForms: true,
       productAnalytics: false,
+      productEmails: false,
     };
     await agent.put('/api/account/preferences').send(saved).expect(200);
     expect((await agent.get('/api/account/preferences').expect(200)).body).toEqual(saved);

@@ -16,6 +16,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { createApiRouter } from './routes/index.js';
+import { RAZORPAY_WEBHOOK_PATH } from './routes/razorpay-webhook.js';
 
 export interface AppDependencies {
   env: Env;
@@ -50,12 +51,17 @@ export function createApp(deps: AppDependencies): Express {
   const parseJson = express.json({ limit: '100kb' });
   const parseFormJson = express.json({ limit: '1mb' });
   const parseSubmissionJson = express.json({ limit: '256kb' });
+  // Razorpay signs a webhook's exact bytes, so its body stays raw until the signature is checked.
+  const parseRaw = express.raw({ type: '*/*', limit: '1mb' });
   app.use((req, res, next) => {
-    const parse = req.path.startsWith('/api/forms/')
-      ? parseFormJson
-      : req.path.startsWith('/api/public/forms/')
-        ? parseSubmissionJson
-        : parseJson;
+    const parse =
+      req.path === RAZORPAY_WEBHOOK_PATH
+        ? parseRaw
+        : req.path.startsWith('/api/forms/')
+          ? parseFormJson
+          : req.path.startsWith('/api/public/forms/')
+            ? parseSubmissionJson
+            : parseJson;
     parse(req, res, next);
   });
   app.use(cookieParser());

@@ -39,6 +39,12 @@ export const ERROR_CODES = [
   'UPGRADE_REQUIRED',
   /** The workspace has as many of something as its plan allows; `details.limit` says what. */
   'LIMIT_REACHED',
+  /** Payments are not set up on this server. */
+  'BILLING_UNAVAILABLE',
+  /** Razorpay could not be reached or refused the request; nothing was charged. */
+  'PAYMENT_PROVIDER_ERROR',
+  /** Checkout's signature does not match: the payment can't be confirmed from it. */
+  'INVALID_SIGNATURE',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

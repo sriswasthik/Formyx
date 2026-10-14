@@ -28,7 +28,7 @@ export function createWorkspacesRouter(
   { requireAuth, requireRealAccount, requireWorkspaceRole }: AuthGuards,
 ): Router {
   const router = Router();
-  const workspaces = createWorkspaceService(prisma);
+  const workspaces = createWorkspaceService(prisma, env.ENTITLEMENTS_MODE);
   const entitlements = createEntitlementService(prisma, env.ENTITLEMENTS_MODE);
   const invites = createInviteService({ prisma, mailer, logger, appUrl: env.APP_URL });
   const limitInvites = createInviteRateLimiter(env);

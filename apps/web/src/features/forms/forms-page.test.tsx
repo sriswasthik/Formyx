@@ -5,6 +5,7 @@ import {
   type FormDetail,
   type FormSummary,
   type MeResponse,
+  type OnboardingResponse,
 } from '@formyx/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -79,9 +80,13 @@ function createGate() {
   return { promise, open };
 }
 
-/** An in-memory forms API behind a stubbed `fetch`. */
-function installFakeApi(initial: FormSummary[]) {
+const NOT_ONBOARDING: OnboardingResponse = { welcome: false, useCase: null, checklist: null };
+
+/** An in-memory forms API behind a stubbed `fetch`, with the account's onboarding. */
+function installFakeApi(initial: FormSummary[], initialOnboarding = NOT_ONBOARDING) {
   let forms = [...initial];
+  let onboarding = initialOnboarding;
+  const onboardingUpdates: unknown[] = [];
   let nextId = 100;
   let readGate: Promise<void> | null = null;
   let writeGate: Promise<void> | null = null;
@@ -93,6 +98,18 @@ function installFakeApi(initial: FormSummary[]) {
     const method = init.method ?? 'GET';
     const { pathname, searchParams } = new URL(url, 'http://localhost');
     const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+    if (pathname === '/api/account/onboarding') {
+      if (method === 'PATCH') {
+        onboardingUpdates.push(body);
+        const input = body as { welcomed?: true; useCase?: string; checklistDismissed?: true };
+        onboarding = {
+          welcome: input.welcomed ? false : onboarding.welcome,
+          useCase: (input.useCase as OnboardingResponse['useCase']) ?? onboarding.useCase,
+          checklist: input.checklistDismissed ? null : onboarding.checklist,
+        };
+      }
+      return jsonResponse(onboarding);
+    }
     requests.push({ method, path: pathname, search: searchParams, body });
 
     if (method === 'GET') {
@@ -170,6 +187,7 @@ function installFakeApi(initial: FormSummary[]) {
 
   return {
     requests,
+    onboardingUpdates,
     lists: () => requests.filter((request) => request.method === 'GET'),
     writes: () => requests.filter((request) => request.method !== 'GET'),
     holdReads() {
@@ -487,6 +505,64 @@ describe('FormsPage: changing forms', () => {
     });
     expect(api.writes()[0]?.body).toEqual({ templateId: 'feedback_survey' });
   });
+
+  it('finds templates in the New form dialog by search and category', async () => {
+    installFakeApi([FEEDBACK]);
+    const { user } = renderDashboard();
+    await findFormList();
+
+    await user.click(screen.getByRole('button', { name: 'New form' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New form' });
+    const radios = () =>
+      within(within(dialog).getByRole('radiogroup', { name: 'Start from' }))
+        .getAllByRole('radio')
+        .map((radio) => radio.getAttribute('id'));
+
+    await user.click(within(dialog).getByRole('radio', { name: 'Quizzes' }));
+    expect(radios()).toEqual([
+      'template-blank',
+      'template-general_knowledge_quiz',
+      'template-safety_training_quiz',
+    ]);
+
+    await user.click(within(dialog).getByRole('radio', { name: 'All' }));
+    await user.type(within(dialog).getByRole('searchbox', { name: 'Search templates' }), 'wedding');
+    expect(radios()).toEqual(['template-blank', 'template-wedding_rsvp']);
+
+    await user.type(within(dialog).getByRole('searchbox', { name: 'Search templates' }), 'zzz');
+    expect(within(dialog).getByText(/No templates match/)).toBeVisible();
+  });
+
+  it('creates the form a gallery link asks for, once, and opens it', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ path: '/app/forms?template=feedback_survey' });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
+    });
+    expect(api.writes().map((request) => request.body)).toEqual([
+      { templateId: 'feedback_survey' },
+    ]);
+  });
+
+  it('drops an unknown template from the link without creating anything', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ path: '/app/forms?template=nope' });
+
+    await findFormList();
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('');
+    });
+    expect(api.writes()).toEqual([]);
+  });
+
+  it('opens every template from the empty workspace', async () => {
+    installFakeApi([]);
+    const { user } = renderDashboard();
+
+    await user.click(await screen.findByRole('button', { name: /Browse all \d+ templates/ }));
+    expect(await screen.findByRole('dialog', { name: 'New form' })).toBeVisible();
+  });
 });
 
 describe('FormsPage: viewers', () => {
@@ -507,11 +583,143 @@ describe('FormsPage: viewers', () => {
     expect(items.map((item) => item.textContent)).toEqual(['Open', 'Responses']);
   });
 
+  it('do not create forms from a gallery link', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ me: viewer, path: '/app/forms?template=feedback_survey' });
+
+    await findFormList();
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('');
+    });
+    expect(router.state.location.pathname).toBe('/app/forms');
+    expect(api.writes()).toEqual([]);
+  });
+
   it('are not offered templates in an empty workspace', async () => {
     installFakeApi([]);
     renderDashboard({ me: viewer });
 
     expect(await screen.findByRole('heading', { name: 'No forms yet' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Feedback survey/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('FormsPage: onboarding', () => {
+  const NEW_ACCOUNT: OnboardingResponse = {
+    welcome: true,
+    useCase: null,
+    checklist: {
+      create_form: false,
+      customise_design: false,
+      publish: false,
+      first_response: false,
+    },
+  };
+
+  it('welcomes a new account, suggests templates for its use, and creates the chosen one', async () => {
+    const api = installFakeApi([], NEW_ACCOUNT);
+    const { router, user } = renderDashboard();
+
+    const welcome = await screen.findByRole('dialog', { name: 'Welcome to Formyx, Ada' });
+    const next = within(welcome).getByRole('button', { name: 'Continue' });
+    expect(next).toBeDisabled();
+    await user.click(within(welcome).getByRole('radio', { name: /Events/ }));
+    await user.click(next);
+
+    const templates = await screen.findByRole('dialog', { name: 'Start from a template' });
+    const options = within(templates).getAllByRole('radio');
+    expect(options.map((option) => option.getAttribute('value'))).toEqual([
+      'event_registration',
+      'workshop_signup',
+      'rsvp',
+      'blank',
+    ]);
+    expect(options[0]).toBeChecked();
+    await user.click(within(templates).getByRole('radio', { name: /Workshop sign-up/ }));
+    await user.click(within(templates).getByRole('button', { name: 'Create form' }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
+    });
+    expect(api.writes()[0]?.body).toEqual({ templateId: 'workshop_signup' });
+    expect(api.onboardingUpdates).toEqual([{ useCase: 'events' }, { welcomed: true }]);
+  });
+
+  it('can be skipped, and does not come back', async () => {
+    const api = installFakeApi([FEEDBACK], NEW_ACCOUNT);
+    const { user } = renderDashboard();
+
+    const welcome = await screen.findByRole('dialog', { name: /Welcome to Formyx/ });
+    await user.click(within(welcome).getByRole('button', { name: 'Skip for now' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(api.onboardingUpdates).toEqual([{ welcomed: true }]);
+    expect(api.writes()).toEqual([]);
+  });
+
+  it('is not shown to someone who came to use a gallery template', async () => {
+    const api = installFakeApi([], NEW_ACCOUNT);
+    const { router } = renderDashboard({ path: '/app/forms?template=feedback_survey' });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
+    });
+    await waitFor(() => {
+      expect(api.onboardingUpdates).toEqual([{ welcomed: true }]);
+    });
+  });
+
+  it('shows the checklist with what is done, links to the next steps, and can be hidden', async () => {
+    const api = installFakeApi([REGISTRATION, FEEDBACK], {
+      welcome: false,
+      useCase: 'feedback',
+      checklist: {
+        create_form: true,
+        customise_design: false,
+        publish: true,
+        first_response: false,
+      },
+    });
+    const { user } = renderDashboard();
+
+    const checklist = await screen.findByRole('region', { name: 'Get started with Formyx' });
+    expect(within(checklist).getByText('2 of 4 done')).toBeInTheDocument();
+    expect(within(checklist).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
+    expect(within(checklist).getByText('Create a form')).toHaveTextContent('(done)');
+    expect(within(checklist).queryByRole('button', { name: 'New form' })).not.toBeInTheDocument();
+    expect(within(checklist).getByRole('link', { name: 'Open the Design Studio' })).toHaveAttribute(
+      'href',
+      '/app/forms/form_2/edit?panel=design',
+    );
+
+    await user.click(within(checklist).getByRole('button', { name: 'Share the link' }));
+    expect(await screen.findByRole('dialog', { name: 'Share your form' })).toBeVisible();
+    await user.keyboard('{Escape}');
+
+    await user.click(
+      within(checklist).getByRole('button', { name: 'Hide the getting-started checklist' }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('region', { name: 'Get started with Formyx' }),
+      ).not.toBeInTheDocument();
+    });
+    expect(api.onboardingUpdates).toEqual([{ checklistDismissed: true }]);
+  });
+
+  it('shows neither to viewers', async () => {
+    installFakeApi([FEEDBACK], NEW_ACCOUNT);
+    renderDashboard({
+      me: {
+        ...ADA,
+        workspaces: [{ id: 'ws_personal', name: 'Shared', slug: 'shared', role: 'VIEWER' }],
+      },
+    });
+    await findFormList();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Get started with Formyx' }),
+    ).not.toBeInTheDocument();
   });
 });

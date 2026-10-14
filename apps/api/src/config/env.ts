@@ -1,4 +1,4 @@
-import { entitlementsModeSchema } from '@formyx/shared';
+import { enforcementModeSchema, entitlementsModeSchema } from '@formyx/shared';
 import { z } from 'zod';
 import { KeyRingError, parseKeyRing } from '../lib/encryption.js';
 
@@ -50,6 +50,14 @@ const serviceUrl = (fallback: string) =>
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
     .default(fallback)
     .transform((url) => url.replace(/\/+$/, ''));
+
+/** A Razorpay plan id, `plan_...`; not set means that plan can't be bought. */
+const razorpayPlanId = optionalSecret.pipe(
+  z
+    .string()
+    .regex(/^plan_\w+$/, 'Must be a Razorpay plan id (plan_...)')
+    .optional(),
+);
 
 /** `ENCRYPTION_KEYS`: `<id>:<base64 32-byte key>`, comma-separated, newest first. */
 const keyRing = z
@@ -198,6 +206,41 @@ export const envSchema = z.object({
   POSTHOG_HOST: serviceUrl('https://eu.i.posthog.com'),
   /** Where feedback from the app is emailed. Empty: it is only stored. */
   FEEDBACK_EMAIL: optionalSecret.pipe(z.email({ error: 'Must be an email address' }).optional()),
+  /**
+   * Razorpay API keys, for subscriptions. Without the keys, the webhook secret and all four
+   * plan ids, checkout is off. Test keys (`rzp_test_`) unless RAZORPAY_LIVE is on.
+   */
+  RAZORPAY_KEY_ID: optionalSecret.pipe(
+    z
+      .string()
+      .regex(/^rzp_(test|live)_\w+$/, 'Must be a Razorpay key id (rzp_test_... or rzp_live_...)')
+      .optional(),
+  ),
+  /**
+   * Takes real payments: live keys (`rzp_live_`) are refused without it, and test keys with it.
+   * Turned on by hand, only after a final run through checkout in test mode
+   * (docs/launch-checklist.md).
+   */
+  RAZORPAY_LIVE: z
+    .enum(['true', 'false'], { error: 'Use true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
+  RAZORPAY_KEY_SECRET: optionalSecret,
+  /** Signs Razorpay's webhooks; set in the Razorpay dashboard with the webhook's URL. */
+  RAZORPAY_WEBHOOK_SECRET: optionalSecret,
+  /** Razorpay's API. Only changed for tests (a fake Razorpay). */
+  RAZORPAY_API_URL: serviceUrl('https://api.razorpay.com'),
+  /** Razorpay plan ids (`plan_...`) for each paid plan and interval; `billing:sync-plans` checks them. */
+  RAZORPAY_PLAN_PRO_MONTHLY: razorpayPlanId,
+  RAZORPAY_PLAN_PRO_YEARLY: razorpayPlanId,
+  RAZORPAY_PLAN_BUSINESS_MONTHLY: razorpayPlanId,
+  RAZORPAY_PLAN_BUSINESS_YEARLY: razorpayPlanId,
+  /**
+   * What happens once a workspace has had its plan's responses for the month: `soft` (the
+   * default) keeps accepting them and warns the owner; `hard` shows new visitors that the form
+   * is not taking responses. Responses already being filled in are always saved.
+   */
+  ENFORCEMENT_MODE: enforcementModeSchema.default('soft'),
   /** Looks up Indian PIN codes for address questions (India Post's public API). */
   PINCODE_API_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
@@ -213,10 +256,31 @@ export class EnvError extends Error {
   }
 }
 
+/**
+ * Live payments only on purpose: a live key without RAZORPAY_LIVE, or RAZORPAY_LIVE with a test
+ * key (or none), stops the API from starting rather than charging, or failing to charge, anyone.
+ */
+function checkRazorpayMode(env: Env): void {
+  const key = env.RAZORPAY_KEY_ID;
+  const live = key?.startsWith('rzp_live_') ?? false;
+  if (live && !env.RAZORPAY_LIVE) {
+    throw new EnvError(
+      'RAZORPAY_KEY_ID is a live key, but RAZORPAY_LIVE is not true. Set RAZORPAY_LIVE=true only ' +
+        'after a final test-mode run of checkout (docs/launch-checklist.md).',
+    );
+  }
+  if (env.RAZORPAY_LIVE && !live) {
+    throw new EnvError(
+      'RAZORPAY_LIVE is true, so RAZORPAY_KEY_ID must be a live key (rzp_live_...).',
+    );
+  }
+}
+
 export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = envSchema.safeParse(source);
   if (!result.success) {
     throw new EnvError(z.prettifyError(result.error));
   }
+  checkRazorpayMode(result.data);
   return result.data;
 }

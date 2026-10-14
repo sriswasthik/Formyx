@@ -4,8 +4,11 @@ import type { Logger } from 'pino';
 import { createApp } from './app.js';
 import type { Env } from './config/env.js';
 import type { JobQueue } from './jobs/queue.js';
+import { registerBillingEvents } from './billing/register.js';
+import { registerUsageWarnings } from './billing/usage-warnings.js';
 import { registerIntegrationJobs } from './integrations/sync.js';
 import { registerUpkeep } from './jobs/upkeep.js';
+import { registerLifecycle } from './lifecycle/lifecycle.js';
 import { encryptionFromEnv } from './lib/encryption.js';
 import { createEventBus, type EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
@@ -72,6 +75,9 @@ export function createServer(deps: ServerDependencies): FormyxServer {
   registerWebhookNotifier({ ...background, webhooks });
   registerIntegrationJobs(background);
   registerUpkeep(background);
+  registerUsageWarnings(background);
+  registerBillingEvents(background);
+  registerLifecycle(background);
 
   return {
     app,

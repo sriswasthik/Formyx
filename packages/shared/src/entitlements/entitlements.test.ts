@@ -86,8 +86,55 @@ const billing = (overrides: Partial<WorkspaceBilling> = {}): WorkspaceBilling =>
 describe('effectivePlan', () => {
   it.each([
     ['an active plan', billing(), 'PRO'],
-    ['a plan past due, during the grace period', billing({ planStatus: 'PAST_DUE' }), 'PRO'],
+    ['a plan past due, without a grace end', billing({ planStatus: 'PAST_DUE' }), 'PRO'],
+    [
+      'a plan past due, during the grace period',
+      billing({ planStatus: 'PAST_DUE', graceEndsAt: new Date('2026-10-05T00:00:00Z') }),
+      'PRO',
+    ],
+    [
+      'a plan past due, after the grace period',
+      billing({ planStatus: 'PAST_DUE', graceEndsAt: new Date('2026-10-04T12:00:00Z') }),
+      'FREE',
+    ],
     ['a cancelled plan', billing({ planStatus: 'CANCELED' }), 'FREE'],
+    [
+      'a complimentary plan over Free',
+      billing({
+        plan: 'FREE',
+        complimentaryPlan: 'PRO',
+        complimentaryUntil: new Date('2026-11-01T00:00:00Z'),
+      }),
+      'PRO',
+    ],
+    [
+      'a complimentary plan below the paid one',
+      billing({
+        plan: 'BUSINESS',
+        complimentaryPlan: 'PRO',
+        complimentaryUntil: new Date('2026-11-01T00:00:00Z'),
+      }),
+      'BUSINESS',
+    ],
+    [
+      'a complimentary plan after a trial ended',
+      billing({
+        planStatus: 'TRIALING',
+        trialEndsAt: new Date('2026-10-01T00:00:00Z'),
+        complimentaryPlan: 'BUSINESS',
+        complimentaryUntil: new Date('2026-11-01T00:00:00Z'),
+      }),
+      'BUSINESS',
+    ],
+    [
+      'an expired complimentary plan',
+      billing({
+        plan: 'FREE',
+        complimentaryPlan: 'PRO',
+        complimentaryUntil: new Date('2026-10-04T12:00:00Z'),
+      }),
+      'FREE',
+    ],
     [
       'a running trial',
       billing({ planStatus: 'TRIALING', trialEndsAt: new Date('2026-10-05T00:00:00Z') }),
@@ -127,8 +174,36 @@ describe('resolveEntitlements', () => {
       'enforced',
       now,
     );
-    expect(ended).toMatchObject({ plan: 'PRO', trialEndsAt: '2026-10-01T00:00:00.000Z' });
+    expect(ended).toMatchObject({
+      plan: 'PRO',
+      effectivePlan: 'FREE',
+      trialEndsAt: '2026-10-01T00:00:00.000Z',
+    });
     expect(ended.features.mesh_gradients).toBe(false);
+  });
+
+  it('reports a complimentary plan only while it lasts', () => {
+    const until = new Date('2026-11-01T00:00:00Z');
+    const given = resolveEntitlements(
+      billing({ plan: 'FREE', complimentaryPlan: 'PRO', complimentaryUntil: until }),
+      'enforced',
+      now,
+    );
+    expect(entitlementsSchema.parse(given)).toEqual(given);
+    expect(given).toMatchObject({
+      plan: 'FREE',
+      effectivePlan: 'PRO',
+      complimentaryPlan: 'PRO',
+      complimentaryUntil: '2026-11-01T00:00:00.000Z',
+    });
+    expect(given.features.premium_fonts).toBe(true);
+
+    const over = resolveEntitlements(
+      billing({ plan: 'FREE', complimentaryPlan: 'PRO', complimentaryUntil: now }),
+      'enforced',
+      now,
+    );
+    expect(over).toMatchObject({ effectivePlan: 'FREE', complimentaryPlan: null });
   });
 
   it('unlocks everything for everyone in all_unlocked mode', () => {

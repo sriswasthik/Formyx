@@ -3,7 +3,11 @@ import {
   effectivePlan,
   premiumAssetsUsed,
   readAccountPreferences,
+  type BillingInterval,
+  type CancelReason,
   type FeatureId,
+  type PaidPlan,
+  type Plan,
   type FormDetail,
   type FormTheme,
   type IntegrationKind,
@@ -11,6 +15,7 @@ import {
 import type { Logger } from 'pino';
 import type { Env } from '../config/env.js';
 import { isDemoUser } from '../demo/restrictions.js';
+import { WORKSPACE_BILLING_SELECT } from '../services/entitlement-service.js';
 import type { Database } from './prisma.js';
 
 /*
@@ -38,7 +43,14 @@ export type ProductEvent =
     }
   | { name: 'premium_asset_used'; properties: { feature: FeatureId; assets: string[] } }
   | { name: 'integration_connected'; properties: { kind: IntegrationKind } }
-  | { name: 'feedback_sent'; properties: { kind: string } };
+  | { name: 'feedback_sent'; properties: { kind: string } }
+  | { name: 'trial_started'; properties: { targetPlan: Plan } }
+  | {
+      name: 'checkout_started' | 'checkout_completed';
+      properties: { targetPlan: PaidPlan; interval: BillingInterval; resume: boolean };
+    }
+  | { name: 'plan_changed'; properties: { targetPlan: PaidPlan; interval: BillingInterval } }
+  | { name: 'subscription_cancelled'; properties: { targetPlan: Plan; reason?: CancelReason } };
 
 /** Who did it: the person, and the workspace (directly, or as the form's). */
 export interface ProductActor {
@@ -97,7 +109,7 @@ export function createProductAnalytics({
     const workspace = workspaceId
       ? await prisma.workspace.findUnique({
           where: { id: workspaceId },
-          select: { plan: true, planStatus: true, trialEndsAt: true },
+          select: WORKSPACE_BILLING_SELECT,
         })
       : null;
 

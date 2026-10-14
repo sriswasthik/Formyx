@@ -18,7 +18,7 @@ export interface JobPayloads {
    */
   'email.send': {
     formId: string | null;
-    kind: 'response' | 'autoresponder' | 'digest' | 'feedback';
+    kind: 'response' | 'autoresponder' | 'digest' | 'feedback' | 'billing';
     /** `EmailMessage[]` as JSON, sealed. */
     sealedMessages: string;
     recipients: number;
@@ -46,7 +46,22 @@ export interface JobPayloads {
   'integration.backfill': { formId: string; integrationId: string; fresh?: boolean };
   /** Digests, retention and clean-up, once an hour. */
   'upkeep.hourly': { hour: string };
+  /** A Razorpay webhook event, stored by id in razorpay_events, applied to billing. */
+  'billing.event': { eventId: string };
+  /**
+   * One lifecycle email to one account (see lifecycle/lifecycle.ts). Rendered when it runs,
+   * so it checks the person still wants it and has not had it already.
+   */
+  'lifecycle.send': {
+    userId: string;
+    kind: LifecycleKind;
+    /** "" for one-off emails; the day they were last active for `inactive`. */
+    periodKey: string;
+    formId?: string | undefined;
+  };
 }
+
+export type LifecycleKind = 'welcome' | 'first_form_published' | 'first_response' | 'inactive';
 
 export type JobName = keyof JobPayloads;
 
@@ -63,6 +78,11 @@ export interface JobPolicy {
   timeoutSeconds: number;
   /** At most one queued and one running (`stately`), so a repeating job is never doubled. */
   singleQueued?: boolean;
+  /**
+   * A failure for good goes to Sentry, whose alert rules email whoever looks after Formyx:
+   * Formyx's own work (payments, upkeep, its emails), not someone's outside service being down.
+   */
+  alert?: boolean;
 }
 
 export const JOB_POLICIES: Record<JobName, JobPolicy> = {
@@ -111,6 +131,25 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     concurrency: 1,
     timeoutSeconds: 1800,
     singleQueued: true,
+    alert: true,
+  },
+  // One at a time, so two events for one subscription are never applied at once. Payments
+  // matter: tries go on for about a day (Razorpay itself retries a webhook for 24 hours).
+  'billing.event': {
+    attempts: 10,
+    firstRetrySeconds: 30,
+    maxRetrySeconds: 3600 * 4,
+    concurrency: 1,
+    timeoutSeconds: 120,
+    alert: true,
+  },
+  'lifecycle.send': {
+    attempts: 5,
+    firstRetrySeconds: 60,
+    maxRetrySeconds: 3600,
+    concurrency: 2,
+    timeoutSeconds: 120,
+    alert: true,
   },
 };
 
@@ -143,7 +182,9 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
             ? 'the daily digest'
             : job.kind === 'feedback'
               ? 'feedback to the team'
-              : `the new response email${count === 1 ? '' : 's'}`;
+              : job.kind === 'billing'
+                ? 'a billing email to the workspace’s owners'
+                : `the new response email${count === 1 ? '' : 's'}`;
       return { formId: job.formId, summary: `Send ${what}` };
     }
     case 'chat.post': {
@@ -168,6 +209,15 @@ export function describeJob<N extends JobName>(name: N, data: JobPayloads[N]): J
         formId: job.formId,
         integrationId: job.integrationId,
         summary: job.fresh ? 'Copy every response again' : 'Copy every response so far',
+      };
+    }
+    case 'billing.event':
+      return { formId: null, summary: 'Apply a payment update from Razorpay' };
+    case 'lifecycle.send': {
+      const job = data as JobPayloads['lifecycle.send'];
+      return {
+        formId: job.formId ?? null,
+        summary: `Send the ${job.kind.replaceAll('_', ' ')} email`,
       };
     }
     default:

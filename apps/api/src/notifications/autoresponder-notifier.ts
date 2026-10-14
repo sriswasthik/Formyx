@@ -10,6 +10,7 @@ import type { Database } from '../lib/prisma.js';
 import { parsePublishedSchema, parsePublishedTheme } from '../services/form-service.js';
 import { respondentKey } from '../services/public-form-service.js';
 import { queueEmails } from './email-jobs.js';
+import { formAllows } from '../services/entitlement-service.js';
 
 /** How many autoresponder emails one address gets from one form in a day, at most. */
 export const AUTORESPONDER_DAILY_LIMIT = 3;
@@ -18,7 +19,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const emailAddress = z.email().max(254);
 
 interface AutoresponderDependencies {
-  env: Pick<Env, 'APP_URL'>;
+  env: Pick<Env, 'APP_URL' | 'ENTITLEMENTS_MODE'>;
   logger: Logger;
   prisma: Database;
   jobs: JobQueue;
@@ -61,6 +62,8 @@ export function registerAutoresponder({
         const settings = readLiveSettings(form.liveSettings);
         const { autoresponder } = settings;
         if (!autoresponder.enabled) return;
+        // Paused, with its settings kept, while the plan lacks it.
+        if (!(await formAllows(prisma, env.ENTITLEMENTS_MODE, formId, 'autoresponder'))) return;
 
         const answer =
           autoresponder.recipientFieldId === null

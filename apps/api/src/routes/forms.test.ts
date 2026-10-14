@@ -6,8 +6,11 @@ import {
   formDetailSchema,
   formListResponseSchema,
   getFormTemplate,
+  requiredFeatures,
+  THEME_PRESETS,
   type FormDetail,
   type Role,
+  type ThemePresetId,
 } from '@formyx/shared';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -57,6 +60,12 @@ function as(person: Person) {
     patch: (url: string, body: object) => request(app).patch(url).set('Cookie', cookie).send(body),
     delete: (url: string) => request(app).delete(url).set('Cookie', cookie),
   };
+}
+
+function presetTheme(id: ThemePresetId) {
+  const preset = THEME_PRESETS.find((candidate) => candidate.id === id);
+  if (!preset) throw new Error(`No preset ${id}`);
+  return preset.theme;
 }
 
 const formsUrl = (workspaceId = ids.workspace) => `/api/workspaces/${workspaceId}/forms`;
@@ -110,6 +119,32 @@ describe('POST /api/workspaces/:workspaceId/forms', () => {
         .fields.map((field) => field.label),
     );
     expect(form.draftSchema.settings.submitButtonText).toBe('Register');
+  });
+
+  it("starts a template's form in the template's own look", async () => {
+    const form = await createForm({ templateId: 'event_registration' });
+    expect(form.theme).toEqual(presetTheme('blueprint'));
+  });
+
+  it('starts in the free version of a Pro look on a plan without it, so it can be published', async () => {
+    const enforced = createTestApp({ ENTITLEMENTS_MODE: 'enforced' });
+    const cookie = `${SESSION_COOKIE}=${signSessionToken(ids.users.EDITOR, TEST_JWT_SECRET)}`;
+    const create = async () => {
+      const res = await request(enforced)
+        .post(formsUrl())
+        .set('Cookie', cookie)
+        .send({ templateId: 'customer_satisfaction' })
+        .expect(201);
+      return formDetailSchema.parse(res.body);
+    };
+    expect(requiredFeatures(presetTheme('sea-glass'))).not.toEqual([]);
+
+    const free = await create();
+    expect(requiredFeatures(free.theme)).toEqual([]);
+    expect(free.theme.colors).toEqual(presetTheme('sea-glass').colors);
+
+    await prisma.workspace.update({ where: { id: ids.workspace }, data: { plan: 'PRO' } });
+    expect((await create()).theme).toEqual(presetTheme('sea-glass'));
   });
 
   it('gives every form its own slug', async () => {

@@ -136,7 +136,12 @@ test('designs a form in the Design Studio with the keyboard alone', async ({ pag
   const presets = page.getByRole('radiogroup', { name: 'Theme' });
   const presetBefore = await presets.getByRole('radio', { checked: true }).getAttribute('value');
   await tabTo(page, presets.getByRole('radio', { checked: true }));
+  const first = await page.evaluate(() => document.activeElement?.getAttribute('value'));
   await page.keyboard.press('ArrowRight');
+  // Radix moves focus a moment after the key (in a timeout): choose once it has arrived.
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.getAttribute('value')))
+    .not.toBe(first);
   await page.keyboard.press('Space');
   const chosen = presets.getByRole('radio', { checked: true });
   await expect(chosen).toHaveCount(1);

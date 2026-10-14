@@ -18,6 +18,10 @@ export interface DomainEvents {
   /** A respondent changed their response through its private link. */
   'submission.updated': SubmissionEvent;
   'submissions.deleted': { formId: string; ids: string[] };
+  /** Someone signed up. */
+  'account.created': { userId: string };
+  /** Someone published a form (the first time, or again). */
+  'form.published': { formId: string; userId: string };
 }
 
 type Listener<K extends keyof DomainEvents> = (event: DomainEvents[K]) => void | Promise<void>;

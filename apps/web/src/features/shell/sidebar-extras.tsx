@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useHasUnseenChanges } from '@/features/changelog/latest';
 import { FeedbackDialog } from '@/features/feedback/feedback-dialog';
+import { HelpMenu } from '@/features/help/help-menu';
 
 const itemClass =
   'flex h-8 w-full items-center gap-2 rounded-md px-2 text-14 text-muted-foreground transition-colors duration-150 ease-standard hover:bg-hover hover:text-foreground active:bg-pressed';
 
-/** Feedback for the team and what's new, at the foot of the sidebar. */
+/** Help, feedback for the team and what's new, at the foot of the sidebar. */
 export function SidebarExtras({ onNavigate }: { onNavigate?: () => void }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const unseen = useHasUnseenChanges();
@@ -15,6 +16,9 @@ export function SidebarExtras({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <ul aria-label="Help" className="flex flex-col gap-0.5">
+        <li>
+          <HelpMenu variant="sidebar" />
+        </li>
         <li>
           <button
             type="button"

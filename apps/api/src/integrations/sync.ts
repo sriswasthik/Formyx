@@ -8,6 +8,8 @@ import type { Encryption } from '../lib/encryption.js';
 import type { EventBus, SubmissionEvent } from '../lib/events.js';
 import type { Database } from '../lib/prisma.js';
 import { parsePublishedSchema } from '../services/form-service.js';
+import { formAllows } from '../services/entitlement-service.js';
+import { storedIntegrationFeature } from '../services/integration-service.js';
 import { createSubmissionService } from '../services/submission-service.js';
 import { CredentialsError, googleAccess } from './credentials.js';
 import { IntegrationApiError, IntegrationAuthError } from './errors.js';
@@ -240,9 +242,15 @@ export function registerIntegrationJobs(deps: IntegrationSyncDependencies): () =
     try {
       const integrations = await prisma.integration.findMany({
         where: { formId, status: { in: SYNCING } },
-        select: { id: true },
+        select: { id: true, kind: true },
       });
-      for (const { id } of integrations) {
+      for (const { id, kind } of integrations) {
+        // Paused while the plan lacks it; a backfill catches up once it is back.
+        if (
+          !(await formAllows(prisma, env.ENTITLEMENTS_MODE, formId, storedIntegrationFeature(kind)))
+        ) {
+          continue;
+        }
         await jobs.send('integration.sync', {
           formId,
           integrationId: id,

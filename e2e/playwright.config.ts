@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import razorpay from './scripts/razorpay-e2e.json' with { type: 'json' };
 import { AUTH_STATE_PATH, OUTBOX_DIR } from './tests/helpers.js';
 
 const isCI = Boolean(process.env.CI);
@@ -9,6 +10,18 @@ const webPort = process.env.E2E_WEB_PORT ?? '5173';
 const apiPort = process.env.E2E_API_PORT ?? '4000';
 const FAKE_SERVICES_PORT = process.env.E2E_FAKE_PORT ?? '4590';
 const fakeServices = `http://localhost:${FAKE_SERVICES_PORT}`;
+// Billing: a fake Razorpay (scripts/fake-razorpay.mjs) unless RAZORPAY_E2E=live, which keeps
+// apps/api/.env's real test-mode keys and Razorpay's own Checkout (see tests/billing.spec.ts).
+const liveRazorpay = process.env.RAZORPAY_E2E === 'live';
+const fakeRazorpay: Record<string, string> = liveRazorpay
+  ? {}
+  : {
+      RAZORPAY_KEY_ID: razorpay.keyId,
+      RAZORPAY_KEY_SECRET: razorpay.keySecret,
+      RAZORPAY_WEBHOOK_SECRET: razorpay.webhookSecret,
+      RAZORPAY_API_URL: `${fakeServices}/razorpay`,
+      ...Object.fromEntries(Object.entries(razorpay.plans).map(([name, plan]) => [name, plan.id])),
+    };
 
 export default defineConfig({
   testDir: './tests',
@@ -104,6 +117,7 @@ export default defineConfig({
         GOOGLE_OAUTH_URL: `${fakeServices}/google`,
         GOOGLE_TOKEN_URL: `${fakeServices}/google`,
         GOOGLE_SHEETS_URL: `${fakeServices}/google`,
+        ...fakeRazorpay,
       },
     },
     {
@@ -111,7 +125,12 @@ export default defineConfig({
       url: `http://localhost:${webPort}`,
       reuseExistingServer: !isCI,
       timeout: 60_000,
-      env: { API_PROXY_TARGET: `http://localhost:${apiPort}` },
+      env: {
+        API_PROXY_TARGET: `http://localhost:${apiPort}`,
+        ...(!liveRazorpay && {
+          VITE_RAZORPAY_CHECKOUT_URL: `${fakeServices}/razorpay/checkout.js`,
+        }),
+      },
     },
   ],
 });
