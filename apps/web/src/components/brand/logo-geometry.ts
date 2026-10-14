@@ -25,8 +25,9 @@ export const LOGO_SHAPES: readonly LogoRect[] = [
 ];
 
 /**
- * The same logo snapped to whole pixels at 16, 32 and 48px (2px bars and 1px gaps at 16px), so
- * small sizes stay crisp instead of blurring on half pixels.
+ * The same logo snapped to whole pixels at 16, 32 and 48 device pixels (2px bars and 1px gaps
+ * at 16px), so small sizes stay crisp: the designed shapes put edges on half pixels at all
+ * three. 24px on a 2× screen is 48 device pixels, so it is crisp there too.
  */
 export const LOGO_SHAPES_SMALL: readonly LogoRect[] = [
   { x: 8, y: 8, width: 16, height: 4, rx: 2 },
@@ -34,8 +35,8 @@ export const LOGO_SHAPES_SMALL: readonly LogoRect[] = [
   { x: 8, y: 20, width: 4, height: 4, rx: 1 },
 ];
 
-/** Sizes (in device-independent px) below this draw the snapped shapes. */
-export const SMALL_LOGO_BELOW = 32;
+/** Sizes in CSS px up to this draw the snapped shapes; larger ones draw the designed shapes. */
+export const SNAPPED_UP_TO = 48;
 
 /** The corner radius of the icon's rounded square. */
 export const ICON_RADIUS = 8;
@@ -48,7 +49,7 @@ export const MASKABLE_SCALE = 0.8;
 
 /** The shapes to draw at `size` px. */
 export function logoShapes(size: number): readonly LogoRect[] {
-  return size < SMALL_LOGO_BELOW ? LOGO_SHAPES_SMALL : LOGO_SHAPES;
+  return size <= SNAPPED_UP_TO ? LOGO_SHAPES_SMALL : LOGO_SHAPES;
 }
 
 /** Light-theme colours, matching the app's zinc tokens. */

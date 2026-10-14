@@ -40,7 +40,7 @@ describe('Logo', () => {
   });
 
   it('draws the mark alone in the current colour', () => {
-    const { container } = render(<Logo variant="mark" size={40} />);
+    const { container } = render(<Logo variant="mark" size={96} />);
     expect(screen.getByRole('img', { name: 'Formyx' })).not.toHaveTextContent('Formyx');
     expect(container.querySelector('svg > rect')).toBeNull();
     expect(container.querySelector('svg g')).toHaveClass('fill-current');
