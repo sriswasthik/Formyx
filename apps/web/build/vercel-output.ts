@@ -11,7 +11,7 @@ import {
 import { join, resolve, sep } from 'node:path';
 import ts from 'typescript';
 import type { Plugin } from 'vite';
-import { PAGES_DIR } from './static-pages.ts';
+import { HOME_FILE, PAGES_DIR } from './static-pages.ts';
 
 /** One entry of a Vercel Build Output API (v3) `config.json` routes list. */
 export type VercelRoute =
@@ -27,6 +27,11 @@ interface DeployOptions {
   html: string;
   /** Paths with their own page (see build/static-pages.ts), e.g. `/templates/wedding-rsvp`. */
   pages?: readonly string[];
+  /**
+   * The home page's own copy (see build/static-pages.ts), served at `/`: its inline scripts are
+   * allowed by hash too.
+   */
+  homeHtml?: string | undefined;
 }
 
 /** `sha256-…` sources for each inline `<script>` in `html`, for `script-src`. */
@@ -125,9 +130,12 @@ export function vercelRoutes({
   realtimeUrl,
   html,
   pages = [],
+  homeHtml,
 }: DeployOptions): VercelRoute[] {
   const api = originOf(apiUrl, 'API_URL');
-  const scriptHashes = inlineScriptHashes(html);
+  const scriptHashes = [
+    ...new Set([...inlineScriptHashes(html), ...(homeHtml ? inlineScriptHashes(homeHtml) : [])]),
+  ];
   const policy = (frameAncestors: string, payments = false) =>
     contentSecurityPolicy({ scriptHashes, realtimeUrl, frameAncestors, payments });
 
@@ -160,6 +168,8 @@ export function vercelRoutes({
       continue: true,
     },
     { src: '^/api/(.*)$', dest: `${api.origin}${api.pathname.replace(/\/$/, '')}/api/$1` },
+    // Before the files, where `/` would be index.html: the home page with its top drawn in.
+    ...(homeHtml ? [{ src: '^/$', dest: `/${HOME_FILE}` }] : []),
     { handle: 'filesystem' },
     ...pageRoutes(pages),
     // A public form's page carries its own title and preview (see form-meta-edge.ts).
@@ -250,6 +260,9 @@ export function vercelOutput(): Plugin {
         realtimeUrl,
         html: readFileSync(join(outDir, 'index.html'), 'utf8'),
         pages: builtPages(outDir),
+        homeHtml: existsSync(join(outDir, HOME_FILE))
+          ? readFileSync(join(outDir, HOME_FILE), 'utf8')
+          : undefined,
       });
       writeFileSync(
         join(output, 'config.json'),

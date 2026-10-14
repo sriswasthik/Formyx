@@ -2,16 +2,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { LucideProvider } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router';
+import { RouterProvider } from 'react-router';
 import { MOTION_CONFIG, useMotionStore } from '@/features/motion/motion-preference';
 import { useThemeSync } from '@/features/theme/theme-store';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { AppErrorBoundary } from './app-error-boundary';
 import { OfflineNotice } from './offline-notice';
 import { createQueryClient } from './query-client';
-import { routes } from './routes';
-
-const router = createBrowserRouter(routes);
+import { router } from './router';
 
 // Toasts load after the page: public forms never show one, so they never pay for them.
 const Toaster = lazy(() =>

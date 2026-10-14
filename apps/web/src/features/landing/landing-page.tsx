@@ -3,8 +3,8 @@ import { BuiltFor } from './built-for';
 import { CtaBand } from './cta-band';
 import { Hero } from './hero';
 import { HowItWorks } from './how-it-works';
+import { LandingShell } from './landing-shell';
 import { SiteFooter } from './site-footer';
-import { SiteHeader } from './site-header';
 import { TemplatesSection } from './templates-section';
 
 /**
@@ -13,17 +13,13 @@ import { TemplatesSection } from './templates-section';
  */
 export function LandingPage() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
-      <main className="flex-1">
-        <Hero />
-        <BuiltFor />
-        <BentoGrid />
-        <HowItWorks />
-        <TemplatesSection />
-        <CtaBand />
-      </main>
-      <SiteFooter />
-    </div>
+    <LandingShell footer={<SiteFooter />}>
+      <Hero />
+      <BuiltFor />
+      <BentoGrid />
+      <HowItWorks />
+      <TemplatesSection />
+      <CtaBand />
+    </LandingShell>
   );
 }

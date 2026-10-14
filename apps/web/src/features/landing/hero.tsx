@@ -1,6 +1,6 @@
 import { TRIAL_DAYS } from '@formyx/shared';
 import { ArrowRight } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, startTransition, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,9 +10,8 @@ import { cn } from '@/lib/utils';
 import { PRODUCT_FRAME_CLASS } from './product-frame-size';
 
 // The editor picture is the heaviest part of the page: it loads after the hero has painted.
-const ProductFrame = lazy(async () => ({
-  default: (await import('./product-frame')).ProductFrame,
-}));
+const loadFrame = () => import('./product-frame');
+const ProductFrame = lazy(async () => ({ default: (await loadFrame()).ProductFrame }));
 
 /** Holds the frame's place while it loads, at its size, so nothing below it moves. */
 function FramePlaceholder() {
@@ -30,10 +29,38 @@ function FramePlaceholder() {
 }
 
 /**
+ * Whether to draw the editor picture yet: once the page has loaded, in a transition, so its
+ * rendering comes after the page's and in small slices rather than one long task.
+ */
+function useFrameReady(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    // Its code downloads now; only drawing it waits.
+    void loadFrame();
+    const show = () => {
+      startTransition(() => {
+        setReady(true);
+      });
+    };
+    if (document.readyState === 'complete') {
+      show();
+      return;
+    }
+    window.addEventListener('load', show, { once: true });
+    return () => {
+      window.removeEventListener('load', show);
+    };
+  }, []);
+  return ready;
+}
+
+/**
  * The top of the landing page: what is new, the promise, the two ways in and the editor with
  * a form in it. Drawn without an entrance animation, so the headline paints at once.
+ * `framePlaceholder` draws only the frame's placeholder, for the build's HTML copy.
  */
-export function Hero() {
+export function Hero({ framePlaceholder = false }: { framePlaceholder?: boolean }) {
+  const frameReady = useFrameReady();
   return (
     <section
       aria-labelledby="hero-title"
@@ -74,9 +101,13 @@ export function Hero() {
         <p className="mt-4 text-13 text-muted-foreground">No credit card required.</p>
       </div>
       <div className="mt-12 md:mt-16">
-        <Suspense fallback={<FramePlaceholder />}>
-          <ProductFrame />
-        </Suspense>
+        {framePlaceholder || !frameReady ? (
+          <FramePlaceholder />
+        ) : (
+          <Suspense fallback={<FramePlaceholder />}>
+            <ProductFrame />
+          </Suspense>
+        )}
       </div>
     </section>
   );

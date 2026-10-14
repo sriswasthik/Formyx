@@ -142,7 +142,11 @@ createSecureServer({ ...certificate(), allowHTTP1: true }, (req, res) => {
     proxy(req, res);
     return;
   }
-  const file = files.get(path) ?? (path.startsWith('/assets/') ? undefined : index);
+  // As on Vercel: the home page is its own copy, with its top already drawn in.
+  const file =
+    (path === '/' ? files.get('/home.html') : undefined) ??
+    files.get(path) ??
+    (path.startsWith('/assets/') ? undefined : index);
   if (!file) {
     res.writeHead(404);
     res.end();

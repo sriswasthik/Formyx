@@ -172,6 +172,24 @@ describe('vercelRoutes', () => {
     expect(pattern.test('/templates/wedding-rsvp/x')).toBe(false);
   });
 
+  it('serves the home page from its own copy, and allows its scripts', () => {
+    const homeHtml = '<html><head></head><body><script>start()</script></body></html>';
+    const withHome = vercelRoutes({
+      apiUrl: 'https://formyx-api.onrender.com',
+      html: HTML,
+      homeHtml,
+    });
+    const at = withHome.findIndex((candidate) => 'src' in candidate && candidate.src === '^/$');
+    expect(withHome[at]).toEqual({ src: '^/$', dest: '/home.html' });
+    // Before built files, where `/` would find index.html.
+    expect(at).toBeLessThan(withHome.findIndex((candidate) => 'handle' in candidate));
+    const policy = JSON.stringify(withHome);
+    expect(policy).toContain(sha('start()'));
+    expect(policy).toContain(sha(BOOT));
+    // Without a home copy, `/` is index.html as before.
+    expect(routes.some((route) => 'src' in route && route.src === '^/$')).toBe(false);
+  });
+
   it('refuses a page path that would break the route', () => {
     expect(() => pageRoutes(['/templates/(.*)'])).toThrow(/Unsafe page path/);
   });

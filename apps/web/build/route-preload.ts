@@ -1,11 +1,18 @@
 import type { Plugin } from 'vite';
 
-interface PreloadedRoute {
-  /** URLs starting with this get the route's code preloaded, e.g. `/f/`. */
-  pathPrefix: string;
+type PreloadedRoute = (
+  | {
+      /** URLs starting with this get the route's code preloaded, e.g. `/f/`. */
+      pathPrefix: string;
+    }
+  | {
+      /** Only this URL gets it, e.g. `/`. */
+      path: string;
+    }
+) & {
   /** The route's module, relative to the web app, e.g. `src/features/public-form/page.tsx`. */
   module: string;
-}
+};
 
 interface Chunk {
   type: 'chunk';
@@ -78,9 +85,15 @@ export function routePreload(routes: PreloadedRoute[]): Plugin {
       handler(html, context) {
         if (!context.bundle) return html;
         const { withImports, chunkFor, entryFiles } = chunkGraph(context.bundle);
-        const scripts = routes.map(({ pathPrefix, module }) => {
-          const files = [...withImports(chunkFor(module))].filter((file) => !entryFiles.has(file));
-          return `if(location.pathname.indexOf(${JSON.stringify(pathPrefix)})===0)${JSON.stringify(
+        const scripts = routes.map((route) => {
+          const files = [...withImports(chunkFor(route.module))].filter(
+            (file) => !entryFiles.has(file),
+          );
+          const test =
+            'path' in route
+              ? `location.pathname===${JSON.stringify(route.path)}`
+              : `location.pathname.indexOf(${JSON.stringify(route.pathPrefix)})===0`;
+          return `if(${test})${JSON.stringify(
             files.map((file) => base + file),
           )}.forEach(function(f){var l=document.createElement('link');l.rel='modulepreload';l.href=f;document.head.appendChild(l)});`;
         });
