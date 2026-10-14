@@ -1,72 +1,144 @@
-import { ChevronDown } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { FEATURE_PAGE_LINKS } from '@/features/marketing/feature-links';
-import { ThemeToggle } from '@/features/theme/theme-toggle';
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { CONTAINER } from '@/features/marketing/layout';
+import { cn } from '@/lib/utils';
+import { useScrolled } from './use-scrolled';
 
-/** The feature pages, from the header. */
-function FeaturesMenu() {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="hidden md:inline-flex">
-          Features
-          <ChevronDown aria-hidden />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        {FEATURE_PAGE_LINKS.map((link) => (
-          <DropdownMenuItem key={link.path} asChild>
-            <Link to={link.path} className="flex flex-col items-start gap-0.5">
-              <span className="text-14 font-medium">{link.label}</span>
-              <span className="text-13 text-muted-foreground">{link.summary}</span>
-            </Link>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          {/* A plain link: the browser scrolls to the section, from any page. */}
-          <a href="/#features">All features</a>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+interface NavLink {
+  label: string;
+  to: string;
+  /** A plain link: the browser scrolls to the section, from any page. */
+  anchor?: boolean;
+}
+
+const NAV_LINKS: readonly NavLink[] = [
+  { label: 'Features', to: '/#features', anchor: true },
+  { label: 'Templates', to: '/templates' },
+  { label: 'Pricing', to: '/pricing' },
+  { label: 'Changelog', to: '/changelog' },
+];
+
+function NavItem({
+  link,
+  className,
+  onClick,
+}: {
+  link: NavLink;
+  className: string;
+  onClick?: () => void;
+}) {
+  return link.anchor ? (
+    <a href={link.to} className={className} onClick={onClick}>
+      {link.label}
+    </a>
+  ) : (
+    <Link to={link.to} className={className} onClick={onClick}>
+      {link.label}
+    </Link>
   );
 }
 
-export function SiteHeader() {
+const desktopLink =
+  'rounded-md px-3 py-1.5 text-14 text-muted-foreground transition-colors duration-150 ease-standard hover:bg-hover hover:text-foreground active:bg-pressed';
+
+/** The links and account buttons, in a full-width sheet from the top, on phones. */
+function MobileMenu() {
+  const [open, setOpen] = useState(false);
+  const close = () => {
+    setOpen(false);
+  };
   return (
-    <header className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-6 md:px-10">
-      <div className="flex items-center gap-4 md:gap-6">
-        <Link to="/" className="-m-1 rounded-md p-1" aria-label="Formyx home">
-          <Logo decorative />
-        </Link>
-        <nav aria-label="Main" className="flex items-center gap-1">
-          <FeaturesMenu />
-          <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
-            <Link to="/templates">Templates</Link>
-          </Button>
-          <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
-            <Link to="/pricing">Pricing</Link>
-          </Button>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
+          <Menu aria-hidden />
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        side="top"
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className="gap-0 pb-6"
+      >
+        <div className={cn(CONTAINER, 'flex h-16 items-center justify-between')}>
+          <SheetTitle asChild>
+            <span>
+              <Logo decorative />
+              <span className="sr-only">Menu</span>
+            </span>
+          </SheetTitle>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" aria-label="Close menu">
+              <X aria-hidden />
+            </Button>
+          </SheetClose>
+        </div>
+        <nav aria-label="Main" className={cn(CONTAINER, 'flex flex-col')}>
+          {NAV_LINKS.map((link) => (
+            <NavItem
+              key={link.to}
+              link={link}
+              onClick={close}
+              className="-mx-3 rounded-md px-3 py-3 text-16 transition-colors duration-150 ease-standard hover:bg-hover active:bg-pressed"
+            />
+          ))}
         </nav>
+        <div className={cn(CONTAINER, 'mt-4 grid grid-cols-2 gap-3')}>
+          <Button asChild variant="secondary" size="lg">
+            <Link to="/login" onClick={close}>
+              Log in
+            </Link>
+          </Button>
+          <Button asChild size="lg">
+            <Link to="/signup" onClick={close}>
+              Get started
+            </Link>
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * The marketing pages' header: sticky, transparent at the top of the page, with a background
+ * and a bottom border once the page has scrolled.
+ */
+export function SiteHeader() {
+  const scrolled = useScrolled();
+  return (
+    <header
+      data-scrolled={scrolled || undefined}
+      className={cn(
+        'sticky top-0 z-40 border-b transition-colors duration-150 ease-standard',
+        scrolled ? 'border-border bg-background' : 'border-transparent bg-transparent',
+      )}
+    >
+      <div className={cn(CONTAINER, 'flex h-16 items-center justify-between gap-4')}>
+        <div className="flex items-center gap-6">
+          <Link to="/" className="-m-1 rounded-md p-1" aria-label="Formyx home">
+            <Logo decorative />
+          </Link>
+          <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+            {NAV_LINKS.map((link) => (
+              <NavItem key={link.to} link={link} className={desktopLink} />
+            ))}
+          </nav>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Link to="/login">Log in</Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link to="/signup">Get started</Link>
+          </Button>
+          <MobileMenu />
+        </div>
       </div>
-      <nav aria-label="Account" className="flex items-center gap-1 sm:gap-2">
-        <ThemeToggle />
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/login">Log in</Link>
-        </Button>
-        <Button asChild size="sm">
-          <Link to="/signup">Get started</Link>
-        </Button>
-      </nav>
     </header>
   );
 }
