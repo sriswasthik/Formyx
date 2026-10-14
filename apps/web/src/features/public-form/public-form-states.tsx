@@ -2,6 +2,7 @@ import { createDefaultTheme } from '@formyx/shared';
 import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { Link } from 'react-router';
+import { Logo } from '@/components/brand/logo';
 import { ThemeRenderer } from '@/features/form-renderer/theme/theme-renderer';
 import { isEmbedded } from '@/lib/embed';
 import { cx } from '@/lib/cx';
@@ -13,23 +14,47 @@ function badgeLink(slug?: string): string {
   return `/?${params.toString()}`;
 }
 
+const badgeClass =
+  'inline-flex items-center gap-1.5 rounded-sm text-12 text-(--form-muted,var(--muted-foreground)) underline-offset-4 transition-colors duration-150 ease-standard hover:text-(--form-fg,var(--foreground)) hover:underline';
+
 /** A quiet credit under every public page. Uses the form's colours when inside one. */
 export function MadeWithFormyx({
   label = 'Made with Formyx',
   slug,
+  newTab,
 }: {
   label?: string | undefined;
   /** The form it sits under. */
   slug?: string | undefined;
+  /**
+   * In an embedded form: opens Formyx in a new tab, rather than inside the host's frame,
+   * and says so in these words.
+   */
+  newTab?: string | undefined;
 }) {
+  const content = (
+    <>
+      <Logo variant="mark" size={16} decorative />
+      {label}
+    </>
+  );
   return (
     <footer className="px-6 pb-8 text-center">
-      <Link
-        to={badgeLink(slug)}
-        className="rounded-sm text-12 text-(--form-muted,var(--muted-foreground)) underline-offset-4 transition-colors duration-150 ease-standard hover:text-(--form-fg,var(--foreground)) hover:underline"
-      >
-        {label}
-      </Link>
+      {newTab === undefined ? (
+        <Link to={badgeLink(slug)} className={badgeClass}>
+          {content}
+        </Link>
+      ) : (
+        <a
+          href={`${window.location.origin}${badgeLink(slug)}`}
+          target="_blank"
+          rel="noopener"
+          aria-label={`${label} ${newTab}`}
+          className={badgeClass}
+        >
+          {content}
+        </a>
+      )}
     </footer>
   );
 }

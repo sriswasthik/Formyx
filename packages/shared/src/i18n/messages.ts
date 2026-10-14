@@ -23,6 +23,8 @@ export interface FormMessages {
     anotherResponse: string;
     thankYou: string;
     madeWith: string;
+    /** Read out after a link that opens in a new tab, such as the badge on an embedded form. */
+    opensInNewTab: string;
     loading: string;
   };
   marker: {

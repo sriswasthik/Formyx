@@ -19,6 +19,7 @@ export const en: FormMessages = {
     anotherResponse: 'Submit another response',
     thankYou: 'Thank you.',
     madeWith: 'Made with Formyx',
+    opensInNewTab: '(opens in a new tab)',
     loading: 'Loading the form',
   },
   marker: {
