@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router';
-import { Logo } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -46,7 +46,7 @@ export function SiteHeader() {
     <header className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-6 md:px-10">
       <div className="flex items-center gap-4 md:gap-6">
         <Link to="/" className="-m-1 rounded-md p-1" aria-label="Formyx home">
-          <Logo />
+          <Logo decorative />
         </Link>
         <nav aria-label="Main" className="flex items-center gap-1">
           <FeaturesMenu />

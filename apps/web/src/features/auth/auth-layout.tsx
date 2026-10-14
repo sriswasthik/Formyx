@@ -1,7 +1,7 @@
 import { m } from 'motion/react';
 import type * as React from 'react';
 import { Link } from 'react-router';
-import { Logo } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ThemeToggle } from '@/features/theme/theme-toggle';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
@@ -29,7 +29,7 @@ export function AuthLayout({ title, description, footer, children }: AuthLayoutP
           className="w-full max-w-sm"
         >
           <Link to="/" className="mx-auto mb-8 flex w-fit rounded-md p-1" aria-label="Formyx home">
-            <Logo />
+            <Logo decorative />
           </Link>
           <Card>
             <CardHeader className="gap-1.5">

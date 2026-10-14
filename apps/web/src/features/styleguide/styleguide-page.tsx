@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Logo } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ApiStatus } from '@/features/system/api-status';
@@ -28,7 +28,7 @@ export function StyleguidePage() {
       <header className="sticky top-0 z-30 border-b bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-6 md:px-10">
           <Link to="/" className="-m-1 rounded-md p-1" aria-label="Formyx home">
-            <Logo />
+            <Logo decorative />
           </Link>
           <Badge variant="outline">Dev</Badge>
           <div className="ml-auto flex items-center gap-2">

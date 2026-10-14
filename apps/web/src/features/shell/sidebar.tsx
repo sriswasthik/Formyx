@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Logo } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { SidebarExtras } from './sidebar-extras';
 import { SidebarNav } from './sidebar-nav';
 import { UserMenu } from './user-menu';
@@ -22,7 +22,7 @@ export function Sidebar({ id, onNavigate }: SidebarProps) {
           className="-m-1 rounded-md p-1"
           aria-label="Formyx, go to forms"
         >
-          <Logo />
+          <Logo decorative />
         </Link>
       </div>
       <div className="px-3">

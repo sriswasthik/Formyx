@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { LogoMark } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { FEATURE_PAGE_LINKS } from '@/features/marketing/feature-links';
 
 const linkClass =
@@ -44,7 +44,7 @@ export function SiteFooter() {
     <footer className="border-t">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 text-13 md:grid-cols-[1fr_auto] md:px-10">
         <div className="flex items-start gap-2 text-muted-foreground">
-          <LogoMark className="size-5" />
+          <Logo variant="mark" size={20} decorative />
           <span className="tabular-nums">© {new Date().getFullYear()} Formyx</span>
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:gap-16">
