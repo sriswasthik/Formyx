@@ -87,7 +87,20 @@ export const formSummarySchema = z.object({
 });
 export type FormSummary = z.infer<typeof formSummarySchema>;
 
-export const formListResponseSchema = z.object({ forms: z.array(formSummarySchema) });
+/** A form in the dashboard's list: its summary, its look and how it is doing today. */
+export const formListItemSchema = formSummarySchema.extend({
+  /** The draft's theme, for the form's thumbnail and colour. */
+  theme: storedFormThemeSchema,
+  /** Responses since midnight in the workspace's time zone. */
+  responsesToday: z.number().int().min(0),
+});
+export type FormListItem = z.infer<typeof formListItemSchema>;
+
+export const formListResponseSchema = z.object({
+  forms: z.array(formListItemSchema),
+  /** Responses to all of the workspace's forms in its current usage period (a month). */
+  responsesThisMonth: z.number().int().min(0),
+});
 export type FormListResponse = z.infer<typeof formListResponseSchema>;
 
 export const formDetailSchema = formSummarySchema.extend({

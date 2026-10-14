@@ -188,7 +188,34 @@ describe('GET /api/workspaces/:workspaceId/forms', () => {
       createdAt: newer.createdAt,
       updatedAt: newer.updatedAt,
       publishedAt: null,
+      // Its look, for the dashboard's thumbnail.
+      theme: newer.theme,
+      responsesToday: 0,
     });
+  });
+
+  it("counts each form's responses today, and the workspace's this month", async () => {
+    const form = await createForm({ title: 'Party' });
+    await addSubmissions(form.id, 2);
+    // Two days ago: in this month's total only if the month began before it.
+    const earlier = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    await prisma.submission.create({
+      data: { formId: form.id, answers: {}, metadata: {}, createdAt: earlier },
+    });
+
+    const res = await as('VIEWER').get(formsUrl()).expect(200);
+    const body = formListResponseSchema.parse(res.body);
+
+    expect(body.forms[0]).toMatchObject({ responseCount: 3, responsesToday: 2 });
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    expect(body.responsesThisMonth).toBe(earlier >= monthStart ? 3 : 2);
+  });
+
+  it('counts nothing for a workspace without forms', async () => {
+    const res = await as('VIEWER').get(formsUrl()).expect(200);
+    expect(formListResponseSchema.parse(res.body)).toEqual({ forms: [], responsesThisMonth: 0 });
   });
 
   it('searches titles, ignoring case and treating % and _ literally', async () => {

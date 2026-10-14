@@ -15,7 +15,10 @@ import {
   requiredFeatures,
   requiredLogicFeatures,
   slugify,
+  startOfDayIn,
   type FormDetail,
+  type FormListItem,
+  type FormListResponse,
   type FormSchema,
   type FormSummary,
   type FormTheme,
@@ -35,6 +38,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { AppError } from '../lib/app-error.js';
 import { escapeLikePattern } from '../lib/like-pattern.js';
 import type { Database } from '../lib/prisma.js';
+import { countResponses, workspaceUsagePeriod } from '../billing/usage.js';
 import { workspaceDefaultKit } from './brand-kit-service.js';
 import type { EntitlementService } from './entitlement-service.js';
 
@@ -63,6 +67,8 @@ const detailSelect = {
   theme: true,
   publishedTheme: true,
 } satisfies Prisma.FormSelect;
+
+const listSelect = { ...summarySelect, theme: true } satisfies Prisma.FormSelect;
 
 type SummaryRecord = Prisma.FormGetPayload<{ select: typeof summarySelect }>;
 type DetailRecord = Prisma.FormGetPayload<{ select: typeof detailSelect }>;
@@ -179,7 +185,8 @@ function inLanguage(schema: FormSchema, language: FormSchema['settings']['langua
 }
 
 export interface FormService {
-  list(workspaceId: string, query: ListFormsQuery): Promise<FormSummary[]>;
+  /** The forms, most recently edited first, with their looks and today's responses. */
+  list(workspaceId: string, query: ListFormsQuery): Promise<FormListResponse>;
   create(
     workspaceId: string,
     userId: string,
@@ -245,16 +252,40 @@ export function createFormService(
 
   return {
     async list(workspaceId, { search, status }) {
-      const forms = await prisma.form.findMany({
-        where: {
-          workspaceId,
-          ...(status && { status }),
-          ...(search && { title: { contains: escapeLikePattern(search), mode: 'insensitive' } }),
-        },
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        select: summarySelect,
-      });
-      return forms.map(toSummary);
+      const [forms, workspace, period] = await Promise.all([
+        prisma.form.findMany({
+          where: {
+            workspaceId,
+            ...(status && { status }),
+            ...(search && { title: { contains: escapeLikePattern(search), mode: 'insensitive' } }),
+          },
+          orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+          select: listSelect,
+        }),
+        prisma.workspace.findUnique({ where: { id: workspaceId }, select: { preferences: true } }),
+        workspaceUsagePeriod(prisma, workspaceId),
+      ]);
+      // Today starts at midnight where the workspace is (its preferences' time zone).
+      const since = startOfDayIn(readWorkspacePreferences(workspace?.preferences).timeZone);
+      const [today, responsesThisMonth] = await Promise.all([
+        forms.length === 0
+          ? []
+          : prisma.submission.groupBy({
+              by: ['formId'],
+              where: { formId: { in: forms.map((form) => form.id) }, createdAt: { gte: since } },
+              _count: { _all: true },
+            }),
+        countResponses(prisma, workspaceId, period),
+      ]);
+      const todayByForm = new Map(today.map((row) => [row.formId, row._count._all]));
+      return {
+        forms: forms.map((form): FormListItem => ({
+          ...toSummary(form),
+          theme: parseStored(storedFormThemeSchema, form.theme, 'theme'),
+          responsesToday: todayByForm.get(form.id) ?? 0,
+        })),
+        responsesThisMonth,
+      };
     },
 
     async create(workspaceId, userId, { templateId, title }) {

@@ -80,9 +80,7 @@ export function createFormsRouter(
     requireWorkspaceRole('VIEWER'),
     async (req, res) => {
       const query = listFormsQuerySchema.parse(req.query);
-      const body: FormListResponse = {
-        forms: await forms.list(getMembership(req).workspaceId, query),
-      };
+      const body: FormListResponse = await forms.list(getMembership(req).workspaceId, query);
       res.json(body);
     },
   );
