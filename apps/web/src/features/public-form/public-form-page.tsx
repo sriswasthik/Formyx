@@ -213,10 +213,13 @@ function LiveForm({
   const [editUrl, setEditUrl] = useState<string | null>(null);
   const needsScreens = responded || (access.emailStep !== 'none' && respondent === null);
   const screens = useLazyModule(accessScreens, needsScreens);
-  const footer =
-    embedded || !form.theme.branding.showFormyxBadge ? undefined : (
-      <MadeWithFormyx label={messages.nav.madeWith} slug={form.slug} />
-    );
+  const footer = form.theme.branding.showFormyxBadge ? (
+    <MadeWithFormyx
+      label={messages.nav.madeWith}
+      slug={form.slug}
+      newTab={embedded ? messages.nav.opensInNewTab : undefined}
+    />
+  ) : undefined;
   const frame = { title: form.title, theme: form.theme, locale, variant, footer } as const;
 
   const submit = async (answers: SubmittedAnswers): Promise<SubmitOutcome> => {

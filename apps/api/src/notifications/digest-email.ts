@@ -22,6 +22,8 @@ const DIGEST_ANSWERS_PER_RESPONSE = 3;
 const ANSWER_MAX_LENGTH = 140;
 
 export interface DigestEmailInput {
+  /** The site's address, for the logo. */
+  appUrl: string;
   formTitle: string;
   schema: FormSchema | null;
   /** The day's responses, newest first. */
@@ -88,6 +90,7 @@ export function renderDigestEmail(input: DigestEmailInput): RenderedEmail {
     .join('');
 
   const html = emailPage({
+    appUrl: input.appUrl,
     subject,
     preheader: count,
     card: `${heading(title)}

@@ -10,6 +10,7 @@ import { SiteHeader } from '@/features/landing/site-header';
 import { cn } from '@/lib/utils';
 import { GALLERY, galleryInCategory } from './gallery';
 import { TemplateCard } from './template-card';
+import { CONTAINER } from '@/features/marketing/layout';
 
 function categoryFrom(value: string | null): TemplateCategory | null {
   return TEMPLATE_CATEGORIES.find((category) => category === value) ?? null;
@@ -30,7 +31,7 @@ export function TemplatesPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 pt-12 pb-24 md:px-10 md:pt-20">
+      <main className={cn(CONTAINER, 'flex-1 pt-12 pb-24 md:pt-20')}>
         <h1 className="text-32 font-semibold tracking-tighter text-balance md:text-40">
           Form templates
         </h1>

@@ -113,6 +113,7 @@ export async function sendDigests({
       total,
       responsesUrl: `${appUrl}${formResponsesPath(form.id)}`,
       settingsUrl: `${appUrl}/app/forms/${form.id}/settings?section=notifications`,
+      appUrl,
     });
     const messages = recipients.map((to) => ({ to, ...email }));
     const idempotencyKey = `digest/${form.id}/${now.toISOString().slice(0, 13)}`;

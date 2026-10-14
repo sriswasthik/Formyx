@@ -1,6 +1,8 @@
 <!doctype html>
 <!--
   Source of public/og-image.png (1200×630), the picture shown when a Formyx link is shared.
+  The logo is drawn into [data-logo] (its size in px) by the render script, from the logo's
+  shapes. og-screenshot.png is the form editor, captured at 1280×800 from a local app.
   Render it with: pnpm --filter @formyx/e2e render:images
 -->
 <html lang="en">
@@ -19,134 +21,59 @@
         color: #09090b;
         display: flex;
         align-items: center;
-        gap: 64px;
-        padding: 0 80px;
+        gap: 56px;
+        padding: 0 0 0 80px;
         overflow: hidden;
       }
       .copy {
-        flex: 1;
+        width: 460px;
+        flex: none;
         display: flex;
         flex-direction: column;
-        gap: 28px;
+        gap: 40px;
       }
       .brand {
         display: flex;
         align-items: center;
-        gap: 14px;
-        font-size: 30px;
+        /* 0.4 × the wordmark's size, as in the app's <Logo>. */
+        gap: 12.8px;
+        font-size: 32px;
+        line-height: 1;
         font-weight: 600;
         letter-spacing: -0.02em;
+      }
+      .brand [data-logo] {
+        display: flex;
       }
       h1 {
-        font-size: 64px;
-        line-height: 1.05;
+        font-size: 56px;
+        line-height: 1.08;
         font-weight: 600;
         letter-spacing: -0.035em;
+        text-wrap: balance;
       }
-      .lead {
-        font-size: 26px;
-        line-height: 1.4;
-        color: #71717a;
-        letter-spacing: -0.01em;
-      }
-      .card {
-        width: 420px;
+      .shot {
         flex: none;
-        background: #fff;
+        width: 640px;
         border: 1px solid #e4e4e7;
-        border-radius: 16px;
-        padding: 32px;
-        display: flex;
-        flex-direction: column;
-        gap: 22px;
+        border-right: 0;
+        border-radius: 12px 0 0 12px;
+        overflow: hidden;
+        background: #fff;
       }
-      .card h2 {
-        font-size: 24px;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-      }
-      .label {
-        font-size: 15px;
-        font-weight: 500;
-        margin-bottom: 8px;
-      }
-      .input {
-        height: 40px;
-        border: 1px solid #d4d4d8;
-        border-radius: 8px;
-        padding: 0 12px;
-        display: flex;
-        align-items: center;
-        font-size: 15px;
-        color: #3f3f46;
-      }
-      .input.focused {
-        border-color: #2e5aac;
-        box-shadow:
-          0 0 0 2px #fff,
-          0 0 0 4px #2e5aac;
-      }
-      .choice {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 40px;
-        border: 1px solid #d4d4d8;
-        border-radius: 8px;
-        padding: 0 12px;
-        font-size: 15px;
-        margin-top: 8px;
-      }
-      .choice.selected {
-        border-color: #2e5aac;
-        background: #f2f5fb;
-      }
-      .dot {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        border: 1.5px solid #a1a1aa;
-      }
-      .selected .dot {
-        border: 5px solid #2e5aac;
-      }
-      .button {
-        align-self: flex-start;
-        background: #18181b;
-        color: #fafafa;
-        font-size: 15px;
-        font-weight: 500;
-        border-radius: 8px;
-        padding: 10px 18px;
+      .shot img {
+        display: block;
+        width: 100%;
       }
     </style>
   </head>
   <body>
     <div class="copy">
-      <div class="brand">
-        <svg viewBox="0 0 32 32" width="48" height="48" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="#18181b" />
-          <rect x="8" y="9" width="16" height="3" rx="1.5" fill="#fafafa" />
-          <rect x="8" y="14.5" width="11" height="3" rx="1.5" fill="#fafafa" />
-          <rect x="8" y="20" width="6" height="3" rx="1.5" fill="#fafafa" />
-        </svg>
-        Formyx
-      </div>
-      <h1>Forms people enjoy filling in.</h1>
-      <p class="lead">Drag-and-drop building, conditional logic and responses that arrive live.</p>
+      <div class="brand"><span data-logo="48"></span>Formyx</div>
+      <h1>Build forms people actually enjoy filling in.</h1>
     </div>
-    <div class="card" aria-hidden="true">
-      <h2>Design meetup RSVP</h2>
-      <div>
-        <p class="label">Your name</p>
-        <div class="input focused">Ada Lovelace</div>
-      </div>
-      <div>
-        <p class="label">Are you coming?</p>
-        <div class="choice selected"><span class="dot"></span>Yes, save me a seat</div>
-        <div class="choice"><span class="dot"></span>Not this time</div>
-      </div>
-      <span class="button">Send RSVP</span>
+    <div class="shot" aria-hidden="true">
+      <img src="og-screenshot.png" alt="" />
     </div>
   </body>
 </html>

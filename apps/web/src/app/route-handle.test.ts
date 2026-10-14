@@ -30,6 +30,8 @@ describe('formatDocumentTitle', () => {
   });
 
   it('uses the product tagline without a page title', () => {
-    expect(formatDocumentTitle(undefined)).toBe('Formyx — Forms that feel effortless');
+    expect(formatDocumentTitle(undefined)).toBe(
+      'Formyx: build forms people actually enjoy filling in',
+    );
   });
 });

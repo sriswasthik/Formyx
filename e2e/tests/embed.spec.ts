@@ -54,9 +54,11 @@ test('embeds a form in another site, sized to fit, and reports responses', async
 
     await expect(form.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(iframe).toHaveAttribute('title', /.+/);
-    // Grown from its starting 480px to the whole form, without page chrome.
+    // Grown from its starting 480px to the whole form and its badge, which opens a new tab.
     await expect.poll(async () => (await iframe.boundingBox())?.height ?? 0).toBeGreaterThan(600);
-    await expect(form.getByRole('link', { name: 'Made with Formyx' })).toHaveCount(0);
+    await expect(
+      form.getByRole('link', { name: 'Made with Formyx (opens in a new tab)' }),
+    ).toHaveAttribute('target', '_blank');
     const innerHeight = await form.locator('body').evaluate((body) => body.scrollHeight);
     const outerHeight = (await iframe.boundingBox())?.height ?? 0;
     expect(Math.abs(outerHeight - innerHeight)).toBeLessThan(2);

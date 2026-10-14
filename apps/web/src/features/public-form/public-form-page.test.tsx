@@ -368,12 +368,19 @@ describe('PublicFormPage embedded in another site', () => {
 
   const messages = () => host.postMessage.mock.calls.map(([message]) => message);
 
-  it('leaves out the page chrome and reports its height to the host only', async () => {
+  it('shows the badge in the frame and reports its height to the host only', async () => {
     serve();
     renderPage(FORM.slug, '?embed=1&parent=https%3A%2F%2Fshop.example');
 
     await screen.findByRole('heading', { level: 1, name: 'Party RSVP' });
-    expect(screen.queryByRole('link', { name: 'Made with Formyx' })).not.toBeInTheDocument();
+    // The badge opens Formyx in a new tab, never inside the host's frame.
+    const badge = screen.getByRole('link', { name: 'Made with Formyx (opens in a new tab)' });
+    expect(badge).toHaveAttribute(
+      'href',
+      `${window.location.origin}/?ref=badge&form=party-abc12345`,
+    );
+    expect(badge).toHaveAttribute('target', '_blank');
+    expect(badge).toHaveAttribute('rel', 'noopener');
     await waitFor(() => {
       expect(messages()).toContainEqual(
         expect.objectContaining({ source: 'formyx', type: 'resize', title: 'Party RSVP' }),

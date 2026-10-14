@@ -125,6 +125,7 @@ export function createInviteService({
       inviterName: record.invitedBy?.name ?? null,
       role: record.role,
       acceptUrl: `${appUrl}/invite/${token}`,
+      appUrl,
     });
     try {
       await mailer.send([{ to: record.email, ...email }], {

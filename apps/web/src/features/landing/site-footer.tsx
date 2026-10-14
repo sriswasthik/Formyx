@@ -1,31 +1,35 @@
 import { Link } from 'react-router';
-import { LogoMark } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { FEATURE_PAGE_LINKS } from '@/features/marketing/feature-links';
+import { CONTAINER } from '@/features/marketing/layout';
+import { ThemeToggle } from '@/features/theme/theme-toggle';
+import { cn } from '@/lib/utils';
 
 const linkClass =
   'rounded-sm text-muted-foreground transition-colors duration-150 ease-standard hover:text-foreground';
 
 interface FooterLink {
   label: string;
+  /** The router scrolls to `#features` once the home page has drawn it, from any page. */
   to: string;
 }
 
-const COLUMNS: { title: string; links: FooterLink[] }[] = [
+const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'Product',
     links: [
+      { label: 'Features', to: '/#features' },
       ...FEATURE_PAGE_LINKS.map((link) => ({ label: link.label, to: link.path })),
       { label: 'Templates', to: '/templates' },
       { label: 'Pricing', to: '/pricing' },
-      { label: 'Changelog', to: '/changelog' },
     ],
   },
   {
-    title: 'Support',
+    title: 'Resources',
     links: [
       { label: 'Help centre', to: '/help' },
+      { label: 'Changelog', to: '/changelog' },
       { label: 'Contact us', to: '/contact' },
-      { label: 'Log in', to: '/login' },
     ],
   },
   {
@@ -42,15 +46,22 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
 export function SiteFooter() {
   return (
     <footer className="border-t">
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 text-13 md:grid-cols-[1fr_auto] md:px-10">
-        <div className="flex items-start gap-2 text-muted-foreground">
-          <LogoMark className="size-5" />
-          <span className="tabular-nums">© {new Date().getFullYear()} Formyx</span>
+      <div
+        className={cn(
+          CONTAINER,
+          'grid gap-12 py-12 text-13 md:grid-cols-[minmax(0,1fr)_auto] md:py-16',
+        )}
+      >
+        <div className="flex max-w-xs flex-col items-start gap-3">
+          <Logo decorative />
+          <p className="text-muted-foreground">
+            The form builder for forms people actually enjoy filling in.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:gap-16">
-          {COLUMNS.map((column) => (
+          {FOOTER_COLUMNS.map((column) => (
             <nav key={column.title} aria-label={column.title}>
-              <p className="text-13 font-medium">{column.title}</p>
+              <p className="font-medium">{column.title}</p>
               <ul className="mt-3 flex flex-col gap-2">
                 {column.links.map((link) => (
                   <li key={link.to}>
@@ -62,6 +73,14 @@ export function SiteFooter() {
               </ul>
             </nav>
           ))}
+        </div>
+      </div>
+      <div className={CONTAINER}>
+        <div className="flex items-center justify-between gap-4 border-t py-6">
+          <p className="text-13 text-muted-foreground tabular-nums">
+            © {new Date().getFullYear()} Formyx
+          </p>
+          <ThemeToggle />
         </div>
       </div>
     </footer>

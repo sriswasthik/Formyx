@@ -9,6 +9,8 @@ import { SiteFooter } from '@/features/landing/site-footer';
 import { SiteHeader } from '@/features/landing/site-header';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { FEATURE_PAGE_LINKS } from './feature-links';
+import { CONTAINER } from '@/features/marketing/layout';
+import { cn } from '@/lib/utils';
 
 export interface FeaturePoint {
   icon: LucideIcon;
@@ -51,7 +53,7 @@ export function FeaturePage({
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
       <main className="flex-1">
-        <section className="mx-auto max-w-6xl px-6 pt-12 pb-12 md:px-10 md:pt-20">
+        <section className={cn(CONTAINER, 'pt-12 pb-12 md:pt-20')}>
           <div className="max-w-3xl">
             <p className="text-13 font-medium text-accent">{eyebrow}</p>
             <h1 className="mt-3 text-32 font-semibold tracking-tighter text-balance md:text-40">
@@ -74,7 +76,7 @@ export function FeaturePage({
         </section>
 
         <section aria-labelledby="points-title" className="border-t">
-          <div className="mx-auto max-w-6xl px-6 py-16 md:px-10 md:py-24">
+          <div className={cn(CONTAINER, 'py-16 md:py-24')}>
             <h2 id="points-title" className="text-24 font-semibold tracking-tight">
               {pointsTitle}
             </h2>
@@ -107,7 +109,12 @@ export function FeaturePage({
         </section>
 
         <section aria-labelledby="more-title" className="border-t">
-          <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-16 md:flex-row md:items-start md:justify-between md:px-10">
+          <div
+            className={cn(
+              CONTAINER,
+              'flex flex-col gap-8 py-16 md:flex-row md:items-start md:justify-between',
+            )}
+          >
             <div className="max-w-md">
               <h2 id="more-title" className="text-20 font-semibold tracking-tight">
                 Try it on your own form

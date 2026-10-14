@@ -1,5 +1,5 @@
 import { RotateCw } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { Logo } from '@/components/brand/logo';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { isStaleBuildError } from './stale-build';
 
@@ -13,7 +13,7 @@ export function CrashScreen({ error }: { error: unknown }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
       <a href="/" className="mb-12 rounded-md p-1" aria-label="Formyx home">
-        <Logo />
+        <Logo decorative />
       </a>
       <div role="alert" className="flex flex-col items-center">
         <h1 className="text-24 font-semibold tracking-tight">

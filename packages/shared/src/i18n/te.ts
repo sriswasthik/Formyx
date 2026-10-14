@@ -17,6 +17,7 @@ export const te: FormMessages = {
     anotherResponse: 'మరొక స్పందనను సమర్పించండి',
     thankYou: 'ధన్యవాదాలు.',
     madeWith: 'Formyxతో తయారు చేయబడింది',
+    opensInNewTab: '(కొత్త ట్యాబ్‌లో తెరుచుకుంటుంది)',
     loading: 'ఫారం లోడ్ అవుతోంది',
   },
   marker: {

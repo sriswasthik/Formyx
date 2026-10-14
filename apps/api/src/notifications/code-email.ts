@@ -10,6 +10,8 @@ import {
 } from './email-layout.js';
 
 export interface CodeEmailInput {
+  /** The site's address, for the logo. */
+  appUrl: string;
   formTitle: string;
   code: string;
   /** The form's language: respondents read this email, not its creators. */
@@ -17,13 +19,19 @@ export interface CodeEmailInput {
 }
 
 /** The code that confirms a respondent's address, for one response per person. */
-export function renderCodeEmail({ formTitle, code, messages }: CodeEmailInput): RenderedEmail {
+export function renderCodeEmail({
+  formTitle,
+  code,
+  messages,
+  appUrl,
+}: CodeEmailInput): RenderedEmail {
   const title = singleLine(formTitle) || 'Formyx';
   const subject = messages.email.codeSubject(title);
   const intro = messages.email.codeText(title);
   const ignore = messages.email.codeIgnore;
 
   const html = emailPage({
+    appUrl: appUrl,
     subject,
     preheader: code,
     card: `${heading(title)}

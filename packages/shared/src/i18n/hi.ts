@@ -17,6 +17,7 @@ export const hi: FormMessages = {
     anotherResponse: 'एक और जवाब भेजें',
     thankYou: 'धन्यवाद।',
     madeWith: 'Formyx से बनाया गया',
+    opensInNewTab: '(नए टैब में खुलता है)',
     loading: 'फ़ॉर्म लोड हो रहा है',
   },
   marker: {

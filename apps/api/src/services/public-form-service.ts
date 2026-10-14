@@ -320,6 +320,8 @@ export interface PublicFormServiceOptions {
   passwords: Pick<PasswordHasher, 'verify' | 'verifyAgainstDummy'>;
   /** Sends the codes that confirm respondents' addresses. */
   mailer: Mailer;
+  /** The site's address, for the emails' logo. */
+  appUrl: string;
   /** Whether plans decide what a form may use (see ENTITLEMENTS_MODE). */
   entitlementsMode: EntitlementsMode;
   /** What happens once the workspace has had its plan's responses (see ENFORCEMENT_MODE). */
@@ -336,6 +338,7 @@ export function createPublicFormService({
   secret,
   passwords,
   mailer,
+  appUrl,
   entitlementsMode,
   enforcementMode,
 }: PublicFormServiceOptions): PublicFormService {
@@ -530,6 +533,7 @@ export function createPublicFormService({
         formTitle: form.title,
         code,
         messages: FORM_MESSAGES[form.schema.settings.language],
+        appUrl,
       });
       await mailer.send([{ to: normalizeEmail(email), ...rendered }], {
         idempotencyKey: `verify-${created.id}`,

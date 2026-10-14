@@ -24,8 +24,13 @@ const bundle = {
   'assets/view.js': chunk('assets/view.js', []),
 };
 
-function transform(html: string): string {
-  const plugin = routePreload([{ pathPrefix: '/f/', module: 'src/features/public-form/page.tsx' }]);
+function transform(
+  html: string,
+  routes: Parameters<typeof routePreload>[0] = [
+    { pathPrefix: '/f/', module: 'src/features/public-form/page.tsx' },
+  ],
+): string {
+  const plugin = routePreload(routes);
   const hook = plugin.transformIndexHtml as { handler: IndexHtmlTransformHook };
   const context = { bundle } as unknown as IndexHtmlTransformContext;
   return hook.handler.call({} as never, html, context) as string;
@@ -36,6 +41,14 @@ describe('routePreload', () => {
     const html = transform('<html><head></head><body></body></html>');
     expect(html).toContain('["/assets/page.js","/assets/view.js"]');
     expect(html).not.toContain('/assets/react.js');
+  });
+
+  it('can preload for one path only, such as the home page', () => {
+    const html = transform('<html><head></head><body></body></html>', [
+      { path: '/', module: 'src/features/public-form/page.tsx' },
+    ]);
+    expect(html).toContain('if(location.pathname==="/")["/assets/page.js","/assets/view.js"]');
+    expect(html).not.toContain('indexOf');
   });
 
   it('runs before the stylesheets, which would otherwise hold it back', () => {

@@ -4,7 +4,12 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CHANGELOG } from './changelog-entries';
 import { ChangelogPage } from './changelog-page';
-import { LATEST_CHANGELOG_ID, markChangelogSeen, useHasUnseenChanges } from './latest';
+import {
+  LATEST_CHANGELOG_ID,
+  LATEST_CHANGELOG_TITLE,
+  markChangelogSeen,
+  useHasUnseenChanges,
+} from './latest';
 
 beforeEach(() => {
   localStorage.clear();
@@ -13,6 +18,7 @@ beforeEach(() => {
 describe('the changelog', () => {
   it('names its newest entry in latest.ts, with unique ids, newest first', () => {
     expect(CHANGELOG[0]?.id).toBe(LATEST_CHANGELOG_ID);
+    expect(CHANGELOG[0]?.title).toBe(LATEST_CHANGELOG_TITLE);
     expect(new Set(CHANGELOG.map(({ id }) => id)).size).toBe(CHANGELOG.length);
     const dates = CHANGELOG.map(({ date }) => date);
     expect(dates).toEqual([...dates].sort().reverse());

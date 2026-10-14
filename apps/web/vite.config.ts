@@ -35,9 +35,11 @@ export default defineConfig(({ mode }) => {
       // Inter, Latin letters: the font almost every page needs first. A public form preloads
       // its theme's fonts instead (below).
       fontPreload(/^assets\/inter-latin-wght-normal-[\w-]+\.woff2$/, '/f/'),
-      // Public forms are the page most often opened cold, on any connection.
+      // Public forms are the page most often opened cold, on any connection, and the home page
+      // the one most visitors see first: their code is asked for alongside the entry.
       routePreload([
         { pathPrefix: '/f/', module: 'src/features/public-form/public-form-page.tsx' },
+        { path: '/', module: 'src/features/landing/landing-page.tsx' },
       ]),
       // And its fonts and question controls, as soon as the form says which they are.
       formAssetPreload({

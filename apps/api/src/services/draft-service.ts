@@ -90,6 +90,7 @@ export function createDraftService({
         formTitle: form.title,
         // In the fragment, so the token never reaches a server log or a referrer.
         resumeUrl: `${appUrl}/f/${encodeURIComponent(slug)}#resume=${token}`,
+        appUrl,
       });
       await mailer.send([{ to: input.email, ...email }], {
         idempotencyKey: `draft/${hashToken(token).slice(0, 32)}`,

@@ -75,6 +75,7 @@ export async function sendBillingNotice(
     .filter((user) => !optional || readAccountPreferences(user.preferences).productEmails);
   const context: BillingEmailContext = {
     workspaceName: workspace.name,
+    appUrl: deps.env.APP_URL,
     billingUrl: billingUrl(deps.env.APP_URL, workspaceId),
     timeZone: readWorkspacePreferences(workspace.preferences).timeZone,
   };

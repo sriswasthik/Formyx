@@ -21,6 +21,7 @@ function submission(answers: SubmissionRecord['answers']): SubmissionRecord {
 const urls = {
   responseUrl: 'https://formyx.app/app/forms/f1/responses?tab=responses&response=sub_1',
   settingsUrl: 'https://formyx.app/app/forms/f1/responses',
+  appUrl: 'https://formyx.app',
 };
 
 describe('renderSubmissionEmail', () => {
@@ -51,7 +52,7 @@ describe('renderSubmissionEmail', () => {
     });
 
     expect(email.html).not.toContain('<script>');
-    expect(email.html).not.toContain('<img');
+    expect(email.html).not.toContain('<img src=x');
     expect(email.html).not.toContain('<i>');
     expect(email.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(email.html).toContain('&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');

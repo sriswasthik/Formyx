@@ -53,6 +53,7 @@ export function createPublicFormsRouter({
     secret: env.JWT_SECRET,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mailer,
+    appUrl: env.APP_URL,
     entitlementsMode: env.ENTITLEMENTS_MODE,
     enforcementMode: env.ENFORCEMENT_MODE,
   });

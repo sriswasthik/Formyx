@@ -23,6 +23,8 @@ export const EMAIL_ANSWER_LIMIT = 10;
 const ANSWER_MAX_LENGTH = 500;
 
 export interface SubmissionEmailInput {
+  /** The site's address, for the logo. */
+  appUrl: string;
   formTitle: string;
   /** The published form, for question labels. */
   schema: FormSchema | null;
@@ -118,6 +120,7 @@ export function renderSubmissionEmail(input: SubmissionEmailInput): RenderedEmai
       : '';
 
   const html = emailPage({
+    appUrl: input.appUrl,
     subject,
     preheader: `Submitted ${when}`,
     card: `${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, 'New response')}

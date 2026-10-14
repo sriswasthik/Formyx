@@ -1,5 +1,5 @@
 import type { MeResponse } from '@formyx/shared';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -55,10 +55,12 @@ afterEach(() => {
 });
 
 describe('Try the demo', () => {
-  it('is only offered when the build turns the demo on', () => {
+  it('is only offered when the build turns the demo on', async () => {
     renderApp(null, '/');
+    // The last call to action is then sign-up alone.
+    const cta = await screen.findByRole('region', { name: 'Your next form deserves better.' });
     expect(screen.queryByRole('button', { name: 'Try the demo' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'See how it works' })).toBeInTheDocument();
+    expect(within(cta).getAllByRole('link')).toHaveLength(1);
   });
 
   it('signs in to the demo workspace and opens its forms', async () => {
@@ -69,18 +71,22 @@ describe('Try the demo', () => {
     const user = userEvent.setup();
     const { router, queryClient } = renderApp(null, '/');
 
-    await user.click(screen.getByRole('button', { name: 'Try the demo' }));
+    await user.click(await screen.findByRole('button', { name: 'Try the demo' }));
 
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/app/forms');
-    });
+    // The app's pages load lazily: slow on a busy machine.
+    await waitFor(
+      () => {
+        expect(router.state.location.pathname).toBe('/app/forms');
+      },
+      { timeout: 10_000 },
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/demo',
       expect.objectContaining({ method: 'POST' }),
     );
     expect(queryClient.getQueryData(meQueryKey)).toEqual(DEMO);
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('ws_demo');
-    expect(await screen.findByText('Forms content')).toBeInTheDocument();
+    expect(await screen.findByText('Forms content', {}, { timeout: 10_000 })).toBeInTheDocument();
   });
 
   it('says so when the demo is not available', async () => {
@@ -94,7 +100,7 @@ describe('Try the demo', () => {
     const user = userEvent.setup();
     const { router } = renderApp(null, '/');
 
-    await user.click(screen.getByRole('button', { name: 'Try the demo' }));
+    await user.click(await screen.findByRole('button', { name: 'Try the demo' }));
 
     expect(await screen.findByText('Could not open the demo')).toBeInTheDocument();
     expect(screen.getByText('The demo is not available on this server')).toBeInTheDocument();
