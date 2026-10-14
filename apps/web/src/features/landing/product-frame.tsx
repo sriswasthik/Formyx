@@ -163,6 +163,8 @@ function useCrossfade(index: number): number[] {
 export function ProductFrame() {
   const template = FORM_TEMPLATES.find((candidate) => candidate.id === HERO_TEMPLATE_ID);
   const [schema] = useState(() => template?.build());
+  // The frame shows the first few questions; drawing the rest would be work nobody sees.
+  const [shown] = useState(() => schema && { ...schema, fields: schema.fields.slice(0, 4) });
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const onScreen = useOnScreen(frame);
   const reduce = useReducedMotionConfig() ?? false;
@@ -216,7 +218,7 @@ export function ProductFrame() {
                   <FormView
                     title={template.defaultTitle}
                     titleAs="h2"
-                    schema={schema}
+                    schema={shown ?? schema}
                     theme={preset.theme}
                     variant="frame"
                     className="min-h-full"

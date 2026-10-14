@@ -100,7 +100,7 @@ const STEPS: { title: string; text: string; picture: React.ReactNode }[] = [
 
 export function HowItWorks() {
   return (
-    <section aria-labelledby="how-title" className={cn(CONTAINER, SECTION_Y)}>
+    <section aria-labelledby="how-title" className={cn(CONTAINER, SECTION_Y, 'below-fold')}>
       <Reveal>
         <h2 id="how-title" className={SECTION_TITLE}>
           How it works

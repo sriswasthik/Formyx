@@ -132,7 +132,7 @@ export function BentoGrid() {
     <section
       id="features"
       aria-labelledby="features-title"
-      className={cn(CONTAINER, SECTION_Y, 'scroll-mt-16')}
+      className={cn(CONTAINER, SECTION_Y, 'scroll-mt-16 below-fold')}
     >
       <Reveal>
         <h2 id="features-title" className={SECTION_TITLE}>

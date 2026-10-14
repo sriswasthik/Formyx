@@ -385,6 +385,31 @@
   line-gap-override: 0%;
 }
 
+/*
+ * The same for semibold and bold text, from Arial Bold rather than Arial made bold. Inter 600
+ * sets 1.18% wider; this is 2.5% larger, so a heading's longest line is never narrower than in
+ * Inter. When Inter arrives the home page's headline shrinks a hair rather than growing, which
+ * would count as a later, larger paint.
+ */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  font-weight: 600 800;
+  size-adjust: 102.5%;
+  ascent-override: 94.51%;
+  descent-override: 23.63%;
+  line-gap-override: 0%;
+}
+
+/*
+ * Marketing sections below the first screen: the browser skips their style and layout until
+ * they come near it, so the first screen is ready sooner. The size stands in until then.
+ */
+@utility below-fold {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
 @layer base {
   *,
   ::before,

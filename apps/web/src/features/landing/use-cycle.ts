@@ -42,9 +42,10 @@ export function useCycle({ count, interval, paused }: CycleOptions): number {
 
 /**
  * Whether `element` has come within `rootMargin` of the screen, once: for loading what it holds
- * shortly before it is seen.
+ * shortly before it is seen. Just below the screen by default, not further: what loads while
+ * the page itself is loading slows it.
  */
-export function useSeen(element: Element | null, rootMargin = '400px'): boolean {
+export function useSeen(element: Element | null, rootMargin = '0px 0px 200px 0px'): boolean {
   // Without IntersectionObserver (older browsers), at once.
   const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined');
   useEffect(() => {

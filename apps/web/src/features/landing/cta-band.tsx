@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 /** The last word: one heading and the way in, plus the live demo where it is offered. */
 export function CtaBand() {
   return (
-    <section aria-labelledby="cta-title" className="border-t">
+    <section aria-labelledby="cta-title" className="border-t below-fold">
       <Reveal
         className={cn(CONTAINER, SECTION_Y, SECTION_END, 'flex flex-col items-center text-center')}
       >

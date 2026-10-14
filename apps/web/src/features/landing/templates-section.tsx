@@ -43,7 +43,10 @@ export function TemplatesSection() {
     <TilePlaceholder key={index} />
   ));
   return (
-    <section aria-labelledby="templates-title" className={cn(CONTAINER, SECTION_Y, SECTION_END)}>
+    <section
+      aria-labelledby="templates-title"
+      className={cn(CONTAINER, SECTION_Y, SECTION_END, 'below-fold')}
+    >
       <Reveal className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 id="templates-title" className={SECTION_TITLE}>
