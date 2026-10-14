@@ -25,7 +25,10 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // 205.9 KB, so the budget was 207 KB. Checkout's script never loads on public forms.
 // Sprint 20 (launch) raises this to 210.9 KB after the new launch experience additions, so
 // keep a small headroom for minor route-level growth.
-const PUBLIC_FORM_BUDGET_KB = 212;
+// Redesign 1 and 3 (brand, landing page): the form's own code grew by the badge's logo, and the
+// one stylesheet by the landing page's classes, 0.7 KB of it: 212.1 KB, so the budget is
+// 213 KB. Keeping marketing styles out of public forms would take a stylesheet of their own.
+const PUBLIC_FORM_BUDGET_KB = 213;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',
