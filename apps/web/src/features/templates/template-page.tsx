@@ -12,6 +12,8 @@ import { SiteFooter } from '@/features/landing/site-footer';
 import { SiteHeader } from '@/features/landing/site-header';
 import { galleryInCategory, gallerySlug, templateAppPath, type GalleryTemplate } from './gallery';
 import { TemplateCard } from './template-card';
+import { CONTAINER } from '@/features/marketing/layout';
+import { cn } from '@/lib/utils';
 
 /** The template as respondents would get it, working, in its look. Nothing is sent. */
 function LivePreview({ template }: { template: GalleryTemplate }) {
@@ -66,7 +68,7 @@ function TemplateDetails({ template }: { template: GalleryTemplate }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 pt-8 pb-24 md:px-10 md:pt-12">
+      <main className={cn(CONTAINER, 'flex-1 pt-8 pb-24 md:pt-12')}>
         <nav aria-label="Breadcrumb">
           <ol className="flex flex-wrap items-center gap-1 text-13 text-muted-foreground">
             <li>
