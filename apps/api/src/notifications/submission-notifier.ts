@@ -66,6 +66,7 @@ export function registerSubmissionNotifier({
         submission,
         responseUrl: `${env.APP_URL}${formResponsesPath(formId, { responseId: submission.id })}`,
         settingsUrl: `${env.APP_URL}${formResponsesPath(formId)}`,
+        appUrl: env.APP_URL,
       });
       await queueEmails(jobs, encryption, {
         formId,

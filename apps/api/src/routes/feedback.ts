@@ -39,6 +39,7 @@ export function createFeedbackRouter(
         ...input,
         senderName: sender.name,
         senderEmail: sender.email,
+        appUrl: env.APP_URL,
       });
       await queueEmails(jobs, encryption, {
         formId: null,

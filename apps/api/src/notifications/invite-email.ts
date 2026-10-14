@@ -11,6 +11,8 @@ import {
 } from './email-layout.js';
 
 export interface InviteEmailInput {
+  /** The site's address, for the logo. */
+  appUrl: string;
   workspaceName: string;
   /** Who sent it; `null` if their account is gone. */
   inviterName: string | null;
@@ -47,6 +49,7 @@ export function renderInviteEmail(input: InviteEmailInput): RenderedEmail {
   ].join('\n');
 
   const html = emailPage({
+    appUrl: input.appUrl,
     subject,
     preheader: summary,
     card: `${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, `${escapeHtml(who)} invited you to`)}

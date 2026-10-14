@@ -10,6 +10,8 @@ import {
 } from './email-layout.js';
 
 export interface FeedbackEmailInput {
+  /** The site's address, for the logo. */
+  appUrl: string;
   kind: FeedbackKind;
   message: string;
   page?: string | undefined;
@@ -27,6 +29,7 @@ export function renderFeedbackEmail(input: FeedbackEmailInput): RenderedEmail {
 
   const text = [subject, '', input.message, '', `${where}. Reply to answer ${sender}.`].join('\n');
   const html = emailPage({
+    appUrl: input.appUrl,
     subject,
     preheader: singleLine(input.message).slice(0, 90),
     card: `${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, escapeHtml(`${kind} from ${sender} (${input.senderEmail})`))}

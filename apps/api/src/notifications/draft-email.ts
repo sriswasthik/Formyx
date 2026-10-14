@@ -11,6 +11,8 @@ import {
 } from './email-layout.js';
 
 export interface DraftEmailInput {
+  /** The site's address, for the logo. */
+  appUrl: string;
   formTitle: string;
   /** Opens the form with the saved answers; the secret token is in its fragment. */
   resumeUrl: string;
@@ -26,6 +28,7 @@ export function renderDraftEmail(input: DraftEmailInput): RenderedEmail {
   const text = [subject, '', summary, '', `Carry on: ${input.resumeUrl}`, '', expiry].join('\n');
 
   const html = emailPage({
+    appUrl: input.appUrl,
     subject,
     preheader: summary,
     card: `${heading(title)}

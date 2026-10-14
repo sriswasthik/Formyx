@@ -17,6 +17,8 @@ import { lifecycleFooter } from './lifecycle-email.js';
  */
 
 export interface BillingEmailContext {
+  /** The site's address, for the logo. */
+  appUrl: string;
   workspaceName: string;
   /** The workspace's billing settings page. */
   billingUrl: string;
@@ -57,6 +59,7 @@ function render(
     footer.text,
   ].join('\n');
   const html = emailPage({
+    appUrl: context.appUrl,
     subject,
     preheader: lines[0] ?? title,
     card: `${p(`font-size:13px;line-height:20px;color:${COLOR.muted};`, escapeHtml(workspace))}

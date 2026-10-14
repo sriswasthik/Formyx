@@ -15,10 +15,13 @@ export function renderReferralRewardEmail({
   friendName,
   reward,
   referralsUrl,
+  appUrl,
 }: {
   friendName: string;
   reward: 'paused' | 'complimentary';
   referralsUrl: string;
+  /** The site's address, for the logo. */
+  appUrl: string;
 }): RenderedEmail {
   const friend = singleLine(friendName).split(' ')[0] || 'A friend';
   const subject = 'You earned a free month of Formyx';
@@ -37,6 +40,7 @@ export function renderReferralRewardEmail({
     'You get this email because someone signed up with your Formyx referral link.',
   ].join('\n');
   const html = emailPage({
+    appUrl,
     subject,
     preheader: lines[0] ?? subject,
     card: `${heading('A free month, on us')}

@@ -138,6 +138,7 @@ async function rewardReferral(deps: EventDependencies, workspaceId: string): Pro
     friendName: rewarded.friendName,
     reward: rewarded.reward,
     referralsUrl: `${deps.env.APP_URL}/app/settings/referrals`,
+    appUrl: deps.env.APP_URL,
   });
   await queueEmails(deps.jobs, deps.encryption, {
     formId: null,

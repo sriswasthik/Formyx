@@ -57,6 +57,7 @@ function render(context: LifecycleEmailContext, content: Content): RenderedEmail
     footer.text,
   ].join('\n');
   const html = emailPage({
+    appUrl: context.appUrl,
     subject: content.subject,
     preheader: content.preheader,
     card: `${heading(content.title)}

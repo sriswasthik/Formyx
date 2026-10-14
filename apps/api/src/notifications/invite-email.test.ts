@@ -10,6 +10,7 @@ describe('renderInviteEmail', () => {
       inviterName: 'Grace Hopper',
       role: 'EDITOR',
       acceptUrl,
+      appUrl: 'https://formyx.app',
     });
 
     expect(email.subject).toBe('Grace Hopper invited you to Acme on Formyx');
@@ -25,6 +26,7 @@ describe('renderInviteEmail', () => {
       inviterName: null,
       role: 'VIEWER',
       acceptUrl,
+      appUrl: 'https://formyx.app',
     });
 
     expect(email.subject).toBe('Someone invited you to <b>Acme</b> Bcc: x@example.com on Formyx');

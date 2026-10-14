@@ -58,15 +58,31 @@ export function button(label: string, href: string): string {
 }
 
 /**
- * A whole email page: the Formyx name, a card holding `card`, and small print below it.
+ * The logo: the icon as an image (email clients do not show SVG), hosted on the site, and the
+ * wordmark as text, so it reads even with images blocked. The image is decorative beside it.
+ */
+function logo(appUrl: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="padding-right:8px;vertical-align:middle;"><img src="${escapeHtml(appUrl)}/email-logo.png" width="24" height="24" alt="" style="display:block;border:0;outline:none;"></td>
+            <td style="vertical-align:middle;">${paragraph(`font-size:16px;line-height:24px;font-weight:600;letter-spacing:-0.3px;color:${COLOR.text};`, 'Formyx')}</td>
+          </tr>
+        </table>`;
+}
+
+/**
+ * A whole email page: the Formyx logo, a card holding `card`, and small print below it.
  * `card` and `footer` must already be HTML-safe; `preheader` is the inbox preview line.
  */
 export function emailPage({
+  appUrl,
   subject,
   preheader,
   card,
   footer,
 }: {
+  /** The site's address, where the logo image is. */
+  appUrl: string;
   subject: string;
   preheader: string;
   card: string;
@@ -86,7 +102,7 @@ export function emailPage({
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
       <tr><td style="padding:0 4px 16px;">
-        ${paragraph(`font-size:14px;line-height:21px;font-weight:600;color:${COLOR.text};`, 'Formyx')}
+        ${logo(appUrl)}
       </td></tr>
       <tr><td style="background:${COLOR.card};border:1px solid ${COLOR.border};border-radius:12px;padding:24px;">
         ${card}
