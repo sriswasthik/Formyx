@@ -10,16 +10,15 @@ const linkClass =
 
 interface FooterLink {
   label: string;
+  /** The router scrolls to `#features` once the home page has drawn it, from any page. */
   to: string;
-  /** A plain link: the browser scrolls to the section, from any page. */
-  anchor?: boolean;
 }
 
 const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'Product',
     links: [
-      { label: 'Features', to: '/#features', anchor: true },
+      { label: 'Features', to: '/#features' },
       ...FEATURE_PAGE_LINKS.map((link) => ({ label: link.label, to: link.path })),
       { label: 'Templates', to: '/templates' },
       { label: 'Pricing', to: '/pricing' },
@@ -66,15 +65,9 @@ export function SiteFooter() {
               <ul className="mt-3 flex flex-col gap-2">
                 {column.links.map((link) => (
                   <li key={link.to}>
-                    {link.anchor ? (
-                      <a href={link.to} className={linkClass}>
-                        {link.label}
-                      </a>
-                    ) : (
-                      <Link to={link.to} className={linkClass}>
-                        {link.label}
-                      </Link>
-                    )}
+                    <Link to={link.to} className={linkClass}>
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -10,13 +10,12 @@ import { useScrolled } from './use-scrolled';
 
 interface NavLink {
   label: string;
+  /** The router scrolls to `#features` once the home page has drawn it, from any page. */
   to: string;
-  /** A plain link: the browser scrolls to the section, from any page. */
-  anchor?: boolean;
 }
 
 const NAV_LINKS: readonly NavLink[] = [
-  { label: 'Features', to: '/#features', anchor: true },
+  { label: 'Features', to: '/#features' },
   { label: 'Templates', to: '/templates' },
   { label: 'Pricing', to: '/pricing' },
   { label: 'Changelog', to: '/changelog' },
@@ -31,11 +30,7 @@ function NavItem({
   className: string;
   onClick?: () => void;
 }) {
-  return link.anchor ? (
-    <a href={link.to} className={className} onClick={onClick}>
-      {link.label}
-    </a>
-  ) : (
+  return (
     <Link to={link.to} className={className} onClick={onClick}>
       {link.label}
     </Link>
