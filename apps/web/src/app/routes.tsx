@@ -14,6 +14,14 @@ const devOnlyRoutes: RouteObject[] = import.meta.env.DEV
           return { Component: StyleguidePage };
         },
       },
+      {
+        path: 'styleguide/brand',
+        handle: { title: 'Brand' } satisfies RouteHandle,
+        lazy: async () => {
+          const { BrandPage } = await import('@/features/styleguide/brand-page');
+          return { Component: BrandPage };
+        },
+      },
     ]
   : [];
 
