@@ -20,5 +20,6 @@ export function getRouteTitle(matches: readonly { handle: unknown }[]): string |
 }
 
 export function formatDocumentTitle(title: string | undefined): string {
-  return title ? `${title} · Formyx` : 'Formyx — Forms that feel effortless';
+  // The home page: the same as index.html's <title>.
+  return title ? `${title} · Formyx` : 'Formyx: build forms people actually enjoy filling in';
 }
