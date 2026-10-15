@@ -79,6 +79,11 @@ export const sessionUserSchema = z.object({
   isAdmin: z.boolean().optional(),
   /** False for accounts that sign in only with Google or Zoho. Left out when there is one. */
   hasPassword: z.boolean().optional(),
+  /**
+   * True while publishing waits for them to confirm their email (REQUIRE_EMAIL_VERIFICATION).
+   * Left out otherwise.
+   */
+  mustVerifyEmail: z.boolean().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 
@@ -97,3 +102,9 @@ export const meResponseSchema = z.object({
   workspaces: z.array(workspaceSummarySchema),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
+
+/** Body of `POST /api/auth/verify-email`: the token from the emailed link. */
+export const verifyEmailInputSchema = z.object({
+  token: z.string().trim().min(1, 'This link is incomplete').max(2000),
+});
+export type VerifyEmailInput = z.infer<typeof verifyEmailInputSchema>;

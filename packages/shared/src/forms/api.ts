@@ -4,7 +4,11 @@ import { storedFormThemeSchema } from '../theme/migrate.js';
 import { formSchema } from './form-schema.js';
 import { formTemplateIdSchema } from './template-ids.js';
 
-export const FORM_STATUSES = ['DRAFT', 'PUBLISHED', 'CLOSED'] as const;
+/**
+ * `UNDER_REVIEW`: published, but held for a person to look at first (see `moderateForm`).
+ * `SUSPENDED`: taken offline by Formyx; only an admin can bring it back. Neither can be opened.
+ */
+export const FORM_STATUSES = ['DRAFT', 'PUBLISHED', 'CLOSED', 'UNDER_REVIEW', 'SUSPENDED'] as const;
 export const formStatusSchema = z.enum(FORM_STATUSES);
 export type FormStatus = z.infer<typeof formStatusSchema>;
 
@@ -12,6 +16,8 @@ export const FORM_STATUS_LABELS: Record<FormStatus, string> = {
   DRAFT: 'Draft',
   PUBLISHED: 'Published',
   CLOSED: 'Closed',
+  UNDER_REVIEW: 'In review',
+  SUSPENDED: 'Suspended',
 };
 
 export const FORM_TITLE_MAX_LENGTH = 120;
@@ -113,6 +119,8 @@ export const formDetailSchema = formSummarySchema.extend({
   theme: storedFormThemeSchema,
   /** The look respondents see, as it was last published. */
   publishedTheme: storedFormThemeSchema.nullable(),
+  /** Why it is held for review ("asks for a password"), while it is; otherwise null. */
+  review: z.object({ reasons: z.array(z.string()) }).nullable(),
 });
 export type FormDetail = z.infer<typeof formDetailSchema>;
 

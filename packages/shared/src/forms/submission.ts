@@ -512,6 +512,8 @@ export const submissionInputSchema = z.object({
   verificationToken: z.string().max(2000).optional(),
   /** Changes the response this link belongs to, instead of adding one. */
   editToken: z.string().max(64).optional(),
+  /** Cloudflare Turnstile's token, when the form has the spam check on. */
+  captchaToken: z.string().max(4096).optional(),
 });
 export type SubmissionInput = z.input<typeof submissionInputSchema>;
 

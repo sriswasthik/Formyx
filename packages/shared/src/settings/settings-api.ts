@@ -18,6 +18,8 @@ export const formSettingsViewSchema = z.object({
   settings: liveSettingsSchema,
   slug: z.string(),
   hasPassword: z.boolean(),
+  /** The server can run Cloudflare Turnstile, so the spam check can be switched on. */
+  captchaAvailable: z.boolean(),
   chat: z.object({ slack: chatWebhookViewSchema, discord: chatWebhookViewSchema }),
 });
 export type FormSettingsView = z.infer<typeof formSettingsViewSchema>;

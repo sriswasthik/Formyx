@@ -22,6 +22,7 @@ export * from './settings/index.js';
 export * from './sign-in.js';
 export * from './slug.js';
 export * from './theme/index.js';
+export * from './trust/index.js';
 export * from './uploads.js';
 export * from './webhooks.js';
 export * from './workspaces.js';

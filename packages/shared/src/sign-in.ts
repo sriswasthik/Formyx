@@ -56,6 +56,10 @@ export const signInErrorSchema = z.enum([
   'unverified_email',
   /** This server is not set up for that provider. */
   'unavailable',
+  /** The account is suspended. */
+  'suspended',
+  /** A new account at a throwaway inbox (see disposable-email.ts in the API). */
+  'disposable_email',
   /** Anything else: the provider refused the code, or could not be reached. */
   'failed',
 ]);
@@ -72,6 +76,10 @@ export function signInErrorMessage(error: SignInError, provider?: SignInProvider
       return `An account with this email already exists, and ${name} has not confirmed the address is yours. Log in with your password instead.`;
     case 'unavailable':
       return `Signing in with ${name} is not available right now.`;
+    case 'suspended':
+      return 'This account is suspended. Write to us if you think this is a mistake.';
+    case 'disposable_email':
+      return 'Use an email address you keep: temporary inboxes can’t be used for an account.';
     case 'failed':
       return `We could not sign you in with ${name}. Try again.`;
   }

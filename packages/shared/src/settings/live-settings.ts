@@ -55,6 +55,11 @@ export const accessSettingsSchema = z
     allowEdits: z.boolean(),
     /** Kept out of search engines. Forms are only ever found through their link. */
     unlisted: z.boolean(),
+    /**
+     * Respondents pass Cloudflare Turnstile's spam check before sending. Defaulted, so access
+     * settings saved before it existed still read.
+     */
+    captcha: z.boolean().default(false),
   })
   .superRefine((access, ctx) => {
     if (
@@ -171,7 +176,13 @@ export function createDefaultLiveSettings(
   defaults: { frequency?: NotificationFrequency; emails?: string[] } = {},
 ): LiveSettings {
   return {
-    access: { oneResponsePer: 'off', requireEmail: false, allowEdits: false, unlisted: true },
+    access: {
+      oneResponsePer: 'off',
+      requireEmail: false,
+      allowEdits: false,
+      unlisted: true,
+      captcha: false,
+    },
     notifications: {
       emails: defaults.emails ?? [],
       frequency: defaults.frequency ?? 'instant',

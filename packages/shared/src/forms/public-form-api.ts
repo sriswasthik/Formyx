@@ -24,6 +24,8 @@ export const publicAccessSchema = z.object({
   allowEdits: z.boolean(),
   /** Search engines may list it. */
   indexable: z.boolean(),
+  /** Cloudflare Turnstile's site key, when respondents pass its spam check before sending. */
+  captchaSiteKey: z.string().optional(),
 });
 export type PublicAccess = z.infer<typeof publicAccessSchema>;
 
@@ -73,6 +75,17 @@ export const lockedPublicFormSchema = z.object({
 export type LockedPublicForm = z.infer<typeof lockedPublicFormSchema>;
 
 /**
+ * A form held for review or taken offline by Formyx. Nothing about it is shown, not even its
+ * title: it may be a phishing form.
+ */
+export const unavailablePublicFormSchema = z.object({
+  status: z.literal('unavailable'),
+  slug: z.string(),
+  locale: publicLocaleSchema,
+});
+export type UnavailablePublicForm = z.infer<typeof unavailablePublicFormSchema>;
+
+/**
  * What `GET /api/public/forms/:slug` returns. A closed form is an expected state rather than
  * an error, so it comes back as 200 too; forms that were never published are 404.
  */
@@ -81,6 +94,7 @@ export const publicFormResponseSchema = z.discriminatedUnion('status', [
   closedPublicFormSchema,
   notOpenPublicFormSchema,
   lockedPublicFormSchema,
+  unavailablePublicFormSchema,
 ]);
 export type PublicFormResponse = z.infer<typeof publicFormResponseSchema>;
 

@@ -25,6 +25,8 @@ export interface FormMessages {
     madeWith: string;
     /** Read out after a link that opens in a new tab, such as the badge on an embedded form. */
     opensInNewTab: string;
+    /** The link under every public form to report it to Formyx. */
+    report: string;
     loading: string;
   };
   marker: {
@@ -82,6 +84,8 @@ export interface FormMessages {
     fixAnswers: string;
     waitForUpload: string;
     sendFailed: string;
+    /** The spam check (Cloudflare Turnstile) did not pass. */
+    captchaFailed: string;
     saveFailed: string;
   };
   answer: {
@@ -123,6 +127,9 @@ export interface FormMessages {
     closedTitle: string;
     closedText: string;
     notOpenTitle: string;
+    /** Held for review or taken offline by Formyx: said without the form's title. */
+    unavailableTitle: string;
+    unavailableText: string;
     opensAt: (when: string) => string;
     lockedTitle: string;
     lockedText: string;
