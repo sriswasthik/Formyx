@@ -19,6 +19,7 @@ export * from './referrals.js';
 export * from './realtime.js';
 export * from './roles.js';
 export * from './settings/index.js';
+export * from './sign-in.js';
 export * from './slug.js';
 export * from './theme/index.js';
 export * from './uploads.js';
