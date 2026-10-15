@@ -12,12 +12,20 @@ import { z } from 'zod';
 import { apiRequest, ApiRequestError, jsonRequest } from '@/lib/api';
 import { hasSessionHint, providerSignInFailed, setSessionHint } from './session-cache';
 
+/**
+ * How long the session check may take. `fetch` has no limit of its own, so an API that takes
+ * the connection and never answers would otherwise hold every page on a blank screen.
+ */
+export const SESSION_CHECK_TIMEOUT_MS = 10_000;
+
 /** The signed-in user, or `null` when there is no valid session. */
 export async function fetchMe(): Promise<MeResponse | null> {
   if (providerSignInFailed()) setSessionHint(false);
   if (!hasSessionHint()) return null;
   try {
-    return await apiRequest('/auth/me', meResponseSchema);
+    return await apiRequest('/auth/me', meResponseSchema, {
+      signal: AbortSignal.timeout(SESSION_CHECK_TIMEOUT_MS),
+    });
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 401) {
       setSessionHint(false);
