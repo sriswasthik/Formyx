@@ -11,7 +11,6 @@ import {
   createTestQueryClient,
   jsonResponse,
   renderWithProviders,
-  requestBody,
   stubFetch,
 } from '@/test/session';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -35,22 +34,33 @@ function renderSwitcher() {
   return { router, queryClient, user: userEvent.setup() };
 }
 
+/** What was posted to create a workspace, if anything: the plan line asks for entitlements too. */
+function createRequests(fetchMock: ReturnType<typeof stubFetch>) {
+  return fetchMock.mock.calls
+    .filter(([url, init]) => url === '/api/workspaces' && init?.method === 'POST')
+    .map(([, init]) =>
+      typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : null,
+    );
+}
+
 afterEach(() => {
   useWorkspaceStore.setState({ activeWorkspaceId: null });
 });
 
 describe('WorkspaceSwitcher', () => {
   it('creates a workspace and switches to it', async () => {
-    const fetchMock = stubFetch(() =>
-      jsonResponse(
-        { id: 'ws_new', name: 'Marketing', slug: 'marketing-abc123', role: 'OWNER' },
-        201,
-      ),
+    const fetchMock = stubFetch((path, init) =>
+      path === '/api/workspaces' && init.method === 'POST'
+        ? jsonResponse(
+            { id: 'ws_new', name: 'Marketing', slug: 'marketing-abc123', role: 'OWNER' },
+            201,
+          )
+        : jsonResponse({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404),
     );
     const { router, queryClient, user } = renderSwitcher();
 
     await user.click(screen.getByRole('button', { name: /Switch workspace/ }));
-    await user.click(screen.getByRole('menuitem', { name: 'Create workspace' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Create workspace' }));
     const dialog = screen.getByRole('dialog', { name: 'Create a workspace' });
     await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Marketing');
     await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
@@ -58,7 +68,7 @@ describe('WorkspaceSwitcher', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/app/forms');
     });
-    expect(requestBody(fetchMock)).toEqual({ name: 'Marketing' });
+    expect(createRequests(fetchMock)).toEqual([{ name: 'Marketing' }]);
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('ws_new');
     expect(
       queryClient.getQueryData<MeResponse>(meQueryKey)?.workspaces.map(({ name }) => name),
@@ -73,12 +83,12 @@ describe('WorkspaceSwitcher', () => {
     const { user } = renderSwitcher();
 
     await user.click(screen.getByRole('button', { name: /Switch workspace/ }));
-    await user.click(screen.getByRole('menuitem', { name: 'Create workspace' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Create workspace' }));
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAccessibleDescription(
       'Enter a name',
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(createRequests(fetchMock)).toEqual([]);
   });
 });

@@ -1,47 +1,77 @@
 import { Megaphone, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { useLocation } from 'react-router';
+import { ActionTooltip } from '@/components/action-tooltip';
 import { useHasUnseenChanges } from '@/features/changelog/latest';
 import { FeedbackDialog } from '@/features/feedback/feedback-dialog';
 import { HelpMenu } from '@/features/help/help-menu';
+import { cn } from '@/lib/utils';
+import { SidebarLink } from './sidebar-link';
+import { sidebarRowClass } from './sidebar-row';
 
-const itemClass =
-  'flex h-8 w-full items-center gap-2 rounded-md px-2 text-14 text-muted-foreground transition-colors duration-150 ease-standard hover:bg-hover hover:text-foreground active:bg-pressed';
+interface SidebarExtrasProps {
+  collapsed?: boolean;
+  onNavigate?: (() => void) | undefined;
+}
 
-/** Help, feedback for the team and what's new, at the foot of the sidebar. */
-export function SidebarExtras({ onNavigate }: { onNavigate?: () => void }) {
+/** Feedback for the team, what's new and help, at the foot of the sidebar. */
+export function SidebarExtras({ collapsed = false, onNavigate }: SidebarExtrasProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const unseen = useHasUnseenChanges();
+  const { pathname } = useLocation();
+
+  const feedback = (
+    <button
+      type="button"
+      aria-label={collapsed ? 'Feedback' : undefined}
+      className={sidebarRowClass(false, collapsed)}
+      onClick={() => {
+        setFeedbackOpen(true);
+      }}
+    >
+      <MessageSquare className="shrink-0" aria-hidden />
+      {!collapsed && 'Feedback'}
+    </button>
+  );
+
+  const dot = unseen && (
+    <>
+      <span
+        aria-hidden
+        className={cn(
+          'size-1.5 rounded-full bg-accent',
+          collapsed ? 'absolute top-1.5 right-1.5' : 'ml-auto',
+        )}
+      />
+      <span className="sr-only"> (new updates)</span>
+    </>
+  );
 
   return (
     <>
-      <ul aria-label="Help" className="flex flex-col gap-0.5">
+      <ul aria-label="Help" className={cn('flex flex-col gap-0.5', collapsed && 'items-center')}>
         <li>
-          <HelpMenu variant="sidebar" />
+          {collapsed ? (
+            <ActionTooltip label="Feedback" side="right">
+              {feedback}
+            </ActionTooltip>
+          ) : (
+            feedback
+          )}
         </li>
         <li>
-          <button
-            type="button"
-            className={itemClass}
-            onClick={() => {
-              setFeedbackOpen(true);
-            }}
-          >
-            <MessageSquare aria-hidden />
-            Feedback
-          </button>
+          <SidebarLink
+            to="/changelog"
+            label="What’s new"
+            icon={Megaphone}
+            active={pathname === '/changelog'}
+            collapsed={collapsed}
+            onNavigate={onNavigate}
+            trailing={dot}
+          />
         </li>
         <li>
-          <Link to="/changelog" onClick={onNavigate} className={itemClass}>
-            <Megaphone aria-hidden />
-            What’s new
-            {unseen && (
-              <>
-                <span aria-hidden className="ml-auto size-1.5 rounded-full bg-accent" />
-                <span className="sr-only"> (new updates)</span>
-              </>
-            )}
-          </Link>
+          <HelpMenu variant={collapsed ? 'rail' : 'sidebar'} />
         </li>
       </ul>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
