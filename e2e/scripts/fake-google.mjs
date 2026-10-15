@@ -2,9 +2,39 @@
 // people back with a code), the token endpoint and the Sheets API calls the sync makes. The
 // API's GOOGLE_OAUTH_URL, GOOGLE_TOKEN_URL and GOOGLE_SHEETS_URL point at /google here.
 // Tests read the sheets at GET /google/__sheets and revoke access with POST /google/__revoke.
+// "Continue with Google" signs in as sheets@example.com, or as whoever the browser's
+// `fake_google_account` cookie (on this server, `<email>|<name>`) names.
 
 const CODE = 'e2e-google-code';
 const EMAIL = 'sheets@example.com';
+const ACCOUNT_COOKIE = 'fake_google_account';
+
+/** The account the browser chose with its cookie, or the usual one. */
+function chosenAccount(req) {
+  const cookie = (req.headers.cookie ?? '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${ACCOUNT_COOKIE}=`));
+  const [email, name] = decodeURIComponent(cookie?.slice(ACCOUNT_COOKIE.length + 1) ?? '').split(
+    '|',
+  );
+  return email ? { email, name: name || undefined } : { email: EMAIL, name: 'Sheets Person' };
+}
+
+/** An ID token as Google's token endpoint returns it (unsigned is fine: it is only read). */
+function idToken(req, clientId, { email, name }) {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const claims = {
+    iss: `http://${req.headers.host}/google`,
+    aud: clientId,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    sub: `e2e-${email}`,
+    email,
+    email_verified: true,
+    ...(name && { name }),
+  };
+  return `${encode({ alg: 'RS256' })}.${encode(claims)}.signature`;
+}
 
 const state = { accessToken: 'e2e-access', refreshToken: 'e2e-refresh', revoked: false };
 /** By spreadsheet id: title, tab and rows. */
@@ -46,7 +76,9 @@ export async function handleGoogle(req, res, url, parts, send, readBody) {
   // The consent screen: agree at once.
   if (path === '/o/oauth2/v2/auth') {
     const back = new URL(url.searchParams.get('redirect_uri') ?? '');
-    back.searchParams.set('code', CODE);
+    // The account rides in the code, so browsers signing in at once don't mix them up.
+    const account = Buffer.from(JSON.stringify(chosenAccount(req))).toString('base64url');
+    back.searchParams.set('code', `${CODE}.${account}`);
     back.searchParams.set('state', url.searchParams.get('state') ?? '');
     res.writeHead(302, { Location: back.toString() });
     return res.end();
@@ -54,15 +86,16 @@ export async function handleGoogle(req, res, url, parts, send, readBody) {
   if (path === '/token') {
     const params = Object.fromEntries(new URLSearchParams(body));
     if (params.grant_type === 'authorization_code') {
-      if (params.code !== CODE) return send(res, 400, { error: 'invalid_grant' });
+      const [code, account] = (params.code ?? '').split('.');
+      if (code !== CODE || !account) return send(res, 400, { error: 'invalid_grant' });
       state.revoked = false;
       state.accessToken = `e2e-access-${Date.now()}`;
-      const claims = Buffer.from(JSON.stringify({ email: EMAIL })).toString('base64url');
+      const chosen = JSON.parse(Buffer.from(account, 'base64url').toString('utf8'));
       return send(res, 200, {
         access_token: state.accessToken,
         expires_in: 3600,
         refresh_token: state.refreshToken,
-        id_token: `header.${claims}.signature`,
+        id_token: idToken(req, params.client_id, chosen),
       });
     }
     if (state.revoked) return send(res, 400, { error: 'invalid_grant' });

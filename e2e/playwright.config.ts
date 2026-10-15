@@ -111,7 +111,10 @@ export default defineConfig({
         CLOUDINARY_API_SECRET: 'e2e-secret',
         CLOUDINARY_API_URL: fakeServices,
         PINCODE_API_URL: `${fakeServices}/pincode`,
-        // Google Sheets connects to a fake Google that agrees at once.
+        // Google Sheets and "Continue with Google" use a fake Google that agrees at once.
+        // Zoho stays off, whatever a local .env says, so no test reaches the real one.
+        ZOHO_CLIENT_ID: '',
+        ZOHO_CLIENT_SECRET: '',
         GOOGLE_CLIENT_ID: 'e2e-google-client',
         GOOGLE_CLIENT_SECRET: 'e2e-google-secret',
         GOOGLE_OAUTH_URL: `${fakeServices}/google`,
