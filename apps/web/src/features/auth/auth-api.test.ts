@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ADA, jsonResponse, stubFetch } from '@/test/session';
-import { fetchMe } from './auth-api';
+import { fetchMe, SESSION_CHECK_TIMEOUT_MS } from './auth-api';
 import { hasSessionHint, SESSION_HINT_STORAGE_KEY, setSessionHint } from './session-cache';
 
 describe('fetchMe', () => {
@@ -37,5 +37,26 @@ describe('fetchMe', () => {
 
     await expect(fetchMe()).rejects.toMatchObject({ status: 500 });
     expect(hasSessionHint()).toBe(true);
+  });
+
+  it('gives up on an API that never answers', async () => {
+    setSessionHint(true);
+    // The real timeout, run down at once.
+    const controller = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+    stubFetch(
+      (_path, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation timed out.', 'TimeoutError'));
+          });
+        }),
+    );
+
+    const checking = fetchMe();
+    expect(timeout).toHaveBeenCalledWith(SESSION_CHECK_TIMEOUT_MS);
+    controller.abort();
+    await expect(checking).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+    timeout.mockRestore();
   });
 });

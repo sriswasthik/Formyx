@@ -1,8 +1,8 @@
 import type { MeResponse } from '@formyx/shared';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ADA,
   createTestQueryClient,
@@ -10,7 +10,7 @@ import {
   renderWithProviders,
   stubFetch,
 } from '@/test/session';
-import { GuestRoute } from './guest-route';
+import { GUEST_WAIT_MS, GuestRoute } from './guest-route';
 import { LoginPage } from './login-page';
 import { ProtectedRoute } from './protected-route';
 import { setSessionHint } from './session-cache';
@@ -117,6 +117,10 @@ describe('ProtectedRoute', () => {
 });
 
 describe('GuestRoute', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('sends signed-in users from /login to the app', async () => {
     const router = renderRoutes('/login');
 
@@ -130,6 +134,32 @@ describe('GuestRoute', () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/app/settings');
+    });
+  });
+
+  it('shows the page when the session check is slow, and still sends them on if it answers', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    setSessionHint(true);
+    let answer: (response: Response) => void = () => {};
+    stubFetch((path) =>
+      path.endsWith('/auth/me')
+        ? new Promise<Response>((resolve) => {
+            answer = resolve;
+          })
+        : jsonResponse({ providers: [] }),
+    );
+    const router = renderRoutes('/login', { session: 'fetch' });
+
+    expect(screen.queryByRole('heading', { name: 'Log in to Formyx' })).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(GUEST_WAIT_MS);
+    });
+    expect(screen.getByRole('heading', { name: 'Log in to Formyx' })).toBeInTheDocument();
+
+    vi.useRealTimers();
+    answer(jsonResponse(ADA));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app');
     });
   });
 
