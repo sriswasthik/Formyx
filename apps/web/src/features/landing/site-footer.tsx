@@ -46,13 +46,13 @@ const LEGAL_LINKS: FooterLink[] = [
  * The marketing pages' footer: a dark panel, the same in either theme (its `dark` class gives
  * everything inside the dark tokens, so links, the focus ring and the theme switch keep their
  * contrast). The brand and the links sit close together, then one line with the copyright, the
- * legal pages and the theme switch, and a large, faint wordmark sunk into the bottom edge.
+ * legal pages and the theme switch.
  */
 export function SiteFooter() {
   return (
     <footer className="px-2 pb-2 sm:px-3 sm:pb-3">
-      <div className="dark relative overflow-hidden rounded-xl border bg-surface text-foreground [color-scheme:dark]">
-        <div className={cn(CONTAINER, 'relative pt-10 md:pt-12')}>
+      <div className="dark overflow-hidden rounded-xl border bg-surface text-foreground [color-scheme:dark]">
+        <div className={cn(CONTAINER, 'pt-10 pb-6 md:pt-12')}>
           <div className="flex flex-col gap-8 md:flex-row md:justify-between md:gap-12">
             <div className="flex max-w-64 flex-col items-start gap-3">
               <Link to="/" aria-label="Formyx home" className="rounded-md">
@@ -107,28 +107,6 @@ export function SiteFooter() {
             <ThemeSwitch />
           </div>
         </div>
-
-        {/* The name, large and faint, cut off by the panel's edge just below its baseline. A
-            picture rather than text: it is decoration, not something to read. */}
-        <svg
-          aria-hidden
-          focusable="false"
-          viewBox="0 0 1000 232"
-          className="pointer-events-none mx-auto mt-3 block w-[min(100%-3rem,40rem)] fill-foreground/[0.06] select-none"
-        >
-          <text
-            x="500"
-            y="222"
-            textAnchor="middle"
-            textLength="960"
-            lengthAdjust="spacingAndGlyphs"
-            fontSize="300"
-            fontWeight="600"
-            letterSpacing="-18"
-          >
-            Formyx
-          </text>
-        </svg>
       </div>
     </footer>
   );
