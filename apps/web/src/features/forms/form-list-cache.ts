@@ -1,4 +1,10 @@
-import { copyFormTitle, formStatusSchema, type FormDetail, type FormSummary } from '@formyx/shared';
+import {
+  copyFormTitle,
+  formStatusSchema,
+  type FormDetail,
+  type FormListItem,
+  type FormSummary,
+} from '@formyx/shared';
 import type { QueryKey } from '@tanstack/react-query';
 import type { FormFilters } from './forms-api';
 
@@ -27,23 +33,19 @@ export function matchesFilters(form: FormSummary, { search, status }: FormFilter
 }
 
 /** Most recently edited first, like the API. */
-export function sortForms(forms: FormSummary[]): FormSummary[] {
+export function sortForms<T extends FormSummary>(forms: T[]): T[] {
   return [...forms].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function replaceForm(forms: FormSummary[], id: string, form: FormSummary): FormSummary[] {
+export function replaceForm<T extends FormSummary>(forms: T[], id: string, form: T): T[] {
   return forms.map((candidate) => (candidate.id === id ? form : candidate));
 }
 
-export function removeForm(forms: FormSummary[], id: string): FormSummary[] {
+export function removeForm<T extends FormSummary>(forms: T[], id: string): T[] {
   return forms.filter((form) => form.id !== id);
 }
 
-export function insertForm(
-  forms: FormSummary[],
-  form: FormSummary,
-  filters: FormFilters,
-): FormSummary[] {
+export function insertForm<T extends FormSummary>(forms: T[], form: T, filters: FormFilters): T[] {
   return matchesFilters(form, filters) ? sortForms([form, ...forms]) : forms;
 }
 
@@ -51,19 +53,19 @@ export function insertForm(
  * Puts `form` in place of the form with `id`: moved to its new position, or dropped if the
  * list's filters no longer match it (e.g. after a rename).
  */
-export function upsertForm(
-  forms: FormSummary[],
+export function upsertForm<T extends FormSummary>(
+  forms: T[],
   id: string,
-  form: FormSummary,
+  form: T,
   filters: FormFilters,
-): FormSummary[] {
+): T[] {
   return insertForm(removeForm(forms, id), form, filters);
 }
 
 const OPTIMISTIC_PREFIX = 'optimistic-';
 
 /** Stands in for a duplicate until the server returns the real form. */
-export function optimisticCopy(source: FormSummary, now = new Date()): FormSummary {
+export function optimisticCopy(source: FormListItem, now = new Date()): FormListItem {
   const timestamp = now.toISOString();
   return {
     ...source,
@@ -73,6 +75,7 @@ export function optimisticCopy(source: FormSummary, now = new Date()): FormSumma
     status: 'DRAFT',
     version: 1,
     responseCount: 0,
+    responsesToday: 0,
     createdAt: timestamp,
     updatedAt: timestamp,
     publishedAt: null,
@@ -82,6 +85,14 @@ export function optimisticCopy(source: FormSummary, now = new Date()): FormSumma
 /** Whether the form only exists on this screen so far (a duplicate being created). */
 export function isPendingForm(form: FormSummary): boolean {
   return form.id.startsWith(OPTIMISTIC_PREFIX);
+}
+
+/** A form as the list shows it, from its detail; `previous` keeps today's count. */
+export function toListItem(
+  form: FormDetail,
+  previous?: Pick<FormListItem, 'responsesToday'>,
+): FormListItem {
+  return { ...toSummary(form), theme: form.theme, responsesToday: previous?.responsesToday ?? 0 };
 }
 
 export function toSummary({

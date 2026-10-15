@@ -4,7 +4,7 @@ import {
   type CreateFormInput,
   type FormDetail,
   type FormStatus,
-  type FormSummary,
+  type FormListResponse,
   type PublishFormInput,
   type UpdateFormInput,
 } from '@formyx/shared';
@@ -20,17 +20,19 @@ const workspaceFormsPath = (workspaceId: string) =>
   `/workspaces/${encodeURIComponent(workspaceId)}/forms`;
 const formPath = (formId: string) => `/forms/${encodeURIComponent(formId)}`;
 
-export async function listForms(workspaceId: string, filters: FormFilters): Promise<FormSummary[]> {
+export function listForms(
+  workspaceId: string,
+  filters: FormFilters = {},
+): Promise<FormListResponse> {
   const params = new URLSearchParams();
   if (filters.search) params.set('search', filters.search);
   if (filters.status) params.set('status', filters.status.toLowerCase());
   const query = params.toString();
 
-  const { forms } = await apiRequest(
+  return apiRequest(
     `${workspaceFormsPath(workspaceId)}${query ? `?${query}` : ''}`,
     formListResponseSchema,
   );
-  return forms;
 }
 
 export function createForm(workspaceId: string, input: CreateFormInput): Promise<FormDetail> {

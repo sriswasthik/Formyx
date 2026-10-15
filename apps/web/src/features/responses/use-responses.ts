@@ -1,7 +1,7 @@
 import type {
   AnalyticsRange,
   FormDetail,
-  FormSummary,
+  FormListResponse,
   NotificationSettings,
   SubmissionRecord,
 } from '@formyx/shared';
@@ -95,12 +95,19 @@ export function adjustCachedResponseCount(
   queryClient.setQueryData<FormDetail>(formKeys.detail(form.id), (current) =>
     current ? adjustResponseCount(current, delta) : current,
   );
-  queryClient.setQueriesData<FormSummary[]>(
+  // A new response came in today; removed ones may have come any day, so the next fetch says.
+  const today = Math.max(delta, 0);
+  queryClient.setQueriesData<FormListResponse>(
     { queryKey: formKeys.lists(form.workspaceId) },
-    (forms) =>
-      forms?.map((summary) =>
-        summary.id === form.id ? adjustResponseCount(summary, delta) : summary,
-      ),
+    (list) =>
+      list && {
+        responsesThisMonth: list.responsesThisMonth + today,
+        forms: list.forms.map((item) =>
+          item.id === form.id
+            ? { ...adjustResponseCount(item, delta), responsesToday: item.responsesToday + today }
+            : item,
+        ),
+      },
   );
 }
 
