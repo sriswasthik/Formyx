@@ -11,7 +11,7 @@ export function ContactPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 pt-12 pb-24 md:px-10 md:pt-20">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-6 pt-12 pb-12 md:px-10 md:pt-20 md:pb-16">
         <h1 className="text-32 font-semibold tracking-tighter">Contact us</h1>
         <p className="mt-3 text-16 text-muted-foreground">
           Questions about your account, billing, or a form you received? Write to us and a person

@@ -68,7 +68,7 @@ function TemplateDetails({ template }: { template: GalleryTemplate }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className={cn(CONTAINER, 'flex-1 pt-8 pb-24 md:pt-12')}>
+      <main className={cn(CONTAINER, 'flex-1 pt-8 pb-12 md:pt-12 md:pb-16')}>
         <nav aria-label="Breadcrumb">
           <ol className="flex flex-wrap items-center gap-1 text-13 text-muted-foreground">
             <li>

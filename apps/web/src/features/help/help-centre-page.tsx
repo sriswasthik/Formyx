@@ -37,7 +37,7 @@ export function HelpCentrePage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 pt-12 pb-24 md:px-10 md:pt-20">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 pt-12 pb-12 md:px-10 md:pt-20 md:pb-16">
         <h1 className="text-32 font-semibold tracking-tighter">Help centre</h1>
         <p className="mt-3 text-16 text-muted-foreground">Short guides to every part of Formyx.</p>
         <form

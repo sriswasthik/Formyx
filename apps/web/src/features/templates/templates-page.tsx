@@ -31,7 +31,7 @@ export function TemplatesPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className={cn(CONTAINER, 'flex-1 pt-12 pb-24 md:pt-20')}>
+      <main className={cn(CONTAINER, 'flex-1 pt-12 pb-12 md:pt-20 md:pb-16')}>
         <h1 className="text-32 font-semibold tracking-tighter text-balance md:text-40">
           Form templates
         </h1>
