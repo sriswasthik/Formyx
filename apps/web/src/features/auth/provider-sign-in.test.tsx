@@ -59,7 +59,7 @@ describe('ProviderSignIn', () => {
       'href',
       '/api/auth/oauth/zoho?page=login&next=%2Finvite%2Fabc',
     );
-    expect(screen.getByText('or with email')).toBeInTheDocument();
+    expect(screen.getByText('or', { exact: true })).toBeInTheDocument();
   });
 
   it('carries the referral code and source, for a new account', async () => {
@@ -83,7 +83,7 @@ describe('ProviderSignIn', () => {
       expect(document.querySelector('[class*="animate-pulse"]')).toBeNull();
     });
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.queryByText('or with email')).not.toBeInTheDocument();
+    expect(screen.queryByText('or', { exact: true })).not.toBeInTheDocument();
   });
 
   it('says why the last sign-in did not work', async () => {

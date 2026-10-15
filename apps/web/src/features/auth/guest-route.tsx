@@ -1,4 +1,4 @@
-import { usePrefetchQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { RouteFallback } from '@/app/root-layout';
@@ -6,7 +6,7 @@ import { signInProvidersQuery } from './auth-api';
 import { getRedirectTarget } from './redirect';
 import { useMe } from './use-session';
 
-/** The longest the log-in and sign-up pages wait on the session check before showing. */
+/** The longest the log-in and sign-up pages wait on the session and provider checks. */
 export const GUEST_WAIT_MS = 3000;
 
 function useElapsed(ms: number): boolean {
@@ -29,14 +29,17 @@ function useElapsed(ms: number): boolean {
 export function GuestRoute() {
   const location = useLocation();
   const { data: me, error, failureCount } = useMe();
+  // Alongside the session check, so the "Continue with Google" buttons arrive with the form
+  // instead of pushing it down a moment later.
+  const providers = useQuery(signInProvidersQuery);
   const waitedLongEnough = useElapsed(GUEST_WAIT_MS);
-  // Alongside the session check, so the "Continue with Google" buttons are ready with the form.
-  usePrefetchQuery(signInProvidersQuery);
 
-  // Hold the form back while we find out, so signed-in users don't see it flash, but not for
-  // long: if the check fails or is slow, show the page (a late answer still sends them on).
+  // Hold the page back while we find out, so signed-in users don't see the form flash, but not
+  // for long: if either check fails or is slow, show it (a late answer still sends them on).
   // The form reports connection problems itself.
-  if (me === undefined && !error && failureCount === 0 && !waitedLongEnough) {
+  const sessionUnknown = me === undefined && !error && failureCount === 0;
+  const providersUnknown = providers.isPending && providers.failureCount === 0;
+  if ((sessionUnknown || providersUnknown) && !waitedLongEnough) {
     return <RouteFallback />;
   }
 

@@ -10,6 +10,7 @@ import {
   renderWithProviders,
   stubFetch,
 } from '@/test/session';
+import { signInProvidersQuery } from './auth-api';
 import { GUEST_WAIT_MS, GuestRoute } from './guest-route';
 import { LoginPage } from './login-page';
 import { ProtectedRoute } from './protected-route';
@@ -20,10 +21,16 @@ function AppPage() {
   return <h1>App page {`${pathname}${search}`}</h1>;
 }
 
-/** `session: 'fetch'` leaves the "me" query to the stubbed network instead of seeding it. */
+/**
+ * `session: 'fetch'` leaves the "me" query to the stubbed network instead of seeding it, and
+ * `providers: 'fetch'` the list of "Continue with…" providers.
+ */
 function renderRoutes(
   initialEntry: string | { pathname: string; state: unknown },
-  { session = ADA }: { session?: MeResponse | null | 'fetch' } = {},
+  {
+    session = ADA,
+    providers = [],
+  }: { session?: MeResponse | null | 'fetch'; providers?: [] | 'fetch' } = {},
 ) {
   const router = createMemoryRouter(
     [
@@ -39,10 +46,9 @@ function renderRoutes(
     ],
     { initialEntries: [initialEntry] },
   );
-  renderWithProviders(
-    <RouterProvider router={router} />,
-    createTestQueryClient(session === 'fetch' ? undefined : session),
-  );
+  const queryClient = createTestQueryClient(session === 'fetch' ? undefined : session);
+  if (providers !== 'fetch') queryClient.setQueryData(signInProvidersQuery.queryKey, providers);
+  renderWithProviders(<RouterProvider router={router} />, queryClient);
   return router;
 }
 
@@ -161,6 +167,22 @@ describe('GuestRoute', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/app');
     });
+  });
+
+  it('holds the page until it knows which providers there are, so the form does not jump', async () => {
+    let answer: (response: Response) => void = () => {};
+    stubFetch(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    renderRoutes('/login', { session: null, providers: 'fetch' });
+
+    expect(screen.queryByRole('heading', { name: 'Log in to Formyx' })).not.toBeInTheDocument();
+    answer(jsonResponse({ providers: ['google'] }));
+    expect(await screen.findByRole('heading', { name: 'Log in to Formyx' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Continue with Google' })).toBeInTheDocument();
   });
 
   it('shows the page to signed-out users', () => {

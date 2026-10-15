@@ -2,43 +2,54 @@ import { m } from 'motion/react';
 import type * as React from 'react';
 import { Link } from 'react-router';
 import { Logo } from '@/components/brand/logo';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ThemeToggle } from '@/features/theme/theme-toggle';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 
 interface AuthLayoutProps {
   title: string;
   description: string;
-  /** Shown under the card, e.g. the link to the other auth page. */
+  /** Under the form: the link to the other auth page. */
   footer: React.ReactNode;
+  /** The smallest print, at the very end (the terms, on sign-up). */
+  fineprint?: React.ReactNode;
   children: React.ReactNode;
 }
 
-/** Centered card layout shared by the log-in and sign-up pages. */
-export function AuthLayout({ title, description, footer, children }: AuthLayoutProps) {
+/**
+ * The log-in and sign-up pages: one narrow column, centred both ways at every size, with no
+ * card or header around it. The theme toggle waits in the corner.
+ */
+export function AuthLayout({ title, description, footer, fineprint, children }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="flex h-16 shrink-0 items-center justify-end px-6 md:px-10">
+    <div className="relative flex min-h-dvh flex-col bg-background">
+      <div className="absolute top-4 right-4 md:top-6 md:right-6">
         <ThemeToggle />
-      </header>
-      <main className="flex flex-1 justify-center px-6 pb-16 sm:items-center sm:pb-24">
+      </div>
+      {/* `my-auto` rather than centring the container: a column taller than the screen
+          scrolls from its top instead of being cut off above it. */}
+      <main className="flex flex-1 flex-col px-6 py-12">
         <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION.slow, ease: EASE_STANDARD }}
-          className="w-full max-w-sm"
+          className="mx-auto my-auto w-full max-w-[22.5rem]"
         >
-          <Link to="/" className="mx-auto mb-8 flex w-fit rounded-md p-1" aria-label="Formyx home">
-            <Logo decorative />
-          </Link>
-          <Card>
-            <CardHeader className="gap-1.5">
-              <h1 className="text-20 font-semibold tracking-tight">{title}</h1>
-              <p className="text-14 text-muted-foreground">{description}</p>
-            </CardHeader>
-            <CardContent>{children}</CardContent>
-          </Card>
+          <header className="mb-8 flex flex-col items-center text-center">
+            <Link
+              to="/"
+              aria-label="Formyx home"
+              className="mb-6 rounded-lg transition-opacity duration-150 ease-standard hover:opacity-80"
+            >
+              <Logo variant="icon" size={36} decorative />
+            </Link>
+            <h1 className="text-24 font-semibold tracking-tight">{title}</h1>
+            <p className="mt-2 text-14 text-muted-foreground">{description}</p>
+          </header>
+          {children}
           <p className="mt-6 text-center text-14 text-muted-foreground">{footer}</p>
+          {fineprint && (
+            <p className="mt-4 text-center text-12 text-muted-foreground">{fineprint}</p>
+          )}
         </m.div>
       </main>
     </div>
@@ -50,6 +61,16 @@ export function AuthLink(props: React.ComponentProps<typeof Link>) {
   return (
     <Link
       className="rounded-sm font-medium text-accent underline-offset-4 transition-colors duration-150 ease-standard hover:underline"
+      {...props}
+    />
+  );
+}
+
+/** A quiet link in the fine print. */
+export function FineprintLink(props: React.ComponentProps<typeof Link>) {
+  return (
+    <Link
+      className="rounded-sm underline underline-offset-2 transition-colors duration-150 ease-standard hover:text-foreground"
       {...props}
     />
   );
