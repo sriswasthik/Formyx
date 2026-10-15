@@ -101,8 +101,12 @@ export function FormsToolbar({
           }}
         >
           {STATUS_TABS.map(({ value, label }) => (
-            <ToggleGroupItem key={value} value={value} className="px-2.5">
-              {label} <span className="text-muted-foreground tabular-nums">{counts[value]}</span>
+            <ToggleGroupItem key={value} value={value} className="group px-2.5">
+              {label}{' '}
+              {/* Muted text is too faint on the selected tab's fill: it matches the label there. */}
+              <span className="text-muted-foreground tabular-nums group-data-[state=on]:text-foreground">
+                {counts[value]}
+              </span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
