@@ -1,4 +1,4 @@
-import type { FormSummary } from '@formyx/shared';
+import type { FormListItem } from '@formyx/shared';
 import { AnimatePresence, m, type Variants } from 'motion/react';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -17,8 +17,11 @@ const item: Variants = {
   exit: { opacity: 0, scale: 0.98, transition: { duration: DURATION.fast, ease: EASE_STANDARD } },
 };
 
+/** The grid's columns, by the space beside the sidebar: shared with its skeleton. */
+export const FORMS_GRID = 'grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3';
+
 interface FormsCollectionProps {
-  forms: FormSummary[];
+  forms: FormListItem[];
   view: FormsView;
   now: Date;
   canEdit: boolean;
@@ -38,7 +41,7 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
       variants={container}
       initial="hidden"
       animate="visible"
-      className={cn(isGrid ? 'grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3' : 'divide-y')}
+      className={cn(isGrid ? FORMS_GRID : 'divide-y')}
     >
       <AnimatePresence mode="popLayout">
         {forms.map((form) => (
@@ -67,6 +70,7 @@ export function FormsCollection({ forms, view, now, canEdit, onAction }: FormsCo
           'hidden border-b bg-surface px-4 py-2 text-12 font-medium text-muted-foreground @2xl:grid',
         )}
       >
+        <span />
         <span>Name</span>
         <span>Status</span>
         <span>Responses</span>

@@ -1,47 +1,57 @@
-import {
-  FORM_STATUS_LABELS,
-  FORM_STATUSES,
-  formStatusSchema,
-  type FormStatus,
-} from '@formyx/shared';
-import { LayoutGrid, List, Plus, Search, X } from 'lucide-react';
+import { formStatusSchema, type FormStatus } from '@formyx/shared';
+import { ArrowUpDown, LayoutGrid, List, Search, X } from 'lucide-react';
+import { PageToolbar } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { FORM_SORT_LABELS, FORM_SORTS, type FormSort, type StatusCounts } from './forms-view';
 import type { FormsView } from './view-store';
 
-const ALL_STATUSES = 'all';
+const ALL = 'ALL';
+
+/** The status tabs, in order, with what they say. */
+const STATUS_TABS: { value: FormStatus | typeof ALL; label: string }[] = [
+  { value: ALL, label: 'All' },
+  { value: 'PUBLISHED', label: 'Published' },
+  { value: 'DRAFT', label: 'Drafts' },
+  { value: 'CLOSED', label: 'Closed' },
+];
 
 interface FormsToolbarProps {
   search: string;
   onSearchChange: (search: string) => void;
   status: FormStatus | undefined;
   onStatusChange: (status: FormStatus | undefined) => void;
+  counts: StatusCounts;
+  sort: FormSort;
+  onSortChange: (sort: FormSort) => void;
   view: FormsView;
   onViewChange: (view: FormsView) => void;
-  /** Hidden for viewers, who cannot create forms. */
-  onNewForm?: () => void;
 }
 
+/** Search, the status tabs with their counts, the order and grid or list. */
 export function FormsToolbar({
   search,
   onSearchChange,
   status,
   onStatusChange,
+  counts,
+  sort,
+  onSortChange,
   view,
   onViewChange,
-  onNewForm,
 }: FormsToolbarProps) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 @2xl:flex @2xl:items-center">
-      <div className="relative @2xl:w-72">
+    <PageToolbar className="gap-3">
+      <div className="relative w-full sm:w-64">
         <Search
           className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
           aria-hidden
@@ -78,26 +88,51 @@ export function FormsToolbar({
         )}
       </div>
 
-      <div className="col-span-2 row-start-2 flex items-center gap-2 @2xl:contents">
-        <Select
-          value={status ?? ALL_STATUSES}
+      <div className="-mx-6 overflow-x-auto px-6 sm:mx-0 sm:px-0">
+        <ToggleGroup
+          type="single"
+          aria-label="Status"
+          value={status ?? ALL}
           onValueChange={(value) => {
+            // Radix reports '' when the active tab is clicked again: it stays on.
+            if (!value) return;
             const parsed = formStatusSchema.safeParse(value);
             onStatusChange(parsed.success ? parsed.data : undefined);
           }}
         >
-          <SelectTrigger aria-label="Filter by status" className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
-            {FORM_STATUSES.map((value) => (
-              <SelectItem key={value} value={value}>
-                {FORM_STATUS_LABELS[value]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {STATUS_TABS.map(({ value, label }) => (
+            <ToggleGroupItem key={value} value={value} className="px-2.5">
+              {label} <span className="text-muted-foreground tabular-nums">{counts[value]}</span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+
+      <div className="ml-auto flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" aria-label={`Sort: ${FORM_SORT_LABELS[sort]}`}>
+              <ArrowUpDown aria-hidden />
+              <span className="hidden md:inline">{FORM_SORT_LABELS[sort]}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={sort}
+              onValueChange={(value) => {
+                const next = FORM_SORTS.find((option) => option === value);
+                if (next) onSortChange(next);
+              }}
+            >
+              {FORM_SORTS.map((option) => (
+                <DropdownMenuRadioItem key={option} value={option}>
+                  {FORM_SORT_LABELS[option]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <ToggleGroup
           type="single"
@@ -116,14 +151,6 @@ export function FormsToolbar({
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-
-      {onNewForm && (
-        // Beside the search box when the toolbar wraps, at the far right when it does not.
-        <Button className="col-start-2 row-start-1 @2xl:ml-auto" onClick={onNewForm}>
-          <Plus aria-hidden />
-          New form
-        </Button>
-      )}
-    </div>
+    </PageToolbar>
   );
 }

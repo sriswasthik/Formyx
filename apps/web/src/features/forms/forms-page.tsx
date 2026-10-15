@@ -1,31 +1,35 @@
 import {
   formTemplateIdSchema,
   hasRole,
-  type FormSummary,
+  type FormListItem,
   type FormTemplateId,
   type WorkspaceSummary,
 } from '@formyx/shared';
 import { Building2, Plus, RotateCw, SearchX } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardOnboarding } from '@/features/onboarding/dashboard-onboarding';
 import { CreateWorkspaceDialog } from '@/features/workspaces/create-workspace-dialog';
 import { useActiveWorkspace } from '@/features/workspaces/use-active-workspace';
 import { useNow } from '@/lib/use-now';
-import { cn } from '@/lib/utils';
 import { DeleteFormDialog } from './delete-form-dialog';
 import type { FormActionHandler } from './form-actions-menu';
 import { formOpenPath } from './form-paths';
 import { FormsCollection } from './forms-collection';
 import { FormsEmptyState } from './forms-empty-state';
-import { FormsSkeleton } from './forms-skeleton';
+import { FormsSkeleton, ToolbarSkeleton } from './forms-skeleton';
 import { FormsToolbar } from './forms-toolbar';
+import { countByStatus, filterForms, formsSummary, sortFormsBy } from './forms-view';
+import { NewFormButton } from './new-form-button';
 import { NewFormDialog } from './new-form-dialog';
 import { RenameFormDialog } from './rename-form-dialog';
+import { StartFaster } from './start-faster';
 import { useFormsFilters } from './use-forms-filters';
 import {
   describeError,
@@ -43,7 +47,8 @@ export function FormsPage() {
 
   if (!workspace) {
     return (
-      <>
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Forms" />
         <EmptyState
           icon={Building2}
           title="You are not in a workspace"
@@ -60,7 +65,7 @@ export function FormsPage() {
           }
         />
         <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} />
-      </>
+      </div>
     );
   }
   // Remount per workspace so dialogs and pending state never carry over.
@@ -123,11 +128,34 @@ function useTemplateFromLink(
   return arrivedWithTemplate;
 }
 
+/**
+ * `?new=1`, where the command palette's "Create a form" leads: opens the New form dialog once,
+ * and takes the parameter out of the address.
+ */
+function useNewFormFromLink(canEdit: boolean, open: () => void) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('new') !== null;
+  useEffect(() => {
+    if (!requested) return;
+    setSearchParams(
+      (current) => {
+        current.delete('new');
+        return current;
+      },
+      { replace: true },
+    );
+    if (canEdit) open();
+  }, [requested, canEdit, open, setSearchParams]);
+}
+
 interface FormDialog {
   kind: 'rename' | 'delete';
-  form: FormSummary;
+  form: FormListItem;
   open: boolean;
 }
+
+/** With this many forms or fewer (but some), "Start faster" offers templates under them. */
+const FEW_FORMS = 2;
 
 function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
   const canEdit = hasRole(workspace.role, 'EDITOR');
@@ -135,9 +163,12 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
     useFormsFilters();
   const view = useFormsViewStore((state) => state.view);
   const setView = useFormsViewStore((state) => state.setView);
+  const sort = useFormsViewStore((state) => state.sort);
+  const setSort = useFormsViewStore((state) => state.setSort);
   const now = useNow();
 
-  const formsQuery = useFormsList(workspace.id, filters);
+  // Every form, once: searching, the status tabs and sorting happen here.
+  const formsQuery = useFormsList(workspace.id);
   const renameForm = useRenameForm(workspace.id);
   const duplicateForm = useDuplicateForm(workspace.id);
   const deleteForm = useDeleteForm(workspace.id);
@@ -145,17 +176,25 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
   const arrivedWithTemplate = useTemplateFromLink(canEdit, create);
 
   const [newFormOpen, setNewFormOpen] = useState(false);
+  const openNewForm = useCallback(() => {
+    setNewFormOpen(true);
+  }, []);
+  useNewFormFromLink(canEdit, openNewForm);
   const [dialog, setDialog] = useState<FormDialog | null>(null);
   // The actions menu that opened the dialog, to give focus back to when it closes.
   const dialogTrigger = useRef<HTMLElement | null>(null);
 
+  const all = formsQuery.data?.forms;
+
   const onAction: FormActionHandler = (action, form, trigger) => {
+    const item = all?.find((candidate) => candidate.id === form.id);
+    if (!item) return;
     if (action === 'duplicate') {
-      duplicateForm.mutate(form);
+      duplicateForm.mutate(item);
       return;
     }
     dialogTrigger.current = trigger;
-    setDialog({ kind: action, form, open: true });
+    setDialog({ kind: action, form: item, open: true });
   };
 
   const closeDialog = (open: boolean) => {
@@ -170,12 +209,25 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
     }
   };
 
-  const forms = formsQuery.data;
-  let content: ReactNode;
+  const counts = useMemo(() => countByStatus(all ?? []), [all]);
+  const shown = useMemo(
+    () => (all ? sortFormsBy(filterForms(all, filters), sort) : undefined),
+    [all, filters, sort],
+  );
+  const creating = pendingTemplate !== null;
+  const createBlank = () => {
+    create('blank');
+  };
 
+  let content: ReactNode;
   if (formsQuery.isPending) {
-    content = <FormsSkeleton view={view} />;
-  } else if (!forms) {
+    content = (
+      <>
+        <ToolbarSkeleton />
+        <FormsSkeleton view={view} />
+      </>
+    );
+  } else if (!all || !shown) {
     content = (
       <ErrorState
         title="Could not load forms"
@@ -193,83 +245,87 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
         }
       />
     );
-  } else if (forms.length === 0 && hasFilters) {
-    content = (
-      <EmptyState
-        icon={SearchX}
-        title="No forms match your filters"
-        description={
-          filters.search
-            ? `Nothing matches “${filters.search}”. Try a different search.`
-            : 'Try a different status.'
-        }
-        action={
-          <Button variant="secondary" onClick={clearFilters}>
-            Clear filters
-          </Button>
-        }
-      />
-    );
-  } else if (forms.length === 0) {
+  } else if (all.length === 0) {
     content = (
       <FormsEmptyState
         canCreate={canEdit}
-        onCreate={create}
-        pendingTemplate={pendingTemplate}
-        onBrowse={() => {
-          setNewFormOpen(true);
-        }}
+        onBlank={createBlank}
+        onBrowse={openNewForm}
+        pending={creating}
       />
     );
   } else {
     content = (
-      <div
-        className={cn(
-          'transition-opacity duration-150 ease-standard',
-          // Results for the previous search stay visible, dimmed, while new ones load.
-          formsQuery.isPlaceholderData && 'opacity-60',
-        )}
-      >
-        <FormsCollection
-          forms={forms}
+      <>
+        <FormsToolbar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          status={filters.status}
+          onStatusChange={setStatus}
+          counts={counts}
+          sort={sort}
+          onSortChange={setSort}
           view={view}
-          now={now}
-          canEdit={canEdit}
-          onAction={onAction}
+          onViewChange={setView}
         />
-      </div>
+        {shown.length === 0 && hasFilters ? (
+          <EmptyState
+            icon={SearchX}
+            title="No forms match"
+            description={
+              filters.search
+                ? `Nothing matches “${filters.search}”. Try a different search.`
+                : 'No forms have this status yet.'
+            }
+            action={
+              <Button variant="secondary" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <FormsCollection
+            forms={shown}
+            view={view}
+            now={now}
+            canEdit={canEdit}
+            onAction={onAction}
+          />
+        )}
+        {canEdit && all.length <= FEW_FORMS && !hasFilters && (
+          <StartFaster onCreate={create} pendingTemplate={pendingTemplate} onBrowse={openNewForm} />
+        )}
+      </>
     );
   }
 
   return (
     // Layouts respond to the space next to the sidebar, not the viewport.
     <div className="@container flex flex-col gap-6">
+      <PageHeader
+        title="Forms"
+        description={
+          formsQuery.data ? (
+            formsSummary(formsQuery.data.forms.length, formsQuery.data.responsesThisMonth)
+          ) : formsQuery.isPending ? (
+            <Skeleton className="inline-block h-4 w-56 align-middle" />
+          ) : null
+        }
+        actions={
+          canEdit && all && all.length > 0 ? (
+            <NewFormButton onBlank={createBlank} onTemplates={openNewForm} pending={creating} />
+          ) : undefined
+        }
+      />
       {canEdit && (
         <DashboardOnboarding
           arrivedWithTemplate={arrivedWithTemplate}
-          forms={forms}
-          onNewForm={() => {
-            setNewFormOpen(true);
-          }}
+          forms={all}
+          onNewForm={openNewForm}
           onCreate={create}
-          pending={pendingTemplate !== null}
+          pending={creating}
         />
       )}
-      <FormsToolbar
-        search={searchInput}
-        onSearchChange={setSearchInput}
-        status={filters.status}
-        onStatusChange={setStatus}
-        view={view}
-        onViewChange={setView}
-        onNewForm={
-          canEdit
-            ? () => {
-                setNewFormOpen(true);
-              }
-            : undefined
-        }
-      />
 
       {content}
 
@@ -279,14 +335,14 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
             open={newFormOpen}
             onOpenChange={setNewFormOpen}
             onCreate={create}
-            pending={pendingTemplate !== null}
+            pending={creating}
           />
           <RenameFormDialog
             form={dialog?.kind === 'rename' ? dialog.form : null}
             open={dialog?.kind === 'rename' && dialog.open}
             onOpenChange={closeDialog}
-            onRename={(form, title) => {
-              renameForm.mutate({ form, title });
+            onRename={(_form, title) => {
+              if (dialog) renameForm.mutate({ form: dialog.form, title });
             }}
             onCloseAutoFocus={returnFocus}
           />
@@ -294,8 +350,8 @@ function FormsDashboard({ workspace }: { workspace: WorkspaceSummary }) {
             form={dialog?.kind === 'delete' ? dialog.form : null}
             open={dialog?.kind === 'delete' && dialog.open}
             onOpenChange={closeDialog}
-            onDelete={(form) => {
-              deleteForm.mutate(form);
+            onDelete={() => {
+              if (dialog) deleteForm.mutate(dialog.form);
             }}
             onCloseAutoFocus={returnFocus}
           />
