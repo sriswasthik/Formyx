@@ -79,12 +79,11 @@ export function renderWelcomeEmail(context: LifecycleEmailContext): RenderedEmai
   const name = firstName(context.name);
   return render(context, {
     subject: 'Welcome to Formyx',
-    preheader: 'Your first form is a few minutes away.',
+    preheader: 'Your account is ready.',
     title: name ? `Welcome to Formyx, ${name}` : 'Welcome to Formyx',
+    // Kept to one line: the button says the rest.
     lines: [
-      'Your first form is a few minutes away. Start from one of our templates, or a blank page, and drag in the questions you need.',
-      'Then give it your own look in the Design Studio, publish it, and share the link. Responses appear the moment they are sent.',
-      `Stuck on something? The help centre has a short guide to every feature: ${context.appUrl}/help`,
+      'Your account is ready. Your first form is a few minutes away, from a template or a blank page.',
     ],
     action: { label: 'Create your first form', url: `${context.appUrl}/app/forms` },
   });
