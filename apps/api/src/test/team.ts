@@ -12,12 +12,20 @@ export interface Team {
 }
 
 /** A workspace with an owner, an editor and a viewer. */
+const ESTABLISHED_ACCOUNT_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 export async function createTeam(prisma: Database): Promise<Team> {
   const workspace = await prisma.workspace.create({ data: { name: 'Team', slug: 'team' } });
   const users = {} as Record<Role, string>;
   for (const role of ['OWNER', 'EDITOR', 'VIEWER'] as const) {
     const user = await prisma.user.create({
-      data: { name: role, email: `${role.toLowerCase()}@example.com`, passwordHash: 'x' },
+      data: {
+        name: role,
+        email: `${role.toLowerCase()}@example.com`,
+        passwordHash: 'x',
+        // Established accounts: new ones have limits (NEW_ACCOUNT_LIMITS) most tests aren't about.
+        createdAt: new Date(Date.now() - ESTABLISHED_ACCOUNT_AGE_MS),
+      },
     });
     await prisma.membership.create({
       data: { userId: user.id, workspaceId: workspace.id, role },

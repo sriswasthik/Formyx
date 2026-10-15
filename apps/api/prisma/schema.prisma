@@ -37,6 +37,11 @@ model User {
   preferences      Json               @default("{}")
   /// May use /admin. Set only from the command line (`admin:grant`), never through the API.
   isAdmin          Boolean            @default(false) @map("is_admin")
+  /// When they confirmed their email address: at once for Google and Zoho accounts, through
+  /// the emailed link for the rest. Accounts from before Sprint 21 count as confirmed.
+  emailVerifiedAt  DateTime?          @map("email_verified_at")
+  /// Set by an admin: they can't sign in, and every form they made shows as unavailable.
+  suspendedAt      DateTime?          @map("suspended_at")
   /// When a workspace they own started its free trial: one trial per account.
   trialUsedAt      DateTime?          @map("trial_used_at")
   /// The welcome and getting-started checklist (`onboardingStateSchema` in packages/shared).
@@ -64,6 +69,7 @@ model User {
   referralsMade    Referral[]         @relation("referrer")
   referredBy       Referral?          @relation("friend")
   signInIdentities SignInIdentity[]
+  reportsResolved  FormReport[]
 
   @@index([lastActiveAt])
   @@map("users")
@@ -191,6 +197,10 @@ enum FormStatus {
   DRAFT
   PUBLISHED
   CLOSED
+  /// Published, but held until an admin has looked at it (see `moderateForm`).
+  UNDER_REVIEW
+  /// Taken offline by an admin; only an admin can bring it back.
+  SUSPENDED
 
   @@map("form_status")
 }
@@ -219,6 +229,9 @@ model Form {
   /// Access, notifications, autoresponder, sharing and data settings, which take effect as
   /// they are saved (`liveSettingsSchema` in packages/shared). Never sent to respondents.
   liveSettings            Json                     @default("{}") @map("live_settings")
+  /// What publishing's checks found and what an admin approved (`formModerationRecordSchema`
+  /// in the API). Empty until the form is first checked.
+  moderation              Json                     @default("{}")
   /// bcrypt of the form's password; null when it has none.
   passwordHash            String?                  @map("password_hash")
   /// Goes up when the password changes, so tokens from unlocking it before stop working.
@@ -244,6 +257,7 @@ model Form {
   webhooks                Webhook[]
   integrations            Integration[]
   jobFailures             JobFailure[]
+  reports                 FormReport[]
 
   // The dashboard lists a workspace's forms, most recently edited first, optionally by status.
   @@index([workspaceId, updatedAt(sort: Desc)])
@@ -655,6 +669,30 @@ model AdminAction {
 
   @@index([createdAt(sort: Desc)])
   @@map("admin_actions")
+}
+
+/// Someone's report of a public form ("Report this form"). Reporters stay anonymous: no
+/// account, address or IP is kept, only a hash of the IP to count repeat reports.
+model FormReport {
+  id           String    @id @default(cuid())
+  formId       String    @map("form_id")
+  /// `phishing`, `spam`, `offensive` or `other` (`reportReasonSchema` in packages/shared).
+  reason       String
+  details      String?
+  /// SHA-256 of the reporter's IP and the day, so one person counts once a day.
+  reporterHash String    @map("reporter_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  /// When an admin dealt with it, how, and who.
+  resolvedAt   DateTime? @map("resolved_at")
+  resolution   String?
+  resolvedById String?   @map("resolved_by_id")
+  form         Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  resolvedBy   User?     @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@unique([formId, reporterHash])
+  // The admin queue lists open reports, newest first.
+  @@index([resolvedAt, createdAt(sort: Desc)])
+  @@map("form_reports")
 }
 
 /// Lifecycle emails sent (welcome, first form published, first response, inactive): each kind

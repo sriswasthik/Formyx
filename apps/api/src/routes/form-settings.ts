@@ -18,6 +18,7 @@ import { getAuth } from '../middleware/auth.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormSettingsService } from '../services/form-settings-service.js';
 import type { Guards } from './index.js';
+import { turnstileKeys } from '../trust/turnstile.js';
 
 /** Whether `update` turns on something that emails or posts outside Formyx. */
 function reachesOutside(update: UpdateFormSettingsInput): boolean {
@@ -44,6 +45,7 @@ export function createFormSettingsRouter(
     secrets: encryptionFromEnv(env),
     chat,
     mailer,
+    captchaAvailable: turnstileKeys(env) !== null,
   });
   const editors = [requireAuth, requireFormRole('EDITOR')];
   const realEditors = [requireAuth, requireRealAccount, requireFormRole('EDITOR')];

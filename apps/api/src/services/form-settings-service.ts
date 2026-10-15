@@ -79,6 +79,8 @@ export interface FormSettingsDependencies {
   secrets: SecretBox;
   chat: WebhookTransport;
   mailer: Mailer;
+  /** Cloudflare Turnstile is set up, so forms may switch the spam check on. */
+  captchaAvailable?: boolean;
 }
 
 function notFound(): AppError {
@@ -127,6 +129,7 @@ export function createFormSettingsService({
   secrets,
   chat,
   mailer,
+  captchaAvailable = false,
 }: FormSettingsDependencies): FormSettingsService {
   async function load(formId: string): Promise<SettingsRecord> {
     const record = await prisma.form.findUnique({ where: { id: formId }, select: settingsSelect });
@@ -149,6 +152,7 @@ export function createFormSettingsService({
       settings: readLiveSettings(record.liveSettings),
       slug: record.slug,
       hasPassword: record.passwordHash !== null,
+      captchaAvailable,
       chat: {
         slack: chatView(record.slackWebhookEncrypted),
         discord: chatView(record.discordWebhookEncrypted),

@@ -31,6 +31,8 @@ async function findBySlug(prisma: Database, slug: string) {
     theme: true,
     publishedAt: true,
     liveSettings: true,
+    status: true,
+    createdBy: { select: { suspendedAt: true } },
   } as const;
   const current = await prisma.form.findUnique({ where: { slug }, select });
   if (current) return current;
@@ -48,7 +50,12 @@ export function createFormMetaService(
   async function load(slug: string) {
     const form = await findBySlug(prisma, slug);
     const schema = form && parsePublishedSchema(form.publishedSchema);
-    if (!form || !schema || !form.publishedAt) {
+    // Held for review or taken offline: no preview, so nothing of it travels with a link.
+    const offline =
+      form?.status === 'UNDER_REVIEW' ||
+      form?.status === 'SUSPENDED' ||
+      Boolean(form?.createdBy?.suspendedAt);
+    if (!form || !schema || !form.publishedAt || offline) {
       throw new AppError(404, 'NOT_FOUND', 'Form not found');
     }
     const settings = readLiveSettings(form.liveSettings);

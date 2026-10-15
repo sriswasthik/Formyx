@@ -36,6 +36,7 @@ export function createSignInRouter(deps: AppDependencies): Router {
     prisma,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mode: env.ENTITLEMENTS_MODE,
+    requireEmailVerification: env.REQUIRE_EMAIL_VERIFICATION,
   });
   const limit = createOAuthCallbackRateLimiter();
 

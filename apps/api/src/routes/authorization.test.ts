@@ -656,6 +656,11 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/admin/workspaces/id/complimentary'],
   ['DELETE', '/api/admin/workspaces/id/complimentary'],
   ['POST', '/api/admin/workspaces/id/extend-trial'],
+  ['GET', '/api/admin/review'],
+  ['GET', '/api/admin/review/id'],
+  ['POST', '/api/admin/review/id'],
+  ['POST', '/api/admin/users/id/suspension'],
+  ['POST', '/api/auth/verify-email/resend'],
 ];
 
 /** Public endpoints, and why any of them may go without a limit of its own. */
@@ -666,6 +671,7 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['POST', '/api/auth/login'],
   ['POST', '/api/auth/demo'],
   ['POST', '/api/auth/logout', 'only clears a cookie'],
+  ['POST', '/api/auth/verify-email'],
   ['GET', '/api/auth/providers', 'lists the configured providers and touches nothing'],
   ['GET', '/api/auth/oauth/google'],
   ['GET', '/api/auth/oauth/google/callback'],
@@ -679,6 +685,7 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['POST', '/api/public/unsubscribe'],
   ['POST', '/api/public/resubscribe'],
   ['GET', '/api/public/referrals/K7MQ2XPA'],
+  ['POST', '/api/public/forms/slug/report'],
   ['GET', '/api/integrations/google/callback'],
   ['GET', '/api/integrations/notion/callback'],
   [

@@ -87,6 +87,19 @@ services:
         sync: false
       - key: ZOHO_ACCOUNTS_URL
         value: https://accounts.zoho.com
+      # Trust and safety. REQUIRE_EMAIL_VERIFICATION: switch on once emails reach everyone
+      # (a domain verified in Resend). Turnstile keys enable the spam check forms may use;
+      # Safe Browsing and BLOCKED_LINK_DOMAINS add to the built-in link blocklist.
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: 'off'
+      - key: TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: GOOGLE_SAFE_BROWSING_KEY
+        sync: false
+      - key: BLOCKED_LINK_DOMAINS
+        sync: false
       - key: NOTION_CLIENT_ID
         sync: false
       - key: NOTION_CLIENT_SECRET
