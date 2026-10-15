@@ -22,7 +22,8 @@ export type PublishAction = 'publish' | 'close' | 'reopen';
  * How a publish attempt ended: live, stopped by what the draft still needs, stopped by Pro
  * features the plan lacks, or failed.
  */
-export type PublishOutcome = 'published' | 'incomplete' | 'locked' | 'failed';
+/** `held`: published, but held for review before anyone can open it. */
+export type PublishOutcome = 'published' | 'held' | 'incomplete' | 'locked' | 'failed';
 
 interface UsePublishingOptions {
   form: FormDetail;
@@ -83,8 +84,9 @@ export function usePublishing({
         });
         return 'failed';
       }
-      apply(await publishForm(form.id, store.getState().version));
-      return 'published';
+      const next = await publishForm(form.id, store.getState().version);
+      apply(next);
+      return next.status === 'UNDER_REVIEW' ? 'held' : 'published';
     } catch (error) {
       if (error instanceof ApiRequestError && error.code === 'FORM_INCOMPLETE') {
         onIncomplete();

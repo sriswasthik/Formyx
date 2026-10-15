@@ -5,6 +5,8 @@ const VARIANTS: Record<FormStatus, BadgeProps['variant']> = {
   DRAFT: 'neutral',
   PUBLISHED: 'success',
   CLOSED: 'warning',
+  UNDER_REVIEW: 'accent',
+  SUSPENDED: 'danger',
 };
 
 export function FormStatusBadge({ status, className }: { status: FormStatus; className?: string }) {

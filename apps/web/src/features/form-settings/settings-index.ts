@@ -92,6 +92,12 @@ export const SETTINGS: SettingEntry[] = [
     keywords: 'email address collect',
   },
   {
+    id: 'captcha',
+    section: 'access',
+    label: 'Spam check',
+    keywords: 'captcha turnstile cloudflare bots robots spam',
+  },
+  {
     id: 'schedule',
     section: 'access',
     label: 'Opening and closing times',

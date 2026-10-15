@@ -32,7 +32,11 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // table gained two settings pages and breadcrumb titles (0.6 KB), the stylesheet the shell's
 // and dashboard's classes (0.5 KB), and the theme thumbnail's shared code split one chunk in
 // two (0.4 KB): 213.8 KB, so the budget is 214 KB.
-const PUBLIC_FORM_BUDGET_KB = 214;
+// Redesign 5 (the footer) took it to 214.4 KB. Sprint 21 (trust and safety) adds 0.9 KB: the
+// router table's report and verify-email pages (0.5 KB), and the form's "unavailable" state,
+// report link and spam check (0.3 KB), with Cloudflare Turnstile's widget loading only on
+// forms that switch it on: 215.3 KB, so the budget is 216 KB.
+const PUBLIC_FORM_BUDGET_KB = 216;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',

@@ -34,6 +34,7 @@ const FORM: FormDetail = {
   publishedTitle: null,
   theme: createDefaultTheme(),
   publishedTheme: null,
+  review: null,
 };
 
 function Title() {

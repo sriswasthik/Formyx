@@ -7,6 +7,7 @@ import { useSession } from '@/features/auth/session-context';
 import { BillingBanner } from '@/features/billing/billing-banner';
 import { CommandPalette } from '@/features/command-palette/command-palette';
 import { usePaletteStore } from '@/features/command-palette/palette-store';
+import { VerifyEmailBanner } from '@/features/auth/verify-email-banner';
 import { DemoBanner } from '@/features/demo/demo-banner';
 import { UpgradeDialogHost } from '@/features/entitlements/upgrade-dialog';
 import { DURATION, EASE_STANDARD } from '@/lib/motion';
@@ -95,6 +96,7 @@ export function AppShell() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {user.isDemo ? <DemoBanner /> : <BillingBanner />}
+          <VerifyEmailBanner />
           <TopBar />
           <main
             id="main-content"

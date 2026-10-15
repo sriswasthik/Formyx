@@ -22,6 +22,9 @@ export function MadeWithFormyx({
   label = 'Made with Formyx',
   slug,
   newTab,
+  badge = true,
+  report,
+  opensInNewTab,
 }: {
   label?: string | undefined;
   /** The form it sits under. */
@@ -31,6 +34,12 @@ export function MadeWithFormyx({
    * and says so in these words.
    */
   newTab?: string | undefined;
+  /** Shows the credit; plans may hide it. The report link stays either way. */
+  badge?: boolean;
+  /** "Report this form", in the form's language: a link to report `slug` to Formyx. */
+  report?: string | undefined;
+  /** "(opens in a new tab)", for the report link, which always does. */
+  opensInNewTab?: string | undefined;
 }) {
   const content = (
     <>
@@ -38,23 +47,39 @@ export function MadeWithFormyx({
       {label}
     </>
   );
+  const credit = !badge ? null : newTab === undefined ? (
+    <Link to={badgeLink(slug)} className={badgeClass}>
+      {content}
+    </Link>
+  ) : (
+    <a
+      href={`${window.location.origin}${badgeLink(slug)}`}
+      target="_blank"
+      rel="noopener"
+      aria-label={`${label} ${newTab}`}
+      className={badgeClass}
+    >
+      {content}
+    </a>
+  );
+  const reportLink =
+    report && slug ? (
+      // A new tab, so whoever is filling the form in keeps their place.
+      <a
+        href={`${window.location.origin}/report/${encodeURIComponent(slug)}`}
+        target="_blank"
+        rel="noopener"
+        aria-label={opensInNewTab ? `${report} ${opensInNewTab}` : undefined}
+        className={badgeClass}
+      >
+        {report}
+      </a>
+    ) : null;
+  if (!credit && !reportLink) return null;
   return (
-    <footer className="px-6 pb-8 text-center">
-      {newTab === undefined ? (
-        <Link to={badgeLink(slug)} className={badgeClass}>
-          {content}
-        </Link>
-      ) : (
-        <a
-          href={`${window.location.origin}${badgeLink(slug)}`}
-          target="_blank"
-          rel="noopener"
-          aria-label={`${label} ${newTab}`}
-          className={badgeClass}
-        >
-          {content}
-        </a>
-      )}
+    <footer className="flex flex-col items-center gap-2 px-6 pb-8 text-center">
+      {credit}
+      {reportLink}
     </footer>
   );
 }

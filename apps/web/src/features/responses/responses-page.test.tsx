@@ -76,6 +76,7 @@ const FORM: FormDetail = {
   publishedTitle: 'Product feedback',
   theme: createDefaultTheme(),
   publishedTheme: createDefaultTheme(),
+  review: null,
 };
 
 function response(id: string, createdAt: string, answers: SubmissionRecord['answers']) {

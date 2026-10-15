@@ -35,6 +35,7 @@ import { EditorStoreContext } from './editor-store-context';
 import { PublishControls } from './publish/publish-controls';
 import { findDraftPublishIssues, PublishIssuesContext } from './publish/publish-issues';
 import { PublishIssuesDialog } from './publish/publish-issues-dialog';
+import { ReviewDialog } from './publish/review-dialog';
 import { usePublishing } from './publish/use-publishing';
 
 function EditorSkeleton() {
@@ -118,6 +119,8 @@ function FormEditor({ form }: { form: FormDetail }) {
   });
   const entitlements = useWorkspaceEntitlements(form.workspaceId);
   const [share, setShare] = useState({ open: false, justPublished: false });
+  // Publishing held the form for review: say why.
+  const [reviewOpen, setReviewOpen] = useState(false);
   const publishButton = useRef<HTMLButtonElement>(null);
   const shareButton = useRef<HTMLButtonElement>(null);
   // Share sits in the top bar on wider screens; on phones it is in a menu that has closed.
@@ -143,7 +146,13 @@ function FormEditor({ form }: { form: FormDetail }) {
 
   const publish = async () => {
     const firstTime = form.publishedSchema === null;
-    if ((await publishing.publish()) !== 'published') return;
+    const outcome = await publishing.publish();
+    if (outcome === 'held') {
+      setPointOutIssues(false);
+      setReviewOpen(true);
+      return;
+    }
+    if (outcome !== 'published') return;
     setPointOutIssues(false);
     if (firstTime) {
       setShare({ open: true, justPublished: true });
@@ -260,6 +269,12 @@ function FormEditor({ form }: { form: FormDetail }) {
               returnFocusTo={publishButton}
             />
             <UpgradeDialogHost />
+            <ReviewDialog
+              open={reviewOpen}
+              onOpenChange={setReviewOpen}
+              reasons={form.review?.reasons ?? []}
+              returnFocusTo={publishButton}
+            />
             <ShareDialog
               open={share.open}
               onOpenChange={(open) => {

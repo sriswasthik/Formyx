@@ -74,3 +74,13 @@ export async function logOut(): Promise<void> {
   // 204 No Content: there is no body to validate.
   await apiRequest('/auth/logout', z.undefined(), { method: 'POST' });
 }
+
+/** Confirms the account's email with the token from the emailed link. */
+export async function verifyEmail(token: string): Promise<void> {
+  await apiRequest('/auth/verify-email', z.undefined(), jsonRequest('POST', { token }));
+}
+
+/** Sends the confirmation link again, to the signed-in account's address. */
+export async function resendVerificationEmail(): Promise<void> {
+  await apiRequest('/auth/verify-email/resend', z.undefined(), { method: 'POST' });
+}

@@ -220,6 +220,7 @@ export function AccessSection({ form, view }: SectionProps) {
     edits: useId(),
     listed: useId(),
     message: useId(),
+    captcha: useId(),
   };
 
   const oneResponseOptions: Option<OneResponseMode>[] = [
@@ -278,6 +279,23 @@ export function AccessSection({ form, view }: SectionProps) {
             }}
           />
         </SettingRow>
+        {view.captchaAvailable && (
+          <SettingRow
+            id="captcha"
+            label="Spam check"
+            description="Cloudflare Turnstile checks that respondents are people before their answers are sent. Most never see it."
+            controlId={ids.captcha}
+            compact
+          >
+            <Switch
+              id={ids.captcha}
+              checked={access.captcha}
+              onCheckedChange={(captcha) => {
+                setAccess({ ...access, captcha });
+              }}
+            />
+          </SettingRow>
+        )}
       </SettingGroup>
 
       <SettingGroup title="When">

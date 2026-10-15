@@ -27,6 +27,7 @@ function detail(input: UpdateFormInput, version: number): FormDetail {
     publishedTitle: null,
     theme: createDefaultTheme(),
     publishedTheme: null,
+    review: null,
   };
 }
 

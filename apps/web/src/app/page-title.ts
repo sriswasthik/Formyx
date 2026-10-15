@@ -19,6 +19,23 @@ export function usePageTitle(title: string | undefined): void {
   }, [title]);
 }
 
+/**
+ * Keeps search engines away from the calling page while `noIndex` holds. Here, beside the
+ * title, so pages that use it share a chunk every page loads anyway.
+ */
+export function useNoIndex(noIndex: boolean): void {
+  useEffect(() => {
+    if (!noIndex) return;
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex';
+    document.head.append(meta);
+    return () => {
+      meta.remove();
+    };
+  }, [noIndex]);
+}
+
 /** The trail to the current page, its last step named by the page's own title if it set one. */
 export function useBreadcrumbs(): Breadcrumb[] {
   const override = usePageTitleStore((state) => state.title);

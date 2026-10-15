@@ -5,6 +5,8 @@ const DOT: Record<FormStatus, string> = {
   PUBLISHED: 'bg-success',
   DRAFT: 'bg-control',
   CLOSED: 'bg-warning',
+  UNDER_REVIEW: 'bg-accent',
+  SUSPENDED: 'bg-danger',
 };
 
 /** A form's status as a small dot and its name. */

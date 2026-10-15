@@ -35,6 +35,7 @@ export function makeFormDetail(
     publishedTitle: null,
     theme: createDefaultTheme(),
     publishedTheme: null,
+    review: null,
     ...overrides,
   };
 }

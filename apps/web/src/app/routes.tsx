@@ -130,6 +130,24 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        // The link in the "Confirm your email" message; signed in or not.
+        path: 'verify-email',
+        handle: { title: 'Confirm your email' } satisfies RouteHandle,
+        lazy: async () => {
+          const { VerifyEmailPage } = await import('@/features/auth/verify-email-page');
+          return { Component: VerifyEmailPage };
+        },
+      },
+      {
+        // "Report this form", linked from under every public form.
+        path: 'report/:slug',
+        handle: { title: 'Report a form' } satisfies RouteHandle,
+        lazy: async () => {
+          const { ReportPage } = await import('@/features/trust/report-page');
+          return { Component: ReportPage };
+        },
+      },
+      {
         path: 'help',
         handle: { title: 'Help centre' } satisfies RouteHandle,
         lazy: async () => {
