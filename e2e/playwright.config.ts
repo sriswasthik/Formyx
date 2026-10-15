@@ -96,6 +96,8 @@ export default defineConfig({
       reuseExistingServer: !isCI,
       timeout: 60_000,
       env: {
+        // Every run's accounts are minutes old: new accounts' limits are tested in the API.
+        NEW_ACCOUNT_LIMITS: 'off',
         // Every run signs up new users and sends invites; keep the limits out of the way.
         AUTH_RATE_LIMIT_MAX: '1000',
         INVITE_RATE_LIMIT_MAX: '1000',
