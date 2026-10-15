@@ -645,6 +645,7 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['GET', '/api/account/onboarding'],
   ['PATCH', '/api/account/onboarding'],
   ['POST', '/api/account/password'],
+  ['POST', '/api/account/password/set'],
   ['POST', '/api/account/delete'],
   ['POST', '/api/invites/token/accept'],
   ['POST', '/api/feedback'],
@@ -665,6 +666,9 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['POST', '/api/auth/login'],
   ['POST', '/api/auth/demo'],
   ['POST', '/api/auth/logout', 'only clears a cookie'],
+  ['GET', '/api/auth/providers', 'lists the configured providers and touches nothing'],
+  ['GET', '/api/auth/oauth/google'],
+  ['GET', '/api/auth/oauth/google/callback'],
   ['GET', '/api/invites/token'],
   [
     'GET',

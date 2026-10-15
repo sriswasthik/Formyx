@@ -33,6 +33,7 @@ describe('parseEnv', () => {
       GOOGLE_OAUTH_URL: 'https://accounts.google.com',
       GOOGLE_TOKEN_URL: 'https://oauth2.googleapis.com',
       GOOGLE_SHEETS_URL: 'https://sheets.googleapis.com',
+      ZOHO_ACCOUNTS_URL: 'https://accounts.zoho.com',
       NOTION_API_URL: 'https://api.notion.com',
       POSTHOG_HOST: 'https://eu.i.posthog.com',
       RAZORPAY_API_URL: 'https://api.razorpay.com',

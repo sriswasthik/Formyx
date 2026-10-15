@@ -21,6 +21,7 @@ import { createPublicFormsRouter } from './public-forms.js';
 import { createRazorpayWebhookRouter } from './razorpay-webhook.js';
 import { createRealtimeRouter } from './realtime.js';
 import { createReferralsRouter } from './referrals.js';
+import { createSignInRouter } from './sign-in.js';
 import { createSubmissionsRouter } from './submissions.js';
 import { createUnsubscribeRouter } from './unsubscribe.js';
 import { createUploadsRouter } from './uploads.js';
@@ -43,6 +44,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createApiRateLimiter(deps.env));
   router.use('/health', createHealthRouter(deps));
   router.use('/auth', createAuthRouter(deps, guards));
+  router.use('/auth', createSignInRouter(deps));
   router.use('/realtime', createRealtimeRouter(deps, guards));
   router.use('/public/forms', createPublicFormsRouter(deps));
   router.use('/public/pincodes', createPinCodesRouter(deps));

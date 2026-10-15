@@ -2,6 +2,7 @@ import {
   readAccountPreferences,
   type AccountPreferences,
   type ChangePasswordInput,
+  type DeleteAccountInput,
   type SoleOwnerDetails,
 } from '@formyx/shared';
 import { AppError } from '../lib/app-error.js';
@@ -23,10 +24,20 @@ export interface AccountService {
    */
   changePassword(userId: string, input: ChangePasswordInput): Promise<number>;
   /**
-   * Deletes the account and the workspaces only it belongs to. 409 LAST_OWNER, listing
-   * them, if it is the only owner of workspaces others are in.
+   * Sets a first password, for an account made through Google or Zoho; returns the new
+   * password version. 409 for an account that has one: it changes it instead.
    */
-  deleteAccount(userId: string, password: string): Promise<void>;
+  setPassword(userId: string, newPassword: string): Promise<number>;
+  /**
+   * Deletes the account and the workspaces only it belongs to, once the password confirms it
+   * (or, without a password, the account's email). 409 LAST_OWNER, listing them, if it is
+   * the only owner of workspaces others are in.
+   */
+  deleteAccount(userId: string, confirmation: DeleteAccountInput): Promise<void>;
+}
+
+function noPassword(): AppError {
+  return new AppError(409, 'CONFLICT', 'This account has no password yet. Set one instead.');
 }
 
 export function createAccountService({
@@ -36,16 +47,37 @@ export function createAccountService({
   prisma: Database;
   passwords: PasswordHasher;
 }): AccountService {
-  async function checkPassword(userId: string, password: string) {
+  async function findAccount(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { passwordHash: true, passwordVersion: true },
+      select: { email: true, passwordHash: true, passwordVersion: true },
     });
     if (!user) throw new AppError(401, 'UNAUTHORIZED', 'Log in to continue');
+    return user;
+  }
+
+  async function checkPassword(userId: string, password: string) {
+    const user = await findAccount(userId);
+    if (user.passwordHash === null) throw noPassword();
     // 400, not 401: a mistyped password must not look like an ended session.
     if (!(await passwords.verify(password, user.passwordHash))) {
       throw new AppError(400, 'WRONG_CODE', 'That password is not right.', {
         details: [{ path: 'password', message: 'That password is not right' }],
+      });
+    }
+    return user;
+  }
+
+  /** What deleting needs: the password, or for an account without one, its email. */
+  async function checkConfirmation(userId: string, confirmation: DeleteAccountInput) {
+    if ('password' in confirmation) return checkPassword(userId, confirmation.password);
+    const user = await findAccount(userId);
+    if (user.passwordHash !== null) {
+      throw new AppError(400, 'BAD_REQUEST', 'Confirm with your password.');
+    }
+    if (confirmation.email !== user.email) {
+      throw new AppError(400, 'WRONG_CODE', 'That is not your account’s email.', {
+        details: [{ path: 'email', message: 'That is not your account’s email' }],
       });
     }
     return user;
@@ -78,8 +110,28 @@ export function createAccountService({
       return updated.passwordVersion;
     },
 
-    async deleteAccount(userId, password) {
-      await checkPassword(userId, password);
+    async setPassword(userId, newPassword) {
+      // Only while there is none, checked in the same statement, so two at once can't both win.
+      const { count } = await prisma.user.updateMany({
+        where: { id: userId, passwordHash: null },
+        data: {
+          passwordHash: await passwords.hash(newPassword),
+          passwordVersion: { increment: 1 },
+        },
+      });
+      if (count === 0) {
+        throw new AppError(
+          409,
+          'CONFLICT',
+          'This account already has a password. Change it instead.',
+        );
+      }
+      const user = await findAccount(userId);
+      return user.passwordVersion;
+    },
+
+    async deleteAccount(userId, confirmation) {
+      await checkConfirmation(userId, confirmation);
       const owned = await prisma.membership.findMany({
         where: { userId, role: 'OWNER' },
         select: {

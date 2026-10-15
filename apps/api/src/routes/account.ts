@@ -2,6 +2,7 @@ import {
   accountPreferencesSchema,
   changePasswordInputSchema,
   deleteAccountInputSchema,
+  setPasswordInputSchema,
   readWorkspacePreferences,
   updateOnboardingInputSchema,
   workspacePreferencesSchema,
@@ -75,9 +76,24 @@ export function createAccountRouter(
     },
   );
 
+  // A first password, for an account made through Google or Zoho. Signs out other sessions too.
+  router.post(
+    '/account/password/set',
+    requireAuth,
+    requireRealAccount,
+    limit.login,
+    async (req, res) => {
+      const { userId } = getAuth(req);
+      const { newPassword } = setPasswordInputSchema.parse(req.body);
+      const passwordVersion = await accounts.setPassword(userId, newPassword);
+      setSessionCookie(res, userId, env, passwordVersion);
+      res.status(204).end();
+    },
+  );
+
   router.post('/account/delete', requireAuth, requireRealAccount, limit.login, async (req, res) => {
-    const { password } = deleteAccountInputSchema.parse(req.body);
-    await accounts.deleteAccount(getAuth(req).userId, password);
+    const confirmation = deleteAccountInputSchema.parse(req.body);
+    await accounts.deleteAccount(getAuth(req).userId, confirmation);
     clearSessionCookie(res, env);
     res.status(204).end();
   });
