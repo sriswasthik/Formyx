@@ -89,7 +89,7 @@ describe('FormDetailPage', () => {
     expect(screen.getByText('8 questions')).toBeInTheDocument();
     expect(screen.getByText('Draft')).toBeInTheDocument();
     expect(screen.getByTestId('page-title')).toHaveTextContent('Summit 2026');
-    expect(screen.getByRole('link', { name: 'All forms' })).toHaveAttribute('href', '/app/forms');
+    expect(screen.getByRole('heading', { level: 1, name: 'Summit 2026' })).toBeInTheDocument();
   });
 
   it('tells viewers they cannot change the form, and leads to its responses', async () => {

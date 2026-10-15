@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Building2, Search, ShieldAlert } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
+import { PageHeader } from '@/components/page-header';
 import { ErrorState } from '@/components/error-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,10 @@ export function AdminPage() {
   const selected = results.data?.find((workspace) => workspace.id === selectedId);
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Admin"
+        description="Find a workspace, see its billing, and give a plan or more trial."
+      />
       <div className="flex max-w-md flex-col gap-1.5">
         <Label htmlFor="admin-search">Find a workspace</Label>
         <div className="relative">
