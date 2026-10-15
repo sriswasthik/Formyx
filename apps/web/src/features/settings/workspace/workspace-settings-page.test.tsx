@@ -14,6 +14,7 @@ import {
   stubFetch,
 } from '@/test/session';
 import { SettingsLayout } from '../settings-layout';
+import { MembersPage } from './members-page';
 import { WorkspaceSettingsPage } from './workspace-settings-page';
 
 const ada: Member = {
@@ -87,7 +88,10 @@ function serve({
   return requests;
 }
 
-function renderSettings(workspaceId: string, me: MeResponse = ADA) {
+function renderSettings(
+  workspaceId: string,
+  { me = ADA, page = 'workspace' }: { me?: MeResponse; page?: 'workspace' | 'members' } = {},
+) {
   useWorkspaceStore.setState({ activeWorkspaceId: workspaceId });
   const router = createMemoryRouter(
     [
@@ -99,12 +103,15 @@ function renderSettings(workspaceId: string, me: MeResponse = ADA) {
           {
             path: 'settings',
             element: <SettingsLayout />,
-            children: [{ path: 'workspace', element: <WorkspaceSettingsPage /> }],
+            children: [
+              { path: 'workspace', element: <WorkspaceSettingsPage /> },
+              { path: 'members', element: <MembersPage /> },
+            ],
           },
         ],
       },
     ],
-    { initialEntries: ['/app/settings/workspace'] },
+    { initialEntries: [`/app/settings/${page}`] },
   );
   const queryClient = createTestQueryClient(me);
   renderWithProviders(<RouterProvider router={router} />, queryClient);
@@ -118,10 +125,10 @@ afterEach(() => {
   useWorkspaceStore.setState({ activeWorkspaceId: null });
 });
 
-describe('WorkspaceSettingsPage for owners', () => {
+describe('MembersPage for owners', () => {
   it('changes roles and removes people', async () => {
     const requests = serve();
-    const { user } = renderSettings('ws_personal');
+    const { user } = renderSettings('ws_personal', { page: 'members' });
 
     await user.click(await screen.findByRole('combobox', { name: 'Role of Grace Hopper' }));
     await user.click(screen.getByRole('option', { name: 'Viewer' }));
@@ -160,7 +167,7 @@ describe('WorkspaceSettingsPage for owners', () => {
           409,
         ),
     });
-    const { user } = renderSettings('ws_personal');
+    const { user } = renderSettings('ws_personal', { page: 'members' });
 
     await user.click(await screen.findByRole('combobox', { name: 'Role of Ada Lovelace' }));
     await user.click(screen.getByRole('option', { name: 'Editor' }));
@@ -170,12 +177,11 @@ describe('WorkspaceSettingsPage for owners', () => {
         'A workspace needs at least one owner. Make someone else an owner first.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Leave' })).toBeDisabled();
   });
 
   it('invites people, and sends or withdraws invites', async () => {
     const requests = serve();
-    const { user } = renderSettings('ws_personal');
+    const { user } = renderSettings('ws_personal', { page: 'members' });
 
     expect(await screen.findByText('No open invites')).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'Email' }), 'Lin@Example.com');
@@ -211,7 +217,7 @@ describe('WorkspaceSettingsPage for owners', () => {
         },
       ],
     });
-    const { user } = renderSettings('ws_personal');
+    const { user } = renderSettings('ws_personal', { page: 'members' });
 
     const list = await screen.findByRole('list', { name: 'Open invites' });
     expect(within(list).getByText('Expired')).toBeInTheDocument();
@@ -238,7 +244,7 @@ describe('WorkspaceSettingsPage for owners', () => {
           409,
         ),
     });
-    const { user } = renderSettings('ws_personal');
+    const { user } = renderSettings('ws_personal', { page: 'members' });
 
     const email = await screen.findByRole('textbox', { name: 'Email' });
     await user.type(email, 'grace@example.com');
@@ -247,6 +253,18 @@ describe('WorkspaceSettingsPage for owners', () => {
     await waitFor(() => {
       expect(email).toHaveAccessibleDescription('This person is already a member of the workspace');
     });
+  });
+});
+
+describe('WorkspaceSettingsPage for owners', () => {
+  it('keeps the only owner from leaving', async () => {
+    serve({ members: [ada, grace] });
+    renderSettings('ws_personal');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Leave' })).toBeDisabled();
+    });
+    expect(screen.queryByRole('combobox', { name: /Role of/ })).not.toBeInTheDocument();
   });
 
   it('deletes the workspace once its name is typed', async () => {
@@ -272,8 +290,24 @@ describe('WorkspaceSettingsPage for owners', () => {
   });
 });
 
+describe('MembersPage for other members', () => {
+  it('shows who is there without ways to change it', async () => {
+    serve({
+      members: [
+        { ...grace, role: 'OWNER' },
+        { ...ada, role: 'EDITOR' },
+      ],
+    });
+    renderSettings('ws_team', { page: 'members' });
+
+    expect(await screen.findByText('grace@example.com')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Invite people' })).not.toBeInTheDocument();
+  });
+});
+
 describe('WorkspaceSettingsPage for other members', () => {
-  it('shows who is there without ways to change it, and lets them leave', async () => {
+  it('lets them leave, without ways to change the workspace', async () => {
     const requests = serve({
       members: [
         { ...grace, role: 'OWNER' },
@@ -282,13 +316,10 @@ describe('WorkspaceSettingsPage for other members', () => {
     });
     const { user, router, queryClient } = renderSettings('ws_team');
 
-    expect(await screen.findByText('grace@example.com')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Invite people' })).not.toBeInTheDocument();
+    expect(await screen.findByText('Only owners can rename the workspace.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete workspace' })).not.toBeInTheDocument();
-    expect(screen.getByText('Only owners can rename the workspace.')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Leave' }));
+    await user.click(await screen.findByRole('button', { name: 'Leave' }));
     await user.click(screen.getByRole('button', { name: 'Leave workspace' }));
 
     await waitFor(() => {

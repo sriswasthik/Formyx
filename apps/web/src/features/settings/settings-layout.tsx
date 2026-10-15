@@ -1,20 +1,71 @@
-import { NavLink, Outlet } from 'react-router';
+import { hasRole, type Role } from '@formyx/shared';
+import { NavLink, Outlet, useLocation } from 'react-router';
+import { PageHeader } from '@/components/page-header';
+import { useActiveWorkspace } from '@/features/workspaces/use-active-workspace';
 import { cn } from '@/lib/utils';
 
-const SECTIONS = [
-  { to: '/app/settings', label: 'Preferences', end: true },
-  { to: '/app/settings/workspace', label: 'Workspace', end: false },
-  { to: '/app/settings/billing', label: 'Billing', end: false },
-  { to: '/app/settings/referrals', label: 'Referrals', end: false },
-] as const;
+interface Section {
+  to: string;
+  label: string;
+  /** The line under the page's title on this tab. */
+  description: string;
+  end?: boolean;
+  role?: Role;
+}
 
-/** Settings pages under one heading, with links between them. */
+const SECTIONS: readonly Section[] = [
+  {
+    to: '/app/settings',
+    label: 'Preferences',
+    description: 'Your profile, how Formyx looks and your account.',
+    end: true,
+  },
+  {
+    to: '/app/settings/workspace',
+    label: 'Workspace',
+    description: 'The workspace’s name, defaults and danger zone.',
+  },
+  {
+    to: '/app/settings/members',
+    label: 'Members',
+    description: 'Who is in the workspace, and what each of them can do.',
+  },
+  {
+    to: '/app/settings/brand-kits',
+    label: 'Brand kits',
+    description: 'Colours, fonts and logos that new forms start from.',
+  },
+  {
+    to: '/app/settings/billing',
+    label: 'Billing',
+    description: 'The workspace’s plan, usage and payments.',
+    role: 'OWNER',
+  },
+  {
+    to: '/app/settings/referrals',
+    label: 'Referrals',
+    description: 'Share Formyx and get a free month when a friend pays.',
+  },
+];
+
+/** The settings pages: one header, tabs between them, and the page below. */
 export function SettingsLayout() {
+  const { pathname } = useLocation();
+  const workspace = useActiveWorkspace();
+  const sections = SECTIONS.filter(
+    (section) => !section.role || (workspace && hasRole(workspace.role, section.role)),
+  );
+  const current =
+    SECTIONS.find((section) =>
+      section.end ? pathname === section.to : pathname.startsWith(section.to),
+    ) ?? SECTIONS[0];
+
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      <nav aria-label="Settings">
-        <ul className="flex h-10 gap-5 border-b">
-          {SECTIONS.map(({ to, label, end }) => (
+    <div className="flex flex-col gap-6">
+      <PageHeader title={current?.label ?? 'Settings'} description={current?.description} />
+      <nav aria-label="Settings" className="-mx-6 overflow-x-auto px-6 md:mx-0 md:px-0">
+        <ul className="flex h-10 min-w-max gap-5 border-b">
+          {sections.map(({ to, label, end }) => (
             <li key={to} className="h-full">
               <NavLink
                 to={to}
@@ -35,7 +86,9 @@ export function SettingsLayout() {
           ))}
         </ul>
       </nav>
-      <Outlet />
+      <div className="max-w-3xl">
+        <Outlet />
+      </div>
     </div>
   );
 }
