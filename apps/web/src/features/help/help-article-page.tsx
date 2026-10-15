@@ -18,7 +18,7 @@ function Article({ article }: { article: HelpArticle }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-24 md:px-10 md:pt-12">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-12 md:px-10 md:pt-12 md:pb-16">
         <nav aria-label="Breadcrumb">
           <ol className="flex flex-wrap items-center gap-1 text-13 text-muted-foreground">
             <li>

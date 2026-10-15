@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { isDemoOffered } from '@/features/demo/demo-api';
 import { TryDemoButton } from '@/features/demo/try-demo-button';
-import { CONTAINER, SECTION_END, SECTION_TITLE, SECTION_Y } from '@/features/marketing/layout';
+import { BEFORE_FOOTER, CONTAINER, SECTION_TITLE, SECTION_Y } from '@/features/marketing/layout';
 import { Reveal } from '@/features/marketing/reveal';
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,12 @@ export function CtaBand() {
   return (
     <section aria-labelledby="cta-title" className="border-t below-fold">
       <Reveal
-        className={cn(CONTAINER, SECTION_Y, SECTION_END, 'flex flex-col items-center text-center')}
+        className={cn(
+          CONTAINER,
+          SECTION_Y,
+          BEFORE_FOOTER,
+          'flex flex-col items-center text-center',
+        )}
       >
         <h2 id="cta-title" className={SECTION_TITLE}>
           Your next form deserves better.

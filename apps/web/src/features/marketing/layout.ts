@@ -12,6 +12,8 @@ export const CONTAINER = 'mx-auto w-full max-w-[1184px] px-6 md:px-8';
  */
 export const SECTION_Y = 'pt-16 md:pt-24 lg:pt-32';
 export const SECTION_END = 'pb-16 md:pb-24 lg:pb-32';
+/** Space under a page's last content, above the footer panel: it closes the page itself. */
+export const BEFORE_FOOTER = 'pb-12 md:pb-16';
 
 /** A section's heading and its one line underneath. */
 export const SECTION_TITLE = 'text-24 font-semibold tracking-tighter text-balance md:text-32';

@@ -64,7 +64,7 @@ export function PricingPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-12 pb-24 md:px-10 md:pt-20">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-12 pb-12 md:px-10 md:pt-20 md:pb-16">
         <div className="flex flex-col items-center gap-3 text-center">
           <h1 className="text-32 font-semibold tracking-tighter md:text-40">Pricing</h1>
           <p className="max-w-xl text-16 text-muted-foreground">
