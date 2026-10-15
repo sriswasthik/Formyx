@@ -23,8 +23,8 @@ test('API health is reachable through the web dev proxy', async ({ request }) =>
 test('theme choice persists across reloads', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Change theme' }).click();
-  await page.getByRole('menuitemradio', { name: 'Dark' }).click();
+  // The footer's switch: one click.
+  await page.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
   await page.reload();

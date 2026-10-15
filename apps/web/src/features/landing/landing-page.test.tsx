@@ -120,13 +120,22 @@ describe('LandingPage', () => {
     expect(within(templates).getAllByRole('listitem')).toHaveLength(6);
   });
 
-  it('ends with the footer columns and a theme toggle', async () => {
+  it('ends with the footer columns, the legal pages and a theme switch', async () => {
     await renderLanding();
     const footer = screen.getByRole('contentinfo');
     for (const column of ['Product', 'Resources', 'Legal']) {
       expect(within(footer).getByRole('navigation', { name: column })).toBeInTheDocument();
     }
-    expect(within(footer).getByRole('button', { name: /theme/i })).toBeInTheDocument();
+    const legal = within(footer).getByRole('navigation', { name: 'Legal' });
+    for (const [name, href] of [
+      ['Terms', '/terms'],
+      ['Privacy', '/privacy'],
+      ['Refund policy', '/refunds'],
+      ['Shipping policy', '/shipping'],
+    ]) {
+      expect(within(legal).getByRole('link', { name })).toHaveAttribute('href', href);
+    }
+    expect(within(footer).getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
     expect(footer).toHaveTextContent(`© ${String(new Date().getFullYear())} Formyx`);
   });
 });
