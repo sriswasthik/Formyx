@@ -1,6 +1,7 @@
 import {
   changePasswordInputSchema,
   PASSWORD_MIN_LENGTH,
+  setPasswordInputSchema,
   soleOwnerDetailsSchema,
   type SoleOwnerDetails,
 } from '@formyx/shared';
@@ -12,6 +13,7 @@ import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { FormField } from '@/components/form-field';
 import { PasswordInput } from '@/components/password-input';
+import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -23,14 +25,89 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { changePassword, deleteAccount } from '@/features/account/account-api';
-import { replaceSession } from '@/features/auth/session-cache';
+import { changePassword, deleteAccount, setFirstPassword } from '@/features/account/account-api';
+import { meQueryKey, replaceSession } from '@/features/auth/session-cache';
 import { useSession } from '@/features/auth/session-context';
 import { useWorkspaceStore } from '@/features/workspaces/workspace-store';
 import { ApiRequestError, changeErrorMessage } from '@/lib/api';
 
 /** Changing the password signs out every other device. */
 export function PasswordCard() {
+  const { user } = useSession();
+  if (user.hasPassword === false) return <SetPasswordCard />;
+  return <ChangePasswordCard />;
+}
+
+/**
+ * For an account made through Google or Zoho: a password lets them log in with their email
+ * too. It signs out other devices, as changing one does.
+ */
+function SetPasswordCard() {
+  const queryClient = useQueryClient();
+  const formId = useId();
+  const mutation = useMutation({ mutationFn: setFirstPassword });
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(setPasswordInputSchema),
+    defaultValues: { newPassword: '' },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Password</CardTitle>
+        <CardDescription>
+          You sign in with Google or Zoho. Set a password to log in with your email as well.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          noValidate
+          className="flex flex-col gap-4 sm:max-w-80"
+          onSubmit={(event) =>
+            void handleSubmit((input) => {
+              mutation.mutate(input, {
+                onSuccess: () => {
+                  reset();
+                  // The session now says there is a password: this card becomes "change it".
+                  void queryClient.invalidateQueries({ queryKey: meQueryKey });
+                  toast.success('Password set', {
+                    description: 'You can now log in with your email and password.',
+                  });
+                },
+                onError: (error) => {
+                  toast.error('Could not set the password', {
+                    description: changeErrorMessage(error),
+                  });
+                },
+              });
+            })(event)
+          }
+        >
+          <FormField
+            id={`${formId}-new`}
+            label="New password"
+            hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}
+            error={errors.newPassword?.message}
+          >
+            <PasswordInput autoComplete="new-password" {...register('newPassword')} />
+          </FormField>
+          <div>
+            <Button type="submit" variant="secondary" disabled={mutation.isPending}>
+              {mutation.isPending ? 'Setting…' : 'Set password'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChangePasswordCard() {
   const { user } = useSession();
   const formId = useId();
   const mutation = useMutation({ mutationFn: changePassword });
@@ -116,9 +193,11 @@ export function PasswordCard() {
   );
 }
 
-/** Deletes the account for good, once the password confirms it. */
+/** Deletes the account for good, once the password (or, without one, the email) confirms it. */
 export function DeleteAccountCard() {
   const { user } = useSession();
+  // Accounts made through Google or Zoho have no password to confirm with.
+  const byEmail = user.hasPassword === false;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const id = useId();
@@ -130,7 +209,7 @@ export function DeleteAccountCard() {
 
   const remove = () => {
     setError(null);
-    mutation.mutate(password, {
+    mutation.mutate(byEmail ? { email: password } : { password }, {
       onSuccess: () => {
         setOpen(false);
         useWorkspaceStore.getState().setActiveWorkspaceId(null);
@@ -149,7 +228,9 @@ export function DeleteAccountCard() {
         }
         setError(
           caught instanceof ApiRequestError && caught.code === 'WRONG_CODE'
-            ? 'That password is not right'
+            ? byEmail
+              ? 'That is not your account’s email'
+              : 'That password is not right'
             : changeErrorMessage(caught),
         );
       },
@@ -215,14 +296,32 @@ export function DeleteAccountCard() {
                   </ul>
                 </div>
               ) : (
-                <FormField id={id} label="Your password" error={error ?? undefined}>
-                  <PasswordInput
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value);
-                    }}
-                  />
+                <FormField
+                  id={id}
+                  label={byEmail ? 'Type your email to confirm' : 'Your password'}
+                  hint={byEmail ? user.email : undefined}
+                  error={error ?? undefined}
+                >
+                  {byEmail ? (
+                    <Input
+                      type="email"
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                      }}
+                    />
+                  ) : (
+                    <PasswordInput
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                      }}
+                    />
+                  )}
                 </FormField>
               )}
               <AlertDialogFooter>

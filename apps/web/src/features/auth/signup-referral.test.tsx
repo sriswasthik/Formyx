@@ -35,6 +35,7 @@ describe('signing up through a referral link or the badge', () => {
       if (url.endsWith('/public/referrals/K7MQ2XPA')) {
         return jsonResponse({ referrerName: 'Grace', trialDays: 60 });
       }
+      if (url.endsWith('/auth/providers')) return jsonResponse({ providers: [] });
       registered.push(JSON.parse(typeof init.body === 'string' ? init.body : '{}'));
       return jsonResponse(ADA, 201);
     });

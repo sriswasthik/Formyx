@@ -76,13 +76,18 @@ describe('ProtectedRoute', () => {
   });
 
   it('does not ask the API about a session this browser never started', async () => {
-    const fetchMock = stubFetch(() => jsonResponse(ADA));
+    const asked: string[] = [];
+    stubFetch((path) => {
+      asked.push(path);
+      return jsonResponse(ADA);
+    });
     const router = renderRoutes('/app/forms', { session: 'fetch' });
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/login');
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    // The log-in page may ask which providers there are, but never about the session.
+    expect(asked.filter((path) => path.endsWith('/auth/me'))).toEqual([]);
   });
 
   it('shows a loading skeleton while the session loads', () => {
