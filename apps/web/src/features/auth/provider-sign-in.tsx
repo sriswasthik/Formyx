@@ -66,11 +66,13 @@ export function ProviderSignIn({ page }: { page: 'login' | 'signup' }) {
       <Skeleton className="h-10 w-full rounded-lg" />
     </div>
   ) : providers && providers.length > 0 ? (
-    <div className="flex flex-col gap-3">
+    // Side by side when there are two, named for the provider alone: the page stays short.
+    <div className={providers.length > 1 ? 'grid grid-cols-2 gap-3' : 'flex flex-col'}>
       {providers.map((provider) => (
         <Button key={provider} asChild variant="secondary" size="lg" className="w-full">
           <a
             href={start(provider)}
+            aria-label={`Continue with ${SIGN_IN_PROVIDER_LABELS[provider]}`}
             aria-disabled={leaving !== null || undefined}
             onClick={() => {
               noteProviderSignIn();
@@ -82,7 +84,9 @@ export function ProviderSignIn({ page }: { page: 'login' | 'signup' }) {
             ) : (
               <ProviderMark provider={provider} />
             )}
-            Continue with {SIGN_IN_PROVIDER_LABELS[provider]}
+            {providers.length > 1
+              ? SIGN_IN_PROVIDER_LABELS[provider]
+              : `Continue with ${SIGN_IN_PROVIDER_LABELS[provider]}`}
           </a>
         </Button>
       ))}
@@ -92,14 +96,14 @@ export function ProviderSignIn({ page }: { page: 'login' | 'signup' }) {
   if (!error && !buttons) return null;
 
   return (
-    <div className="mb-6 flex flex-col gap-4">
+    <div className="mb-4 flex flex-col gap-4">
       {error && <FormAlert>{error}</FormAlert>}
       {buttons && (
         <>
           {buttons}
           <div className="flex items-center gap-3 text-12 text-muted-foreground">
             <span className="h-px flex-1 bg-border" />
-            or with email
+            or
             <span className="h-px flex-1 bg-border" />
           </div>
         </>

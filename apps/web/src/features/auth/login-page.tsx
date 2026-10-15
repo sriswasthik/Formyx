@@ -11,7 +11,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Log in to Formyx"
-      description="Welcome back. Enter your details to continue."
+      description="Welcome back. Pick up where you left off."
       footer={
         <>
           New to Formyx?{' '}
