@@ -7,7 +7,7 @@ test('invites someone who signs up from the email and joins', async ({ page, bro
   const problems = trackConsoleProblems(page);
   const invitee = uniqueEmail('invitee');
 
-  await page.goto('/app/settings/workspace');
+  await page.goto('/app/settings/members');
   await page.getByRole('textbox', { name: 'Email' }).fill(invitee);
   await page.getByRole('combobox', { name: 'Role', exact: true }).click();
   await page.getByRole('option', { name: /^Viewer/ }).click();

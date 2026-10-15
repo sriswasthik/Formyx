@@ -100,7 +100,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await createFormViaApi(page, 'feedback_survey');
       await page.goto('/app/forms');
       await expect(page.getByRole('heading', { level: 1, name: 'Forms' })).toBeVisible();
-      const form = page.getByText('Feedback survey').first();
+      // In the list: the sidebar's Recent names it too.
+      const form = page.getByRole('list', { name: 'Forms' }).getByText('Feedback survey').first();
       await expect(form).toBeVisible();
       await expectNoSeriousViolations(page, form);
     });

@@ -46,7 +46,7 @@ test('sends signed-out visitors to log in, then on to the page they wanted', asy
   await fillLogIn(page, await sharedUserEmail());
 
   await expect(page).toHaveURL(/\/app\/settings$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Preferences' })).toBeVisible();
 });
 
 test('shows inline errors instead of submitting an invalid form', async ({ page }) => {

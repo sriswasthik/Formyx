@@ -51,9 +51,9 @@ test('mobile navigation opens in a sheet', async ({ page }, testInfo) => {
 
   const sheet = page.getByRole('dialog', { name: 'Navigation' });
   await expect(sheet).toBeVisible();
-  await sheet.getByRole('link', { name: 'Settings' }).click();
+  await sheet.getByRole('link', { name: 'Members' }).click();
 
-  await expect(page).toHaveURL(/\/app\/settings$/);
+  await expect(page).toHaveURL(/\/app\/settings\/members$/);
   await expect(sheet).toBeHidden();
 });
 

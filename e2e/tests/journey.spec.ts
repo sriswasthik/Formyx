@@ -30,7 +30,8 @@ test('signs up, builds a form with logic, publishes, gets a live response and ex
   await skipWelcome(page);
 
   // A form from a template.
-  await page.getByRole('button', { name: 'New form' }).first().click();
+  // A new workspace has no forms yet: its empty state leads to the templates.
+  await page.getByRole('button', { name: 'Browse templates' }).click();
   const dialog = page.getByRole('dialog', { name: 'New form' });
   await dialog.getByRole('radio', { name: /Event registration/ }).click();
   await dialog.getByRole('button', { name: 'Create form' }).click();

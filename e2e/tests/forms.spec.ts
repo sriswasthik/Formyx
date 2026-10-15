@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { formIdFrom, trackConsoleProblems } from './helpers.js';
+import { formIdFrom, openTemplates, trackConsoleProblems } from './helpers.js';
 
 // Runs signed in as the shared test user. Desktop and mobile run in parallel against the same
 // workspace, so every test works with forms it created itself, found by id or unique title.
@@ -14,8 +14,7 @@ function formItem(page: Page, formId: string) {
 
 async function createFromTemplate(page: Page, template: RegExp): Promise<string> {
   await page.goto('/app/forms');
-  await page.getByRole('button', { name: 'New form' }).click();
-  const dialog = page.getByRole('dialog', { name: 'New form' });
+  const dialog = await openTemplates(page);
   await dialog.getByRole('radio', { name: template }).check();
   await dialog.getByRole('button', { name: 'Create form' }).click();
 
@@ -60,7 +59,10 @@ test('creates a form from a template, then renames, duplicates and deletes it', 
   // Duplicate, then find both through search
   await item.getByRole('button', { name: `Actions for ${title}` }).click();
   await page.getByRole('menuitem', { name: 'Duplicate' }).click();
-  const copy = page.getByRole('link', { name: `${title} (copy)` });
+  // The sidebar's Recent links to it too: look in the list.
+  const copy = page
+    .getByRole('list', { name: 'Forms' })
+    .getByRole('link', { name: `${title} (copy)` });
   await expect(copy).toBeVisible();
   const copyId = formIdFrom(await copy.getAttribute('href'));
 
@@ -75,7 +77,7 @@ test('creates a form from a template, then renames, duplicates and deletes it', 
 
   await deleteForm(page, copyId);
   await deleteForm(page, formId);
-  await expect(page.getByText('No forms match your filters')).toBeVisible();
+  await expect(page.getByText('No forms match')).toBeVisible();
   expect(problems).toEqual([]);
 });
 
@@ -86,7 +88,8 @@ test('the list view fits small screens', async ({ page }, testInfo) => {
   await page.getByRole('radio', { name: 'List view' }).click();
   await expect(formItem(page, formId)).toBeVisible();
   if (testInfo.project.name === 'desktop') {
-    await expect(page.getByText('Last edited')).toBeVisible();
+    // The column headings (the sort menu says "Last edited" too).
+    await expect(page.getByText('Last edited', { exact: true }).last()).toBeVisible();
   }
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

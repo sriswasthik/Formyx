@@ -56,6 +56,15 @@ export async function skipWelcome(page: Page): Promise<void> {
   await expect(welcome).toBeHidden();
 }
 
+/** Opens the New form dialog of templates: "Start from a template", beside New form. */
+export async function openTemplates(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: 'More ways to start a form' }).first().click();
+  await page.getByRole('menuitem', { name: 'Start from a template' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New form' });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 /** A fresh address per call, so runs never collide with accounts from earlier runs. */
 export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@example.com`;
