@@ -22,46 +22,48 @@ enum Role {
 }
 
 model User {
-  id              String             @id @default(cuid())
-  name            String
+  id               String             @id @default(cuid())
+  name             String
   /// Stored trimmed and lowercased, so the unique index is effectively case-insensitive.
-  email           String             @unique
-  passwordHash    String             @map("password_hash")
+  email            String             @unique
+  /// Null for accounts made through Google or Zoho that have not set a password.
+  passwordHash     String?            @map("password_hash")
   /// The shared demo account (see src/demo). It signs in without a password, its data is
   /// reset every night, and anything that reaches outside Formyx is switched off for it.
-  isDemo          Boolean            @default(false) @map("is_demo")
+  isDemo           Boolean            @default(false) @map("is_demo")
   /// Goes up when the password changes; sessions carry it, so older ones stop working.
-  passwordVersion Int                @default(0) @map("password_version")
+  passwordVersion  Int                @default(0) @map("password_version")
   /// The person's own preferences (see `accountPreferencesSchema` in packages/shared).
-  preferences     Json               @default("{}")
+  preferences      Json               @default("{}")
   /// May use /admin. Set only from the command line (`admin:grant`), never through the API.
-  isAdmin         Boolean            @default(false) @map("is_admin")
+  isAdmin          Boolean            @default(false) @map("is_admin")
   /// When a workspace they own started its free trial: one trial per account.
-  trialUsedAt     DateTime?          @map("trial_used_at")
+  trialUsedAt      DateTime?          @map("trial_used_at")
   /// The welcome and getting-started checklist (`onboardingStateSchema` in packages/shared).
   /// Empty for accounts from before onboarding, which never see either.
-  onboarding      Json               @default("{}")
+  onboarding       Json               @default("{}")
   /// When they last used the app, to the hour (set by `requireAuth`); for the "we miss you"
   /// email. Null until they first come back after it shipped.
-  lastActiveAt    DateTime?          @map("last_active_at")
+  lastActiveAt     DateTime?          @map("last_active_at")
   /// Their referral link's code (`/?ref=<code>`), made the first time they look at it.
-  referralCode    String?            @unique @map("referral_code")
+  referralCode     String?            @unique @map("referral_code")
   /// What brought them, when known (`signupSourceSchema`): the badge on a free form, say.
-  signupSource    String?            @map("signup_source")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
-  memberships     Membership[]
-  forms           Form[]
-  subscriptions   FormSubscription[]
-  invitesSent     Invite[]
-  webhooks        Webhook[]
-  brandKits       BrandKit[]
-  integrations    Integration[]
-  feedback        Feedback[]
-  adminActions    AdminAction[]
-  lifecycleEmails LifecycleEmail[]
-  referralsMade   Referral[]         @relation("referrer")
-  referredBy      Referral?          @relation("friend")
+  signupSource     String?            @map("signup_source")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  memberships      Membership[]
+  forms            Form[]
+  subscriptions    FormSubscription[]
+  invitesSent      Invite[]
+  webhooks         Webhook[]
+  brandKits        BrandKit[]
+  integrations     Integration[]
+  feedback         Feedback[]
+  adminActions     AdminAction[]
+  lifecycleEmails  LifecycleEmail[]
+  referralsMade    Referral[]         @relation("referrer")
+  referredBy       Referral?          @relation("friend")
+  signInIdentities SignInIdentity[]
 
   @@index([lastActiveAt])
   @@map("users")
@@ -669,6 +671,25 @@ model LifecycleEmail {
 
   @@unique([userId, kind, periodKey])
   @@map("lifecycle_emails")
+}
+
+/// A Google or Zoho account someone signs in with. Matched by the provider's own id (`sub`),
+/// which never changes, so a new email address at the provider still reaches the same account.
+model SignInIdentity {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  /// `google` or `zoho` (`signInProviderSchema` in packages/shared).
+  provider  String
+  /// The provider's id for the account: the ID token's `sub`.
+  subject   String
+  /// The email the provider gave when it was linked, for support; never used to sign in.
+  email     String
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
+  @@map("sign_in_identities")
 }
 
 /// Someone who signed up through a referral link, and the reward for whoever shared it.

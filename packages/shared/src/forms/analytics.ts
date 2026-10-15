@@ -559,6 +559,40 @@ export function dateKey(iso: string, timeZone: string): string {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+/** How far `timeZone`'s clock is ahead of UTC at `at`, in milliseconds. */
+function zoneOffsetMs(timeZone: string, at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(at);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((candidate) => candidate.type === type)?.value ?? 0);
+  const wall = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
+  return wall - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/** The moment today began in `timeZone`: midnight there, as a UTC instant. */
+export function startOfDayIn(timeZone: string, now: Date = new Date()): Date {
+  const [year, month, day] = dateKey(now.toISOString(), timeZone).split('-').map(Number);
+  const midnight = Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1);
+  const guess = midnight - zoneOffsetMs(timeZone, new Date(midnight));
+  // The offset is measured again at the first guess: they differ where the clocks change overnight.
+  return new Date(midnight - zoneOffsetMs(timeZone, new Date(guess)));
+}
+
 /**
  * Counts one new response into all of `analytics`, **in place**. Views are not touched: a
  * response does not say when its view was recorded. A response on a day past the end of the

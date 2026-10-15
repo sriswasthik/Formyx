@@ -3,7 +3,7 @@ import {
   createDefaultTheme,
   createEmptyForm,
   type FormDetail,
-  type FormSummary,
+  type FormListItem,
   type MeResponse,
   type OnboardingResponse,
 } from '@formyx/shared';
@@ -25,7 +25,7 @@ import { FORMS_VIEW_STORAGE_KEY, useFormsViewStore } from './view-store';
 const HOUR = 3_600_000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 
-function makeForm(overrides: Partial<FormSummary>): FormSummary {
+function makeForm(overrides: Partial<FormListItem>): FormListItem {
   return {
     id: 'form_1',
     workspaceId: 'ws_personal',
@@ -37,11 +37,13 @@ function makeForm(overrides: Partial<FormSummary>): FormSummary {
     createdAt: hoursAgo(48),
     updatedAt: hoursAgo(2),
     publishedAt: hoursAgo(24),
+    theme: createDefaultTheme(),
+    responsesToday: 0,
     ...overrides,
   };
 }
 
-const FEEDBACK = makeForm({});
+const FEEDBACK = makeForm({ responsesToday: 3 });
 const REGISTRATION = makeForm({
   id: 'form_2',
   title: 'Event registration',
@@ -53,7 +55,7 @@ const REGISTRATION = makeForm({
   publishedAt: null,
 });
 
-function toDetail(form: FormSummary): FormDetail {
+function toDetail({ responsesToday: _today, ...form }: FormListItem): FormDetail {
   return {
     ...form,
     draftSchema: createEmptyForm(),
@@ -83,7 +85,7 @@ function createGate() {
 const NOT_ONBOARDING: OnboardingResponse = { welcome: false, useCase: null, checklist: null };
 
 /** An in-memory forms API behind a stubbed `fetch`, with the account's onboarding. */
-function installFakeApi(initial: FormSummary[], initialOnboarding = NOT_ONBOARDING) {
+function installFakeApi(initial: FormListItem[], initialOnboarding = NOT_ONBOARDING) {
   let forms = [...initial];
   let onboarding = initialOnboarding;
   const onboardingUpdates: unknown[] = [];
@@ -127,6 +129,7 @@ function installFakeApi(initial: FormSummary[], initialOnboarding = NOT_ONBOARDI
           (form) =>
             form.title.toLowerCase().includes(search) && (!status || form.status === status),
         ),
+        responsesThisMonth: forms.reduce((sum, form) => sum + form.responseCount, 0),
       });
     }
 
@@ -165,7 +168,7 @@ function installFakeApi(initial: FormSummary[], initialOnboarding = NOT_ONBOARDI
       return jsonResponse(toDetail(updated));
     }
     if (method === 'POST' && pathname.endsWith('/duplicate')) {
-      const copy: FormSummary = {
+      const copy: FormListItem = {
         ...existing,
         id: `form_${nextId++}`,
         title: copyFormTitle(existing.title),
@@ -243,6 +246,12 @@ function renderDashboard({
 
 const findFormList = () => screen.findByRole('list', { name: 'Forms' });
 
+/** "Start from a template", from the arrow beside New form. */
+async function openTemplates(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'More ways to start a form' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Start from a template' }));
+}
+
 function titles(list: HTMLElement): string[] {
   return within(list)
     .getAllByRole('listitem')
@@ -250,7 +259,7 @@ function titles(list: HTMLElement): string[] {
 }
 
 afterEach(() => {
-  useFormsViewStore.setState({ view: 'grid' });
+  useFormsViewStore.setState({ view: 'grid', sort: 'edited' });
 });
 
 describe('FormsPage: loading and states', () => {
@@ -263,10 +272,12 @@ describe('FormsPage: loading and states', () => {
     releaseReads();
 
     const list = await findFormList();
+    expect(screen.getByRole('heading', { level: 1, name: 'Forms' })).toBeInTheDocument();
+    expect(screen.getByText('2 forms · 12 responses this month')).toBeInTheDocument();
     const [first, second] = within(list).getAllByRole('listitem');
     expect(first).toHaveTextContent('Customer feedback');
     expect(first).toHaveTextContent('Published');
-    expect(first).toHaveTextContent('12 responses');
+    expect(first).toHaveTextContent('12 responses +3 today');
     expect(first).toHaveTextContent('Edited 2h ago');
     expect(second).toHaveTextContent('Draft');
     expect(second).toHaveTextContent('No responses');
@@ -277,17 +288,39 @@ describe('FormsPage: loading and states', () => {
     );
   });
 
-  it('offers templates when the workspace has no forms, and opens the created form', async () => {
+  it('offers a blank form or the templates when the workspace has none', async () => {
     const api = installFakeApi([]);
     const { router, user } = renderDashboard();
 
     expect(await screen.findByRole('heading', { name: 'Create your first form' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Feedback survey/ }));
+    expect(screen.getByRole('button', { name: 'Browse templates' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'New form' }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
+    });
+    expect(api.writes()[0]?.body).toEqual({ templateId: 'blank' });
+  });
+
+  it('suggests templates under a short list of forms', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router, user } = renderDashboard();
+    await findFormList();
+
+    const start = screen.getByRole('region', { name: 'Start faster' });
+    await user.click(within(start).getByRole('button', { name: /Feedback survey/ }));
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
     });
     expect(api.writes()[0]?.body).toEqual({ templateId: 'feedback_survey' });
+  });
+
+  it('suggests no templates once there are more than two forms', async () => {
+    installFakeApi([FEEDBACK, REGISTRATION, makeForm({ id: 'form_3', title: 'Third' })]);
+    renderDashboard();
+    await findFormList();
+    expect(screen.queryByRole('region', { name: 'Start faster' })).not.toBeInTheDocument();
   });
 
   it('offers a retry when forms cannot be loaded', async () => {
@@ -315,8 +348,8 @@ describe('FormsPage: search, filters and views', () => {
       expect(titles(screen.getByRole('list', { name: 'Forms' }))).toEqual(['Event registration']);
     });
     expect(router.state.location.search).toBe('?q=event');
-    // One request for the initial list and one for the finished search, none per keystroke.
-    expect(api.lists().map((request) => request.search.get('search'))).toEqual([null, 'event']);
+    // Every form came with the first request: searching asks for nothing more.
+    expect(api.lists()).toHaveLength(1);
   });
 
   it('applies filters from the URL', async () => {
@@ -324,15 +357,51 @@ describe('FormsPage: search, filters and views', () => {
     renderDashboard({ path: '/app/forms?status=draft' });
 
     expect(titles(await findFormList())).toEqual(['Event registration']);
-    expect(api.lists()[0]?.search.get('status')).toBe('draft');
-    expect(screen.getByRole('combobox', { name: 'Filter by status' })).toHaveTextContent('Draft');
+    expect(api.lists()[0]?.search.get('status')).toBeNull();
+    const tabs = screen.getByRole('radiogroup', { name: 'Status' });
+    expect(within(tabs).getByRole('radio', { name: 'Drafts 1' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('counts each status in its tab and filters by it', async () => {
+    installFakeApi([FEEDBACK, REGISTRATION]);
+    const { router, user } = renderDashboard();
+    await findFormList();
+
+    const tabs = screen.getByRole('radiogroup', { name: 'Status' });
+    expect(
+      within(tabs)
+        .getAllByRole('radio')
+        .map((tab) => tab.textContent),
+    ).toEqual(['All 2', 'Published 1', 'Drafts 1', 'Closed 0']);
+    await user.click(within(tabs).getByRole('radio', { name: 'Published 1' }));
+
+    expect(titles(screen.getByRole('list', { name: 'Forms' }))).toEqual(['Customer feedback']);
+    expect(router.state.location.search).toBe('?status=published');
+  });
+
+  it('sorts by name or responses, and remembers the order', async () => {
+    installFakeApi([FEEDBACK, REGISTRATION]);
+    const { user } = renderDashboard();
+    await findFormList();
+
+    await user.click(screen.getByRole('button', { name: 'Sort: Last edited' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Name' }));
+
+    expect(titles(screen.getByRole('list', { name: 'Forms' }))).toEqual([
+      'Customer feedback',
+      'Event registration',
+    ]);
+    expect(localStorage.getItem(FORMS_VIEW_STORAGE_KEY)).toContain('"sort":"name"');
   });
 
   it('says when nothing matches, and clears the filters', async () => {
     installFakeApi([FEEDBACK]);
     const { router, user } = renderDashboard({ path: '/app/forms?q=zzz&status=closed' });
 
-    expect(await screen.findByText('No forms match your filters')).toBeInTheDocument();
+    expect(await screen.findByText('No forms match')).toBeInTheDocument();
     expect(screen.getByText('Nothing matches “zzz”. Try a different search.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Clear filters' }));
@@ -351,7 +420,8 @@ describe('FormsPage: search, filters and views', () => {
     await user.click(listView);
 
     expect(listView).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByText('Last edited')).toBeInTheDocument();
+    // Rows rather than cards.
+    expect(screen.getByRole('list', { name: 'Forms' }).querySelector('article')).toBeNull();
     expect(localStorage.getItem(FORMS_VIEW_STORAGE_KEY)).toContain('"view":"list"');
   });
 });
@@ -494,7 +564,7 @@ describe('FormsPage: changing forms', () => {
     const { router, user } = renderDashboard();
     await findFormList();
 
-    await user.click(screen.getByRole('button', { name: 'New form' }));
+    await openTemplates(user);
     const dialog = await screen.findByRole('dialog', { name: 'New form' });
     expect(within(dialog).getByRole('radio', { name: /Blank form/ })).toBeChecked();
     await user.click(within(dialog).getByRole('radio', { name: /Feedback survey/ }));
@@ -511,7 +581,7 @@ describe('FormsPage: changing forms', () => {
     const { user } = renderDashboard();
     await findFormList();
 
-    await user.click(screen.getByRole('button', { name: 'New form' }));
+    await openTemplates(user);
     const dialog = await screen.findByRole('dialog', { name: 'New form' });
     const radios = () =>
       within(within(dialog).getByRole('radiogroup', { name: 'Start from' }))
@@ -560,8 +630,29 @@ describe('FormsPage: changing forms', () => {
     installFakeApi([]);
     const { user } = renderDashboard();
 
-    await user.click(await screen.findByRole('button', { name: /Browse all \d+ templates/ }));
+    await user.click(await screen.findByRole('button', { name: 'Browse templates' }));
     expect(await screen.findByRole('dialog', { name: 'New form' })).toBeVisible();
+  });
+
+  it('makes a blank form straight from New form', async () => {
+    const api = installFakeApi([FEEDBACK]);
+    const { router, user } = renderDashboard();
+    await findFormList();
+
+    await user.click(screen.getByRole('button', { name: 'New form' }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/app/forms/form_100/edit');
+    });
+    expect(api.writes()[0]?.body).toEqual({ templateId: 'blank' });
+  });
+
+  it('opens the New form dialog from the command palette link, once', async () => {
+    installFakeApi([FEEDBACK]);
+    const { router } = renderDashboard({ path: '/app/forms?new=1' });
+
+    expect(await screen.findByRole('dialog', { name: 'New form' })).toBeVisible();
+    expect(router.state.location.search).toBe('');
   });
 });
 
@@ -580,7 +671,12 @@ describe('FormsPage: viewers', () => {
     await user.click(screen.getByRole('button', { name: 'Actions for Customer feedback' }));
 
     const items = await screen.findAllByRole('menuitem');
-    expect(items.map((item) => item.textContent)).toEqual(['Open', 'Responses']);
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Open',
+      'Responses',
+      'Preview',
+      'Copy link',
+    ]);
   });
 
   it('do not create forms from a gallery link', async () => {
@@ -600,7 +696,8 @@ describe('FormsPage: viewers', () => {
     renderDashboard({ me: viewer });
 
     expect(await screen.findByRole('heading', { name: 'No forms yet' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Feedback survey/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New form' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Browse templates' })).not.toBeInTheDocument();
   });
 });
 

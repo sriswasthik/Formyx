@@ -28,7 +28,11 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // Redesign 1 and 3 (brand, landing page): the form's own code grew by the badge's logo, and the
 // one stylesheet by the landing page's classes, 0.7 KB of it: 212.1 KB, so the budget is
 // 213 KB. Keeping marketing styles out of public forms would take a stylesheet of their own.
-const PUBLIC_FORM_BUDGET_KB = 213;
+// Redesign 2 (app shell, forms dashboard) again left the form's own code alone: the router
+// table gained two settings pages and breadcrumb titles (0.6 KB), the stylesheet the shell's
+// and dashboard's classes (0.5 KB), and the theme thumbnail's shared code split one chunk in
+// two (0.4 KB): 213.8 KB, so the budget is 214 KB.
+const PUBLIC_FORM_BUDGET_KB = 214;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',

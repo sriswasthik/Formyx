@@ -1,5 +1,10 @@
-import { loginInputSchema, registerInputSchema, TRIAL_PLAN } from '@formyx/shared';
-import { Router } from 'express';
+import {
+  loginInputSchema,
+  registerInputSchema,
+  TRIAL_PLAN,
+  type MeResponse,
+} from '@formyx/shared';
+import { Router, type Response } from 'express';
 import type { AppDependencies } from '../app.js';
 import { trialsStart } from '../billing/trial.js';
 import { createDemoAccounts } from '../demo/demo-seed.js';
@@ -10,10 +15,40 @@ import { getAuth, type AuthGuards } from '../middleware/auth.js';
 import { createAuthRateLimiters } from '../middleware/rate-limit.js';
 import { createAuthService } from '../services/auth-service.js';
 
+/**
+ * What follows a new account, however it was made: the sign-up is counted, the welcome email
+ * is queued (`account.created`), and the free trial, where plans are enforced, is counted too.
+ */
+export function announceNewAccount(
+  { env, analytics, events }: Pick<AppDependencies, 'env' | 'analytics' | 'events'>,
+  me: MeResponse,
+): void {
+  const actor = { userId: me.user.id, workspaceId: me.workspaces[0]?.id };
+  analytics.track({ name: 'signed_up' }, actor);
+  events.emit('account.created', { userId: me.user.id });
+  if (trialsStart(env.ENTITLEMENTS_MODE)) {
+    analytics.track({ name: 'trial_started', properties: { targetPlan: TRIAL_PLAN } }, actor);
+  }
+}
+
+/** Signs `userId` in, at their current password, so a later change signs this out. */
+export async function setSessionFor(
+  { env, prisma }: Pick<AppDependencies, 'env' | 'prisma'>,
+  res: Response,
+  userId: string,
+): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordVersion: true },
+  });
+  setSessionCookie(res, userId, env, user?.passwordVersion ?? 0);
+}
+
 export function createAuthRouter(
-  { env, prisma, analytics, events }: AppDependencies,
+  deps: AppDependencies,
   { requireAuth }: AuthGuards,
 ): Router {
+  const { env, prisma } = deps;
   const router = Router();
   const auth = createAuthService({
     prisma,
@@ -23,14 +58,7 @@ export function createAuthRouter(
   const limit = createAuthRateLimiters(env);
   const demo = createDemoAccounts(prisma);
 
-  /** Signs `userId` in, at their current password, so a later change signs this out. */
-  async function signIn(res: Parameters<typeof setSessionCookie>[0], userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { passwordVersion: true },
-    });
-    setSessionCookie(res, userId, env, user?.passwordVersion ?? 0);
-  }
+  const signIn = (res: Response, userId: string) => setSessionFor(deps, res, userId);
 
   // These responses carry personal data or set the session cookie: never cache them.
   router.use((_req, res, next) => {
@@ -41,12 +69,7 @@ export function createAuthRouter(
   router.post('/register', limit.register, async (req, res) => {
     const me = await auth.register(registerInputSchema.parse(req.body));
     await signIn(res, me.user.id);
-    const actor = { userId: me.user.id, workspaceId: me.workspaces[0]?.id };
-    analytics.track({ name: 'signed_up' }, actor);
-    events.emit('account.created', { userId: me.user.id });
-    if (trialsStart(env.ENTITLEMENTS_MODE)) {
-      analytics.track({ name: 'trial_started', properties: { targetPlan: TRIAL_PLAN } }, actor);
-    }
+    announceNewAccount(deps, me);
     res.status(201).json(me);
   });
 

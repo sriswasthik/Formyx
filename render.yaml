@@ -73,11 +73,20 @@ services:
       # `pnpm --filter @formyx/api keys:new` and keep it safe: losing it means reconnecting.
       - key: ENCRYPTION_KEYS
         sync: false
-      # Google Sheets and Notion integrations; leave empty to hide them.
+      # Signing in with Google, and the Google Sheets and Notion integrations; leave empty to
+      # hide them.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # Signing in with Zoho; leave empty to hide it. ZOHO_ACCOUNTS_URL is the client's data
+      # centre (https://accounts.zoho.in for India).
+      - key: ZOHO_CLIENT_ID
+        sync: false
+      - key: ZOHO_CLIENT_SECRET
+        sync: false
+      - key: ZOHO_ACCOUNTS_URL
+        value: https://accounts.zoho.com
       - key: NOTION_CLIENT_ID
         sync: false
       - key: NOTION_CLIENT_SECRET

@@ -1,4 +1,4 @@
-import type { FormSummary } from '@formyx/shared';
+import { createDefaultTheme, type FormListItem } from '@formyx/shared';
 import { describe, expect, it } from 'vitest';
 import {
   filtersFromKey,
@@ -13,7 +13,7 @@ import {
   upsertForm,
 } from './form-list-cache';
 
-function summary(overrides: Partial<FormSummary>): FormSummary {
+function summary(overrides: Partial<FormListItem>): FormListItem {
   return {
     id: 'f1',
     workspaceId: 'w1',
@@ -25,6 +25,8 @@ function summary(overrides: Partial<FormSummary>): FormSummary {
     createdAt: '2026-09-01T10:00:00.000Z',
     updatedAt: '2026-09-29T10:00:00.000Z',
     publishedAt: null,
+    theme: createDefaultTheme(),
+    responsesToday: 2,
     ...overrides,
   };
 }
@@ -100,6 +102,7 @@ describe('optimisticCopy', () => {
       status: 'DRAFT',
       version: 1,
       responseCount: 0,
+      responsesToday: 0,
       publishedAt: null,
       updatedAt: now.toISOString(),
     });

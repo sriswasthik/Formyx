@@ -182,13 +182,24 @@ export const envSchema = z.object({
         .url({ protocol: /^postgres(ql)?$/, error: 'Must be a postgres:// connection string' })
         .optional(),
     ),
-  /** Google OAuth client, for Google Sheets. Without both, Sheets can't be connected. */
+  /**
+   * Google OAuth client, for signing in with Google and for Google Sheets. Without both,
+   * neither is available.
+   */
   GOOGLE_CLIENT_ID: optionalSecret,
   GOOGLE_CLIENT_SECRET: optionalSecret,
   /** Google's sign-in and APIs. Only changed for end-to-end tests (a fake Google). */
   GOOGLE_OAUTH_URL: serviceUrl('https://accounts.google.com'),
   GOOGLE_TOKEN_URL: serviceUrl('https://oauth2.googleapis.com'),
   GOOGLE_SHEETS_URL: serviceUrl('https://sheets.googleapis.com'),
+  /** Zoho OAuth client, for signing in with Zoho. Without both, the Zoho button is hidden. */
+  ZOHO_CLIENT_ID: optionalSecret,
+  ZOHO_CLIENT_SECRET: optionalSecret,
+  /**
+   * The Zoho data centre the client was made in (https://accounts.zoho.in for India). People
+   * from other data centres come back with their own, which must be one of Zoho's.
+   */
+  ZOHO_ACCOUNTS_URL: serviceUrl('https://accounts.zoho.com'),
   /** Notion public integration, for Notion. Without both, Notion can't be connected. */
   NOTION_CLIENT_ID: optionalSecret,
   NOTION_CLIENT_SECRET: optionalSecret,

@@ -1,3 +1,4 @@
+import { isAfterSignInPath } from '@formyx/shared';
 import type { Location } from 'react-router';
 
 export const DEFAULT_AUTHENTICATED_PATH = '/app';
@@ -24,11 +25,7 @@ export function getRedirectTarget(state: unknown): string {
     return DEFAULT_AUTHENTICATED_PATH;
   }
   const { from } = state;
-  if (typeof from !== 'string') return DEFAULT_AUTHENTICATED_PATH;
-
-  const isAppPath = from === '/app' || /^\/app[/?#]/.test(from);
-  const isInvitePath = /^\/invite\/[\w-]+$/.test(from);
-  return isAppPath || isInvitePath ? from : DEFAULT_AUTHENTICATED_PATH;
+  return typeof from === 'string' && isAfterSignInPath(from) ? from : DEFAULT_AUTHENTICATED_PATH;
 }
 
 /** The email to start the log-in or sign-up form with, if the state carries one. */

@@ -9,6 +9,7 @@ import {
   completionRate,
   createQuestionSummaries,
   dateKey,
+  startOfDayIn,
   shareOf,
   type AnalyzableSubmission,
   type ChoiceSummary,
@@ -349,6 +350,23 @@ describe('derived numbers', () => {
   it('gives a zero share of nothing', () => {
     expect(shareOf(0, 0)).toBe(0);
     expect(shareOf(1, 4)).toBe(0.25);
+  });
+});
+
+describe('startOfDayIn', () => {
+  it('is midnight where the workspace is', () => {
+    const now = new Date('2026-10-14T20:30:00.000Z');
+    expect(startOfDayIn('UTC', now).toISOString()).toBe('2026-10-14T00:00:00.000Z');
+    // 02:00 on the 15th in India, so its day began at 18:30 UTC on the 14th.
+    expect(startOfDayIn('Asia/Kolkata', now).toISOString()).toBe('2026-10-14T18:30:00.000Z');
+    // 16:30 on the 14th in New York (UTC-4 in October).
+    expect(startOfDayIn('America/New_York', now).toISOString()).toBe('2026-10-14T04:00:00.000Z');
+  });
+
+  it('allows for a change of clocks on the day', () => {
+    // London goes back an hour at 02:00 on 25 October 2026; its midnight was still in summer time.
+    const now = new Date('2026-10-25T12:00:00.000Z');
+    expect(startOfDayIn('Europe/London', now).toISOString()).toBe('2026-10-24T23:00:00.000Z');
   });
 });
 

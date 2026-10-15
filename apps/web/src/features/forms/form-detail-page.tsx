@@ -5,11 +5,12 @@ import {
   isAnswerableFieldType,
   type FormDetail,
 } from '@formyx/shared';
-import { ArrowLeft, Eye, FileQuestion, Inbox, Lock, RotateCw } from 'lucide-react';
+import { Eye, FileQuestion, Inbox, Lock, RotateCw } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router';
 import { usePageTitle } from '@/app/page-title';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,18 +21,6 @@ import { EditedAt } from './form-card';
 import { FormStatusBadge } from './form-status-badge';
 import { questionCountLabel, responseCountLabel } from './format';
 import { useFormDetail } from './use-forms';
-
-function BackToForms() {
-  return (
-    <Link
-      to="/app/forms"
-      className="inline-flex w-fit items-center gap-1.5 rounded-md text-13 text-muted-foreground transition-colors duration-150 ease-standard hover:text-foreground"
-    >
-      <ArrowLeft aria-hidden />
-      All forms
-    </Link>
-  );
-}
 
 function BackButton() {
   return (
@@ -82,8 +71,10 @@ function QuestionList({ form }: { form: FormDetail }) {
 function FormDetailSkeleton() {
   return (
     <div role="status" aria-label="Loading form" className="flex flex-col gap-6">
-      <Skeleton className="h-4 w-20" />
-      <Skeleton className="h-5 w-64 max-w-full" />
+      <div className="flex flex-col gap-2.5">
+        <Skeleton className="h-7 w-64 max-w-full" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
       <Skeleton className="h-48 w-full rounded-xl" />
     </div>
   );
@@ -153,17 +144,20 @@ export function FormDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <BackToForms />
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-13 text-muted-foreground">
-          <FormStatusBadge status={form.status} />
-          <span className="tabular-nums">{questionCountLabel(questionCount)}</span>
-          <span aria-hidden>·</span>
-          <span className="tabular-nums">{responseCountLabel(form.responseCount)}</span>
-          <span aria-hidden>·</span>
-          <EditedAt updatedAt={form.updatedAt} now={now} />
-        </p>
-      </div>
+      {/* The breadcrumbs above lead back to Forms. */}
+      <PageHeader
+        title={form.title}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <FormStatusBadge status={form.status} />
+            <span>{questionCountLabel(questionCount)}</span>
+            <span aria-hidden>·</span>
+            <span>{responseCountLabel(form.responseCount)}</span>
+            <span aria-hidden>·</span>
+            <EditedAt updatedAt={form.updatedAt} now={now} />
+          </span>
+        }
+      />
 
       <div className="flex flex-col gap-3 rounded-lg border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="flex items-center gap-2 text-14 text-muted-foreground">

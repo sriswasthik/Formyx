@@ -86,7 +86,7 @@ describe('auth routes', () => {
 
       const user = await prisma.user.findUniqueOrThrow({ where: { email: ada.email } });
       expect(user.passwordHash).not.toBe(ada.password);
-      expect(await bcrypt.compare(ada.password, user.passwordHash)).toBe(true);
+      expect(await bcrypt.compare(ada.password, user.passwordHash ?? '')).toBe(true);
       expect(JSON.stringify(res.body)).not.toContain(user.passwordHash);
       expect(res.headers['cache-control']).toBe('no-store');
     });

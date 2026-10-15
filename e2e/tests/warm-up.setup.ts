@@ -21,8 +21,8 @@ setup('compile the main pages once', async ({ page }) => {
   await page.goto(`/app/forms/${formId}/responses`);
   await expect(page.getByRole('tab', { name: 'Summary' })).toBeVisible({ timeout: 60_000 });
 
-  await page.goto('/app/settings/workspace');
-  await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible({ timeout: 60_000 });
+  await page.goto('/app/settings/members');
+  await expect(page.getByRole('list', { name: 'Members' })).toBeVisible({ timeout: 60_000 });
 
   await page.goto(publicPath);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });

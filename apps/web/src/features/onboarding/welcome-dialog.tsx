@@ -173,7 +173,9 @@ export function WelcomeDialog({
                       className={`${optionClass} flex-col p-2`}
                     >
                       {/* On phones the names say enough, and the buttons stay in view. */}
-                      <TemplateThumbnail template={template} className="hidden border sm:flex" />
+                      <span className="hidden sm:block">
+                        <TemplateThumbnail template={template} className="border" />
+                      </span>
                       <span className="flex items-start gap-2 px-1 pb-1">
                         <RadioGroupItem
                           id={`suggested-${template.id}`}

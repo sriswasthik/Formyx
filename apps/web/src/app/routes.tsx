@@ -205,7 +205,10 @@ export const routes: RouteObject[] = [
               {
                 path: 'forms/:formId',
                 // Replaced by the form's own title once it loads.
-                handle: { title: 'Form' } satisfies RouteHandle,
+                handle: {
+                  title: 'Form',
+                  parent: { title: 'Forms', to: '/app/forms' },
+                } satisfies RouteHandle,
                 lazy: async () => {
                   const { FormDetailPage } = await import('@/features/forms/form-detail-page');
                   return { Component: FormDetailPage };
@@ -229,6 +232,7 @@ export const routes: RouteObject[] = [
                 children: [
                   {
                     index: true,
+                    handle: { title: 'Preferences' } satisfies RouteHandle,
                     lazy: async () => {
                       const { PreferencesPage } =
                         await import('@/features/settings/preferences-page');
@@ -237,6 +241,7 @@ export const routes: RouteObject[] = [
                   },
                   {
                     path: 'workspace',
+                    handle: { title: 'Workspace' } satisfies RouteHandle,
                     lazy: async () => {
                       const { WorkspaceSettingsPage } =
                         await import('@/features/settings/workspace/workspace-settings-page');
@@ -244,7 +249,26 @@ export const routes: RouteObject[] = [
                     },
                   },
                   {
+                    path: 'members',
+                    handle: { title: 'Members' } satisfies RouteHandle,
+                    lazy: async () => {
+                      const { MembersPage } =
+                        await import('@/features/settings/workspace/members-page');
+                      return { Component: MembersPage };
+                    },
+                  },
+                  {
+                    path: 'brand-kits',
+                    handle: { title: 'Brand kits' } satisfies RouteHandle,
+                    lazy: async () => {
+                      const { BrandKitsPage } =
+                        await import('@/features/brand-kits/brand-kits-page');
+                      return { Component: BrandKitsPage };
+                    },
+                  },
+                  {
                     path: 'billing',
+                    handle: { title: 'Billing' } satisfies RouteHandle,
                     lazy: async () => {
                       const { BillingPage } = await import('@/features/billing/billing-page');
                       return { Component: BillingPage };
@@ -252,6 +276,7 @@ export const routes: RouteObject[] = [
                   },
                   {
                     path: 'referrals',
+                    handle: { title: 'Referrals' } satisfies RouteHandle,
                     lazy: async () => {
                       const { ReferralsPage } = await import('@/features/settings/referrals-page');
                       return { Component: ReferralsPage };

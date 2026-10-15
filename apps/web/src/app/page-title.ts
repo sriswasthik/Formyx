@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useMatches } from 'react-router';
 import { create } from 'zustand';
-import { getRouteTitle } from './route-handle';
+import { getBreadcrumbs, getRouteTitle, type Breadcrumb } from './route-handle';
 
 const usePageTitleStore = create<{ title: string | null }>()(() => ({ title: null }));
 
@@ -17,6 +17,12 @@ export function usePageTitle(title: string | undefined): void {
       usePageTitleStore.setState({ title: null });
     };
   }, [title]);
+}
+
+/** The trail to the current page, its last step named by the page's own title if it set one. */
+export function useBreadcrumbs(): Breadcrumb[] {
+  const override = usePageTitleStore((state) => state.title);
+  return getBreadcrumbs(useMatches(), override ?? undefined);
 }
 
 /** The page's own title if it set one, otherwise the deepest route's `handle.title`. */

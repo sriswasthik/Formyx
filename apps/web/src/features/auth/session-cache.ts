@@ -1,4 +1,4 @@
-import type { MeResponse } from '@formyx/shared';
+import { SIGN_IN_ERROR_PARAM, type MeResponse } from '@formyx/shared';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const meQueryKey = ['auth', 'me'] as const;
@@ -17,6 +17,34 @@ export function hasSessionHint(): boolean {
     // Storage unavailable (privacy mode): fall back to asking the API.
     return true;
   }
+}
+
+/**
+ * Set while the browser is away at Google or Zoho. The hint is set before leaving, since a
+ * sign-in that works comes back already signed in; this tells a failed one (which comes back
+ * to the log-in page with an error) to drop it again, without asking the API.
+ */
+const PROVIDER_PENDING_KEY = 'formyx-provider-sign-in';
+
+export function noteProviderSignIn(): void {
+  setSessionHint(true);
+  try {
+    window.sessionStorage.setItem(PROVIDER_PENDING_KEY, '1');
+  } catch {
+    // Without it a failed sign-in costs one request that answers 401.
+  }
+}
+
+/** Whether the page loaded just as a provider sign-in came back failed. Asks once. */
+export function providerSignInFailed(search: string = window.location.search): boolean {
+  let pending = false;
+  try {
+    pending = window.sessionStorage.getItem(PROVIDER_PENDING_KEY) === '1';
+    window.sessionStorage.removeItem(PROVIDER_PENDING_KEY);
+  } catch {
+    return false;
+  }
+  return pending && new URLSearchParams(search).has(SIGN_IN_ERROR_PARAM);
 }
 
 export function setSessionHint(signedIn: boolean): void {

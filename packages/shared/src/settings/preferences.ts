@@ -115,8 +115,21 @@ export const changePasswordInputSchema = z
   });
 export type ChangePasswordInput = z.infer<typeof changePasswordInputSchema>;
 
-/** Body of `POST /api/account/delete`. */
-export const deleteAccountInputSchema = z.object({ password: currentPasswordSchema });
+/**
+ * Body of `POST /api/account/password/set`: a first password, for an account made through
+ * Google or Zoho. Accounts that have one change it instead.
+ */
+export const setPasswordInputSchema = z.object({ newPassword: newPasswordSchema });
+export type SetPasswordInput = z.infer<typeof setPasswordInputSchema>;
+
+/**
+ * Body of `POST /api/account/delete`: the password confirms it, or, for an account without
+ * one, the account's email typed out.
+ */
+export const deleteAccountInputSchema = z.union([
+  z.object({ password: currentPasswordSchema }),
+  z.object({ email: z.string().trim().toLowerCase().min(1, 'Enter your email') }),
+]);
 export type DeleteAccountInput = z.infer<typeof deleteAccountInputSchema>;
 
 /** `details` of the 409 refusing to delete an account that is a workspace's only owner. */

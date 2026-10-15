@@ -77,6 +77,8 @@ export const sessionUserSchema = z.object({
   isDemo: z.boolean().optional(),
   /** Formyx's own admins, who may open /admin. Left out for everyone else. */
   isAdmin: z.boolean().optional(),
+  /** False for accounts that sign in only with Google or Zoho. Left out when there is one. */
+  hasPassword: z.boolean().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

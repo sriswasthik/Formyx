@@ -225,13 +225,13 @@ Share › Embed gives a snippet for any page:
 
 | Route                  | JS + CSS (KB, gzip) |
 | ---------------------- | ------------------- |
-| Public form `/f/:slug` | 212                 |
-| Landing                | 228                 |
-| Forms dashboard        | 270                 |
-| Responses              | 297                 |
-| Editor                 | 397                 |
+| Public form `/f/:slug` | 214                 |
+| Landing                | 229                 |
+| Forms dashboard        | 307                 |
+| Responses              | 323                 |
+| Editor                 | 432                 |
 
-`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 213 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars, to 200 KB in Sprint 12 for the new question types, to 205 KB in Sprint 13 for pages, jumps, piping, shuffling and saved progress, and step by step to 213 KB since, most recently for the badge's logo and the landing page's share of the one stylesheet; it measures 212.3 KB). End screens, saving by email, resuming from a link and the browser's own quiz marking load only when needed, and the checks that span a whole form schema (`formSchema`) stay out: the public form reads published forms with `formSchemaShape`, since the server checked them when they were published. The controls for newer question types, file uploads, image and video blocks and the phone country table load only with forms that use them. The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
+`pnpm --filter @formyx/web size` prints these after a build, and CI fails if the public form passes its 214 KB budget (raised from 190 KB in Sprint 11 for forty fonts, choice and button styles and progress bars, to 200 KB in Sprint 12 for the new question types, to 205 KB in Sprint 13 for pages, jumps, piping, shuffling and saved progress, and step by step to 214 KB since, most recently for the app's router table and the shell's share of the one stylesheet; it measures 213.8 KB). End screens, saving by email, resuming from a link and the browser's own quiz marking load only when needed, and the checks that span a whole form schema (`formSchema`) stay out: the public form reads published forms with `formSchemaShape`, since the server checked them when they were published. The controls for newer question types, file uploads, image and video blocks and the phone country table load only with forms that use them. The Design Studio, presets, brand kits and readability checks load only in the editor; a form's fonts, their loaders, resized fallbacks and photo textures load only when a form uses them, and the conversational flow only for conversational forms (the public page loads it behind the skeleton, so it never pops in).
 
 Lighthouse on the public form, served from a production build: **99** performance, **100** accessibility, **100** best practices and **100** SEO on desktop (first contentful paint 0.7 s, no layout shift). On Lighthouse's simulated slow 4G phone, performance is **75 to 83** and the other three stay at 100.
 

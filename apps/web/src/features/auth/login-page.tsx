@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router';
 import { AuthLayout, AuthLink } from './auth-layout';
 import { LoginForm } from './login-form';
+import { ProviderSignIn } from './provider-sign-in';
 import { getRedirectEmail } from './redirect';
 
 export function LoginPage() {
@@ -20,6 +21,7 @@ export function LoginPage() {
         </>
       }
     >
+      <ProviderSignIn page="login" />
       <LoginForm defaultEmail={getRedirectEmail(state)} />
     </AuthLayout>
   );

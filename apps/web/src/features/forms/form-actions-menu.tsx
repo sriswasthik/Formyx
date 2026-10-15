@@ -1,7 +1,17 @@
 import { formResponsesPath, type FormSummary } from '@formyx/shared';
-import { Copy, FolderOpen, Inbox, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  FolderOpen,
+  Inbox,
+  Link2,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { useRef } from 'react';
 import { Link } from 'react-router';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { formOpenPath } from './form-paths';
+import { formOpenPath, publicFormPath, publicFormUrl } from './form-paths';
 
 export type FormAction = 'rename' | 'duplicate' | 'delete';
 
@@ -63,6 +73,31 @@ export function FormActionsMenu({ form, canEdit, onAction, className }: FormActi
             Responses
           </Link>
         </DropdownMenuItem>
+        {form.status === 'PUBLISHED' && (
+          <>
+            <DropdownMenuItem asChild>
+              <a href={publicFormPath(form.slug)} target="_blank" rel="noopener">
+                <ExternalLink aria-hidden />
+                Preview
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                navigator.clipboard.writeText(publicFormUrl(form.slug)).then(
+                  () => {
+                    toast.success('Link copied');
+                  },
+                  () => {
+                    toast.error('Could not copy the link');
+                  },
+                );
+              }}
+            >
+              <Link2 aria-hidden />
+              Copy link
+            </DropdownMenuItem>
+          </>
+        )}
         {canEdit && (
           <>
             <DropdownMenuItem

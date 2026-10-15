@@ -1,4 +1,4 @@
-import type { CreateFormInput, FormSummary } from '@formyx/shared';
+import type { CreateFormInput, FormListItem, FormListResponse } from '@formyx/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ import {
   insertForm,
   optimisticCopy,
   removeForm,
-  toSummary,
+  toListItem,
   upsertForm,
 } from './form-list-cache';
 import {
@@ -22,10 +22,15 @@ import {
   type FormFilters,
 } from './forms-api';
 
-export function useFormsList(workspaceId: string, filters: FormFilters) {
+/**
+ * A workspace's forms, all of them by default: the dashboard filters, counts and sorts them
+ * itself, and the sidebar and command palette share the same list.
+ */
+export function useFormsList(workspaceId: string, filters: FormFilters = {}) {
   return useQuery({
     queryKey: formKeys.list(workspaceId, filters),
     queryFn: () => listForms(workspaceId, filters),
+    enabled: workspaceId !== '',
     // While a new search or filter loads, keep showing this workspace's previous results.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
@@ -64,17 +69,22 @@ function useFormListCache(workspaceId: string) {
 
   return useMemo(() => {
     const queryKey = formKeys.lists(workspaceId);
-    type Snapshot = [readonly unknown[], FormSummary[] | undefined][];
+    type Snapshot = [readonly unknown[], FormListResponse | undefined][];
 
     return {
       /** Stops in-flight fetches (so they cannot overwrite the optimistic state) and saves every list. */
       async snapshot(): Promise<Snapshot> {
         await queryClient.cancelQueries({ queryKey });
-        return queryClient.getQueriesData<FormSummary[]>({ queryKey });
+        return queryClient.getQueriesData<FormListResponse>({ queryKey });
       },
-      update(change: (forms: FormSummary[], filters: FormFilters) => FormSummary[]) {
-        for (const [key, forms] of queryClient.getQueriesData<FormSummary[]>({ queryKey })) {
-          if (forms) queryClient.setQueryData(key, change(forms, filtersFromKey(key)));
+      update(change: (forms: FormListItem[], filters: FormFilters) => FormListItem[]) {
+        for (const [key, list] of queryClient.getQueriesData<FormListResponse>({ queryKey })) {
+          if (list) {
+            queryClient.setQueryData(key, {
+              ...list,
+              forms: change(list.forms, filtersFromKey(key)),
+            });
+          }
         }
       },
       restore(snapshot: Snapshot) {
@@ -95,7 +105,7 @@ export function useCreateForm(workspaceId: string) {
     mutationFn: (input: CreateFormInput) => createForm(workspaceId, input),
     onSuccess: (form) => {
       queryClient.setQueryData(formKeys.detail(form.id), form);
-      lists.update((forms, filters) => insertForm(forms, toSummary(form), filters));
+      lists.update((forms, filters) => insertForm(forms, toListItem(form), filters));
       void lists.refresh();
     },
   });
@@ -106,7 +116,7 @@ export function useRenameForm(workspaceId: string) {
   const lists = useFormListCache(workspaceId);
 
   return useMutation({
-    mutationFn: ({ form, title }: { form: FormSummary; title: string }) =>
+    mutationFn: ({ form, title }: { form: FormListItem; title: string }) =>
       updateForm(form.id, { version: form.version, title }),
     onMutate: async ({ form, title }) => {
       const snapshot = await lists.snapshot();
@@ -116,7 +126,17 @@ export function useRenameForm(workspaceId: string) {
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(formKeys.detail(updated.id), updated);
-      lists.update((forms, filters) => upsertForm(forms, updated.id, toSummary(updated), filters));
+      lists.update((forms, filters) =>
+        upsertForm(
+          forms,
+          updated.id,
+          toListItem(
+            updated,
+            forms.find((form) => form.id === updated.id),
+          ),
+          filters,
+        ),
+      );
     },
     onError: (error, _input, context) => {
       if (context) lists.restore(context.snapshot);
@@ -131,7 +151,7 @@ export function useDuplicateForm(workspaceId: string) {
   const lists = useFormListCache(workspaceId);
 
   return useMutation({
-    mutationFn: (form: FormSummary) => duplicateForm(form.id),
+    mutationFn: (form: FormListItem) => duplicateForm(form.id),
     onMutate: async (form) => {
       const snapshot = await lists.snapshot();
       const placeholder = optimisticCopy(form);
@@ -141,7 +161,7 @@ export function useDuplicateForm(workspaceId: string) {
     onSuccess: (created, _form, context) => {
       queryClient.setQueryData(formKeys.detail(created.id), created);
       lists.update((forms, filters) =>
-        upsertForm(forms, context.placeholderId, toSummary(created), filters),
+        upsertForm(forms, context.placeholderId, toListItem(created), filters),
       );
     },
     onError: (error, _form, context) => {
@@ -157,7 +177,7 @@ export function useDeleteForm(workspaceId: string) {
   const lists = useFormListCache(workspaceId);
 
   return useMutation({
-    mutationFn: (form: FormSummary) => deleteForm(form.id),
+    mutationFn: (form: FormListItem) => deleteForm(form.id),
     onMutate: async (form) => {
       const snapshot = await lists.snapshot();
       lists.update((forms) => removeForm(forms, form.id));
