@@ -39,7 +39,7 @@ export function createFormsRouter(
     newAccountLimits: env.NEW_ACCOUNT_LIMITS,
   });
   const brandKits = createBrandKitService(prisma, entitlements);
-  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
+  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER, appUrl: env.APP_URL });
   const onboarding = createOnboardingService(prisma);
 
   /**

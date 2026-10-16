@@ -12,6 +12,7 @@ import { createBillingRouter } from './billing.js';
 import { createBrandKitsRouter } from './brand-kits.js';
 import { createFeedbackRouter } from './feedback.js';
 import { createFormSettingsRouter } from './form-settings.js';
+import { createFilesRouter } from './files.js';
 import { createFormsRouter } from './forms.js';
 import { createIntegrationsRouter } from './integrations.js';
 import { createHealthRouter } from './health.js';
@@ -55,6 +56,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createFormsRouter(deps, guards));
   router.use(createFormSettingsRouter(deps, guards));
   router.use(createSubmissionsRouter(deps, guards));
+  router.use(createFilesRouter(deps, guards));
   router.use(createAnalyticsRouter(deps, guards));
   router.use(createNotificationsRouter(deps, guards));
   router.use(createWorkspacesRouter(deps, guards));

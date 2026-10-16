@@ -91,8 +91,9 @@ export function contentSecurityPolicy({
     ].join(' '),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
-    // Voice notes: a respondent's own recording, and uploads played back in responses.
-    "media-src 'self' blob: https://res.cloudinary.com",
+    // Voice notes: a respondent's own recording, and uploads played back in responses (old
+    // public files from res.cloudinary.com, private ones by signed download links).
+    "media-src 'self' blob: https://res.cloudinary.com https://api.cloudinary.com",
     "font-src 'self'",
     `connect-src ${connect.join(' ')}`,
     // Video blocks: the privacy-friendly YouTube and Vimeo players only.

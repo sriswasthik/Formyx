@@ -28,6 +28,10 @@ function fakeStorage(): UploadStorage & { deleted: string[] } {
     signUpload: vi.fn(),
     describe: vi.fn(),
     publicIdOf: vi.fn(),
+    locate: vi.fn(),
+    downloadUrl: vi.fn(),
+    readHead: vi.fn(),
+    makePrivate: vi.fn(),
     deleteFiles: vi.fn((urls: readonly string[]) => {
       deleted.push(...urls);
       return Promise.resolve();

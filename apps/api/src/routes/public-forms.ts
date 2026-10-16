@@ -53,7 +53,7 @@ export function createPublicFormsRouter({
   const captchaKeys = turnstileKeys(env);
   const forms = createPublicFormService({
     prisma,
-    uploads: createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER }),
+    uploads: createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER, appUrl: env.APP_URL }),
     secret: env.JWT_SECRET,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mailer,

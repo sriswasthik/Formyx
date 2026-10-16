@@ -40,7 +40,9 @@ describe('contentSecurityPolicy', () => {
 
   it('plays uploaded voice notes and embeds YouTube and Vimeo players only', () => {
     const policy = contentSecurityPolicy({ scriptHashes: [], frameAncestors: '*' });
-    expect(policy).toContain("media-src 'self' blob: https://res.cloudinary.com;");
+    expect(policy).toContain(
+      "media-src 'self' blob: https://res.cloudinary.com https://api.cloudinary.com;",
+    );
     expect(policy).toContain(
       'frame-src https://www.youtube-nocookie.com https://player.vimeo.com;',
     );

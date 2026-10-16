@@ -52,8 +52,11 @@ export function fileProblem(
 
 /** An uploaded file, as an answer to a file question. */
 export const fileAnswerSchema = z.object({
-  /** Where to download it (https). */
-  url: z.url({ protocol: /^https$/ }).max(2048),
+  /**
+   * Where to download it: a Formyx file link for private files (which checks who asks), or
+   * the storage's https address for older public ones. Plain http only in development.
+   */
+  url: z.url({ protocol: /^https?$/ }).max(2048),
   /** The file's id in storage; the server checks it really was uploaded for this question. */
   publicId: z.string().min(1).max(512),
   /** The name it had on the respondent's device. */

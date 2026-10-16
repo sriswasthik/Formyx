@@ -142,6 +142,15 @@ const ENDPOINTS: Endpoint[] = [
     call: (as, f) => as.get(`${forms(f)}/submissions/export`),
   },
   {
+    name: 'open a respondent’s file',
+    minRole: 'VIEWER',
+    ok: 302,
+    call: (as, f) =>
+      as.get(
+        `${forms(f)}/files/raw/${encodeURIComponent(`formyx/forms/${f.formId}/fld/x_cv.pdf`)}`,
+      ),
+  },
+  {
     name: 'read a response',
     minRole: 'VIEWER',
     ok: 200,

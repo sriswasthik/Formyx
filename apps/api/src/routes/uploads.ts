@@ -31,7 +31,7 @@ export function createUploadsRouter(
   const root = env.CLOUDINARY_FOLDER;
   const forms = createPublicFormService({
     prisma,
-    uploads: createUploadChecks({ storage, root }),
+    uploads: createUploadChecks({ storage, root, appUrl: env.APP_URL }),
     secret: env.JWT_SECRET,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mailer,
@@ -70,6 +70,8 @@ export function createUploadsRouter(
           folder: answerFolder(root, form.id, field.id),
           allowedFormats: rules.extensions,
           maxBytes: rules.maxSizeMb * BYTES_PER_MB,
+          // Respondents' files: only reachable through Formyx, by the workspace's members.
+          private: true,
         });
       } else {
         const { userId } = getAuth(req);

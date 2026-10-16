@@ -287,8 +287,18 @@ test('fills in a form with every new question type', async ({ page }, testInfo) 
     await page.goto(`/app/forms/${formId}/responses?tab=responses`);
     await page.getByRole('row').nth(1).click();
     const drawer = page.getByRole('dialog');
-    await expect(drawer.getByRole('img', { name: 'Signature' })).toBeVisible();
-    await expect(drawer.locator('audio')).toHaveAttribute('src', /res\.cloudinary\.com/);
+    const signature = drawer.getByRole('img', { name: 'Signature' });
+    await expect(signature).toBeVisible();
+    // Respondents' files are private: members reach them through Formyx file links, which
+    // send them on to a download link that works for a few minutes.
+    await expect(signature).toHaveAttribute('src', new RegExp(`/api/forms/${formId}/files/image/`));
+    await expect
+      .poll(() => signature.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    await expect(drawer.locator('audio')).toHaveAttribute(
+      'src',
+      new RegExp(`/api/forms/${formId}/files/video/`),
+    );
     await expect(drawer.getByText('Promoter')).toBeVisible();
   }
 

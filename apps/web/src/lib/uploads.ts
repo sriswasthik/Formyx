@@ -78,6 +78,7 @@ export function uploadToStorage(
     body.append('signature', signature.signature);
     body.append('folder', signature.folder);
     body.append('allowed_formats', signature.allowedFormats);
+    if (signature.type) body.append('type', signature.type);
 
     const xhr = new XMLHttpRequest();
     const abort = () => {
