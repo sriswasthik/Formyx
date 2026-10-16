@@ -10,13 +10,25 @@ export interface WorkspaceService {
   /** A new workspace, owned by `userId`. */
   create(userId: string, name: string): Promise<WorkspaceSummary>;
   rename(workspaceId: string, name: string, role: Role): Promise<WorkspaceSummary>;
-  /** Deletes the workspace with its forms and responses. */
+  /**
+   * Deletes the workspace with its forms and responses, cancelling its plan first so it is
+   * never charged again. Throws (and deletes nothing) if the plan can't be cancelled.
+   */
   remove(workspaceId: string): Promise<void>;
   members(workspaceId: string): Promise<Member[]>;
   /** Throws 409 LAST_OWNER rather than leave the workspace without an owner. */
   changeRole(workspaceId: string, userId: string, role: Role): Promise<Member>;
-  /** Removes a member, or lets them leave. Throws 409 LAST_OWNER for the only owner. */
+  /**
+   * Removes a member, or lets them leave. What they made (forms, brand kits, webhooks) stays
+   * in the workspace and passes to an owner; their response emails for its forms stop.
+   * Throws 409 LAST_OWNER for the only owner.
+   */
   removeMember(workspaceId: string, userId: string): Promise<void>;
+}
+
+/** What deleting a workspace needs from billing (see BillingService.endForDeletion). */
+export interface WorkspaceBilling {
+  endForDeletion(workspaceId: string): Promise<void>;
 }
 
 const memberSelect = {
@@ -67,9 +79,35 @@ async function lockOwners(tx: Transaction, workspaceId: string): Promise<string[
   return rows.map((row) => row.user_id);
 }
 
+/**
+ * Passes what `userId` made in the workspace to `heir`, an owner staying on: forms, brand
+ * kits and webhooks keep working, with someone in the workspace answerable for them.
+ */
+export async function handOver(
+  tx: Transaction,
+  workspaceId: string,
+  userId: string,
+  heir: string,
+): Promise<void> {
+  await tx.form.updateMany({
+    where: { workspaceId, createdById: userId },
+    data: { createdById: heir },
+  });
+  await tx.brandKit.updateMany({
+    where: { workspaceId, createdById: userId },
+    data: { createdById: heir },
+  });
+  await tx.webhook.updateMany({
+    where: { createdById: userId, form: { workspaceId } },
+    data: { createdById: heir },
+  });
+  await tx.formSubscription.deleteMany({ where: { userId, form: { workspaceId } } });
+}
+
 export function createWorkspaceService(
   prisma: Database,
   mode: EntitlementsMode = 'all_unlocked',
+  billing: WorkspaceBilling | null = null,
 ): WorkspaceService {
   return {
     async create(userId, name) {
@@ -107,6 +145,7 @@ export function createWorkspaceService(
     },
 
     async remove(workspaceId) {
+      await billing?.endForDeletion(workspaceId);
       await prisma.workspace.delete({ where: { id: workspaceId } });
     },
 
@@ -145,6 +184,13 @@ export function createWorkspaceService(
         if (owners.includes(userId) && owners.length <= 1) throw lastOwner();
         const { count } = await tx.membership.deleteMany({ where: { workspaceId, userId } });
         if (count === 0) throw memberNotFound();
+        // The longest-standing owner who stays (the lock returns them in any order).
+        const heir = await tx.membership.findFirst({
+          where: { workspaceId, role: 'OWNER', userId: { not: userId } },
+          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+          select: { userId: true },
+        });
+        if (heir) await handOver(tx, workspaceId, userId, heir.userId);
       });
     },
   };

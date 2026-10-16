@@ -12,6 +12,8 @@ import {
 } from '@formyx/shared';
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
+import { createBillingService } from '../billing/billing-service.js';
+import { createRazorpayClient } from '../billing/razorpay.js';
 import { routeParam } from '../lib/route-param.js';
 import { assertRole, getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createInviteLinkRateLimiter, createInviteRateLimiter } from '../middleware/rate-limit.js';
@@ -28,7 +30,8 @@ export function createWorkspacesRouter(
   { requireAuth, requireRealAccount, requireWorkspaceRole }: AuthGuards,
 ): Router {
   const router = Router();
-  const workspaces = createWorkspaceService(prisma, env.ENTITLEMENTS_MODE);
+  const billing = createBillingService({ prisma, env, razorpay: createRazorpayClient(env) });
+  const workspaces = createWorkspaceService(prisma, env.ENTITLEMENTS_MODE, billing);
   const entitlements = createEntitlementService(prisma, env.ENTITLEMENTS_MODE);
   const invites = createInviteService({ prisma, mailer, logger, appUrl: env.APP_URL });
   const limitInvites = createInviteRateLimiter(env);

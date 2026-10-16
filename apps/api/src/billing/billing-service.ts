@@ -115,6 +115,19 @@ export interface BillingService {
     input: VerifyCheckoutInput,
   ): Promise<VerifyCheckoutResponse & { plan: PaidPlan; interval: BillingInterval }>;
   cancel(workspaceId: string, input: CancelInput): Promise<BillingSummary>;
+  /**
+   * Cancels every running subscription at once, before the workspace is deleted. Throws
+   * (keeping the workspace) if one can't be cancelled; does nothing without one.
+   */
+  endForDeletion(workspaceId: string): Promise<void>;
+  /**
+   * Lets a running plan that `payerId` started end with its paid period instead of renewing
+   * (they are leaving). Does nothing for another person's plan, or none; throws if Razorpay
+   * can't be reached.
+   */
+  stopRenewing(workspaceId: string, payerId: string): Promise<void>;
+  /** Whether the workspace has a plan running (paid for, or about to be). */
+  hasRunningPlan(workspaceId: string): Promise<boolean>;
   /** Keeps a plan that is set to end: a new subscription that starts when the current one ends. */
   resume(workspaceId: string, userId: string): Promise<Checkout>;
   changePlan(workspaceId: string, input: SubscribeInput): Promise<BillingSummary>;
@@ -299,6 +312,55 @@ export function createBillingService({
         plan: subscription.plan as PaidPlan,
         interval: INTERVAL[subscription.interval],
       };
+    },
+
+    async endForDeletion(workspaceId) {
+      const running = await prisma.subscription.findMany({
+        where: { workspaceId, status: { in: RUNNING } },
+        select: { id: true, razorpaySubscriptionId: true },
+      });
+      if (running.length === 0) return;
+      if (!billingConfigured(env)) {
+        throw new AppError(
+          503,
+          'BILLING_UNAVAILABLE',
+          'This workspace’s plan can’t be cancelled right now, so it was kept. Try again later.',
+        );
+      }
+      for (const subscription of running) {
+        try {
+          // At once, not at the period's end: the workspace is about to go.
+          await razorpay.cancelSubscription(subscription.razorpaySubscriptionId, false);
+        } catch (error) {
+          providerError(error);
+        }
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: { status: 'CANCELLED', cancelReason: 'Workspace deleted' },
+        });
+      }
+    },
+
+    async stopRenewing(workspaceId, payerId) {
+      const running = await runningSubscription(workspaceId);
+      if (!running || running.cancelAtPeriodEnd || running.createdById !== payerId) return;
+      if (!billingConfigured(env)) {
+        throw new AppError(503, 'BILLING_UNAVAILABLE', 'Payments are not set up on this server.');
+      }
+      const atPeriodEnd = running.status === 'ACTIVE';
+      try {
+        await razorpay.cancelSubscription(running.razorpaySubscriptionId, atPeriodEnd);
+      } catch (error) {
+        providerError(error);
+      }
+      await prisma.subscription.update({
+        where: { id: running.id },
+        data: { cancelAtPeriodEnd: atPeriodEnd, cancelReason: 'Owner deleted their account' },
+      });
+    },
+
+    async hasRunningPlan(workspaceId) {
+      return (await runningSubscription(workspaceId)) !== null;
     },
 
     async cancel(workspaceId, input) {

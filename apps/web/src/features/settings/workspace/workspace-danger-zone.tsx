@@ -77,7 +77,8 @@ function LeaveWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
               <AlertDialogHeader>
                 <AlertDialogTitle className="break-words">Leave {workspace.name}?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  You’ll lose access to its forms and responses.
+                  You’ll lose access to its forms and responses. Forms you made stay in the
+                  workspace, looked after by one of its owners.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -161,7 +162,8 @@ function DeleteWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
                   </AlertDialogTitle>
                   <AlertDialogDescription>
                     Every form and response in it is deleted for everyone, and its members lose
-                    access. This can’t be undone.
+                    access. A paid plan is cancelled first, so it isn’t charged again. This can’t be
+                    undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="flex flex-col gap-1.5">
