@@ -59,6 +59,8 @@ export const ERROR_CODES = [
   'UNSAFE_LINK',
   /** The form's spam check (Cloudflare Turnstile) did not pass. */
   'CAPTCHA_FAILED',
+  /** A data export is no longer kept, or failed: ask for a new one. */
+  'EXPORT_EXPIRED',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

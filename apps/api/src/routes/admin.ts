@@ -1,9 +1,11 @@
 import {
+  adminDataRequestSchema,
   adminFormActionInputSchema,
   adminSearchQuerySchema,
   adminSuspendUserInputSchema,
   extendTrialInputSchema,
   grantComplimentaryInputSchema,
+  type AdminDataRequests,
   type AdminFormReview,
   type AdminReviewQueue,
   type AdminWorkspace,
@@ -46,6 +48,37 @@ export function createAdminRouter(
       action,
       note,
     );
+    res.json(body);
+  });
+
+  // Requests about personal data: exports, account deletions, respondents' requests.
+  router.get('/admin/data-requests', async (_req, res) => {
+    const rows = await prisma.dataRequest.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: {
+        id: true,
+        kind: true,
+        status: true,
+        workspaceId: true,
+        details: true,
+        createdAt: true,
+        completedAt: true,
+        user: { select: { id: true, email: true } },
+      },
+    });
+    const body: AdminDataRequests = {
+      requests: rows.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        status: row.status,
+        requester: row.user,
+        workspaceId: row.workspaceId,
+        details: adminDataRequestSchema.shape.details.catch({}).parse(row.details),
+        createdAt: row.createdAt.toISOString(),
+        completedAt: row.completedAt?.toISOString() ?? null,
+      })),
+    };
     res.json(body);
   });
 

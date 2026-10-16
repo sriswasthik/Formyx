@@ -22,56 +22,66 @@ enum Role {
 }
 
 model User {
-  id               String             @id @default(cuid())
-  name             String
+  id                   String             @id @default(cuid())
+  name                 String
   /// Stored trimmed and lowercased, so the unique index is effectively case-insensitive.
-  email            String             @unique
+  email                String             @unique
   /// Null for accounts made through Google or Zoho that have not set a password.
-  passwordHash     String?            @map("password_hash")
+  passwordHash         String?            @map("password_hash")
   /// The shared demo account (see src/demo). It signs in without a password, its data is
   /// reset every night, and anything that reaches outside Formyx is switched off for it.
-  isDemo           Boolean            @default(false) @map("is_demo")
+  isDemo               Boolean            @default(false) @map("is_demo")
   /// Goes up when the password changes; sessions carry it, so older ones stop working.
-  passwordVersion  Int                @default(0) @map("password_version")
+  passwordVersion      Int                @default(0) @map("password_version")
   /// The person's own preferences (see `accountPreferencesSchema` in packages/shared).
-  preferences      Json               @default("{}")
+  preferences          Json               @default("{}")
   /// May use /admin. Set only from the command line (`admin:grant`), never through the API.
-  isAdmin          Boolean            @default(false) @map("is_admin")
+  isAdmin              Boolean            @default(false) @map("is_admin")
   /// When they confirmed their email address: at once for Google and Zoho accounts, through
   /// the emailed link for the rest. Accounts from before Sprint 21 count as confirmed.
-  emailVerifiedAt  DateTime?          @map("email_verified_at")
+  emailVerifiedAt      DateTime?          @map("email_verified_at")
   /// Set by an admin: they can't sign in, and every form they made shows as unavailable.
-  suspendedAt      DateTime?          @map("suspended_at")
+  suspendedAt          DateTime?          @map("suspended_at")
   /// When a workspace they own started its free trial: one trial per account.
-  trialUsedAt      DateTime?          @map("trial_used_at")
+  trialUsedAt          DateTime?          @map("trial_used_at")
   /// The welcome and getting-started checklist (`onboardingStateSchema` in packages/shared).
   /// Empty for accounts from before onboarding, which never see either.
-  onboarding       Json               @default("{}")
+  onboarding           Json               @default("{}")
   /// When they last used the app, to the hour (set by `requireAuth`); for the "we miss you"
   /// email. Null until they first come back after it shipped.
-  lastActiveAt     DateTime?          @map("last_active_at")
+  lastActiveAt         DateTime?          @map("last_active_at")
   /// Their referral link's code (`/?ref=<code>`), made the first time they look at it.
-  referralCode     String?            @unique @map("referral_code")
+  referralCode         String?            @unique @map("referral_code")
   /// What brought them, when known (`signupSourceSchema`): the badge on a free form, say.
-  signupSource     String?            @map("signup_source")
-  createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
-  memberships      Membership[]
-  forms            Form[]
-  subscriptions    FormSubscription[]
-  invitesSent      Invite[]
-  webhooks         Webhook[]
-  brandKits        BrandKit[]
-  integrations     Integration[]
-  feedback         Feedback[]
-  adminActions     AdminAction[]
-  lifecycleEmails  LifecycleEmail[]
-  referralsMade    Referral[]         @relation("referrer")
-  referredBy       Referral?          @relation("friend")
-  signInIdentities SignInIdentity[]
-  reportsResolved  FormReport[]
+  signupSource         String?            @map("signup_source")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  memberships          Membership[]
+  forms                Form[]
+  subscriptions        FormSubscription[]
+  invitesSent          Invite[]
+  webhooks             Webhook[]
+  brandKits            BrandKit[]
+  integrations         Integration[]
+  feedback             Feedback[]
+  adminActions         AdminAction[]
+  lifecycleEmails      LifecycleEmail[]
+  referralsMade        Referral[]         @relation("referrer")
+  referredBy           Referral?          @relation("friend")
+  signInIdentities     SignInIdentity[]
+  reportsResolved      FormReport[]
+  dataExports          DataExport[]
+  dataRequests         DataRequest[]
+  /// Set when they ask to delete their account: it is deleted at this moment unless they
+  /// undo it first (7 days later). Null otherwise.
+  deletionScheduledFor DateTime?          @map("deletion_scheduled_for")
+  /// What happens to each workspace they own when it is deleted (`accountDeletionPlanSchema`).
+  deletionPlan         Json?              @map("deletion_plan")
+  /// SHA-256 of the token in the emailed link that undoes the deletion.
+  deletionUndoHash     String?            @unique @map("deletion_undo_hash")
 
   @@index([lastActiveAt])
+  @@index([deletionScheduledFor])
   @@map("users")
 }
 
@@ -760,4 +770,72 @@ model Referral {
   @@index([referrerId])
   @@index([resumeAt])
   @@map("referrals")
+}
+
+/// One person's copy of their data (account, owned workspaces, their forms and responses), a
+/// ZIP made by a background job. Kept for a week, downloadable only by them.
+model DataExport {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  status    DataExportStatus @default(PENDING)
+  /// The ZIP, once it is ready; cleared when it expires.
+  archive   Bytes?
+  bytes     Int?
+  expiresAt DateTime         @map("expires_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  readyAt   DateTime?        @map("ready_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("data_exports")
+}
+
+enum DataExportStatus {
+  PENDING
+  READY
+  FAILED
+  EXPIRED
+
+  @@map("data_export_status")
+}
+
+/// Every request about personal data (exports, account deletions, respondents' requests),
+/// for the admin log. Respondents' addresses are kept only as hashes.
+model DataRequest {
+  id          String            @id @default(cuid())
+  kind        DataRequestKind
+  status      DataRequestStatus @default(OPEN)
+  /// Who asked; kept, without them, once their account is deleted.
+  userId      String?           @map("user_id")
+  /// The workspace a respondent's request was made in. No relation: the log outlives it.
+  workspaceId String?           @map("workspace_id")
+  /// SHA-256 of a respondent's normalised address.
+  subjectHash String?           @map("subject_hash")
+  /// Counts, and what was chosen (no personal data).
+  details     Json              @default("{}")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  completedAt DateTime?         @map("completed_at")
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("data_requests")
+}
+
+enum DataRequestKind {
+  ACCOUNT_EXPORT
+  ACCOUNT_DELETION
+  RESPONDENT_LOOKUP
+  RESPONDENT_DELETION
+
+  @@map("data_request_kind")
+}
+
+enum DataRequestStatus {
+  OPEN
+  DONE
+  CANCELLED
+  FAILED
+
+  @@map("data_request_status")
 }

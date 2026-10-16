@@ -4,7 +4,6 @@ import {
   createDefaultAccountPreferences,
   createDefaultWorkspacePreferences,
   formDetailSchema,
-  soleOwnerDetailsSchema,
   workspacePreferencesSchema,
 } from '@formyx/shared';
 import request from 'supertest';
@@ -110,37 +109,37 @@ describe('deleting the account', () => {
     team = await createTeam(prisma);
   });
 
-  it('is refused while I am the only owner of a workspace others are in', async () => {
+  it('asks what happens to a shared workspace only I own', async () => {
     await prisma.user.update({
       where: { id: team.users.OWNER },
       data: { passwordHash: await import('bcrypt').then((bcrypt) => bcrypt.hash(PASSWORD, 4)) },
     });
     const res = await requestAs(app, team.users.OWNER)
       .post('/api/account/delete', { password: PASSWORD })
-      .expect(409);
+      .expect(400);
     const { error } = apiErrorSchema.parse(res.body);
-    expect(error.code).toBe('LAST_OWNER');
-    expect(soleOwnerDetailsSchema.parse(error.details).workspaces).toEqual([
-      { id: team.workspaceId, name: 'Team' },
+    expect(error.code).toBe('VALIDATION_ERROR');
+    expect(error.details).toEqual([
+      { path: `workspaces.${team.workspaceId}`, message: 'Choose what happens to Team' },
     ]);
   });
 
-  it('deletes me and the workspaces only I am in, and keeps shared ones', async () => {
+  it('is scheduled a week ahead, signing me out, with shared workspaces kept', async () => {
     const agent = await signUp('grace@example.com');
     const me = await agent.get('/api/auth/me').expect(200);
-    const own = me.body as { user: { id: string }; workspaces: { id: string }[] };
+    const own = me.body as { user: { id: string } };
     await prisma.membership.create({
       data: { userId: own.user.id, workspaceId: team.workspaceId, role: 'EDITOR' },
     });
 
     await agent.post('/api/account/delete').send({ password: 'wrong password!' }).expect(400);
-    await agent.post('/api/account/delete').send({ password: PASSWORD }).expect(204);
+    const res = await agent.post('/api/account/delete').send({ password: PASSWORD }).expect(202);
 
-    expect(await prisma.user.findUnique({ where: { id: own.user.id } })).toBeNull();
-    expect(
-      await prisma.workspace.findUnique({ where: { id: own.workspaces[0]?.id ?? '' } }),
-    ).toBeNull();
-    expect(await prisma.workspace.findUnique({ where: { id: team.workspaceId } })).not.toBeNull();
+    const { scheduledFor } = res.body as { scheduledFor: string };
+    const days = (new Date(scheduledFor).getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+    expect(Math.round(days)).toBe(7);
+    const stored = await prisma.user.findUniqueOrThrow({ where: { id: own.user.id } });
+    expect(stored.deletionScheduledFor?.toISOString()).toBe(scheduledFor);
     await agent.get('/api/auth/me').expect(401);
   });
 });

@@ -404,6 +404,19 @@ const ENDPOINTS: Endpoint[] = [
   },
   // Brand kits
   {
+    name: 'look up a respondent’s responses',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/respondent-data?email=ada%40example.com`),
+  },
+  {
+    name: 'delete a respondent’s responses',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) =>
+      as.post(`${workspace(f)}/respondent-data/delete`, { email: 'ada@example.com' }),
+  },
+  {
     name: 'list brand kits',
     minRole: 'VIEWER',
     ok: 200,
@@ -656,6 +669,11 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/account/password'],
   ['POST', '/api/account/password/set'],
   ['POST', '/api/account/delete'],
+  ['GET', '/api/account/deletion'],
+  ['POST', '/api/account/restore'],
+  ['GET', '/api/account/exports'],
+  ['POST', '/api/account/exports'],
+  ['GET', '/api/account/exports/id/download'],
   ['POST', '/api/invites/token/accept'],
   ['POST', '/api/feedback'],
   ['GET', '/api/referrals'],
@@ -669,6 +687,7 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['GET', '/api/admin/review/id'],
   ['POST', '/api/admin/review/id'],
   ['POST', '/api/admin/users/id/suspension'],
+  ['GET', '/api/admin/data-requests'],
   ['POST', '/api/auth/verify-email/resend'],
 ];
 
@@ -695,6 +714,7 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['POST', '/api/public/resubscribe'],
   ['GET', '/api/public/referrals/K7MQ2XPA'],
   ['POST', '/api/public/forms/slug/report'],
+  ['POST', '/api/public/account/restore'],
   ['GET', '/api/integrations/google/callback'],
   ['GET', '/api/integrations/notion/callback'],
   [

@@ -139,6 +139,15 @@ export const routes: RouteObject[] = [
         },
       },
       {
+        // "Keep my account" in the email sent when an account is set to be deleted.
+        path: 'account/restore',
+        handle: { title: 'Keep your account' } satisfies RouteHandle,
+        lazy: async () => {
+          const { RestoreAccountPage } = await import('@/features/privacy/restore-account-page');
+          return { Component: RestoreAccountPage };
+        },
+      },
+      {
         // "Report this form", linked from under every public form.
         path: 'report/:slug',
         handle: { title: 'Report a form' } satisfies RouteHandle,

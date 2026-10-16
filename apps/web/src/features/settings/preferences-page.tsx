@@ -5,9 +5,14 @@ import { parseThemePreference } from '@/features/theme/theme';
 import { useThemeStore } from '@/features/theme/theme-store';
 import { THEME_OPTIONS } from '@/features/theme/theme-options';
 import { FormDefaultsCard, MotionCard, PrivacyCard } from './account/account-preferences-cards';
-import { DeleteAccountCard, PasswordCard } from './account/account-security-cards';
+import { DataExportCard } from '@/features/privacy/data-export-card';
+import { DeleteAccountCard } from '@/features/privacy/delete-account-card';
+import { PasswordCard } from './account/account-security-cards';
 
-/** The signed-in person's own settings: look, motion, new forms, privacy, password, account. */
+/**
+ * The signed-in person's own settings: look, motion, new forms, privacy, password, their
+ * data and deleting the account.
+ */
 export function PreferencesPage() {
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
@@ -46,6 +51,7 @@ export function PreferencesPage() {
       <FormDefaultsCard />
       <PrivacyCard />
       <PasswordCard />
+      <DataExportCard />
       <DeleteAccountCard />
     </div>
   );

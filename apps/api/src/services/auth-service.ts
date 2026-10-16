@@ -39,6 +39,7 @@ const meSelect = {
   // Never sent either: for refusing suspended accounts and asking for a confirmed email.
   suspendedAt: true,
   emailVerifiedAt: true,
+  deletionScheduledFor: true,
   memberships: {
     orderBy: { createdAt: 'asc' },
     select: { role: true, workspace: { select: { id: true, name: true, slug: true } } },
@@ -62,6 +63,9 @@ function toMeResponse(user: MeRecord, requireEmailVerification = false): MeRespo
       ...(user.isAdmin && { isAdmin: true }),
       ...(user.passwordHash === null && { hasPassword: false }),
       ...(requireEmailVerification && !user.emailVerifiedAt && { mustVerifyEmail: true }),
+      ...(user.deletionScheduledFor && {
+        deletionScheduledFor: user.deletionScheduledFor.toISOString(),
+      }),
     },
     workspaces: user.memberships.map(({ role, workspace }) => ({ ...workspace, role })),
   };

@@ -182,6 +182,15 @@ export function createInviteLinkRateLimiter() {
   );
 }
 
+/** Account undo links are long and random; this only slows down guessing them. */
+export function createRestoreLinkRateLimiter() {
+  return limitedTo(
+    INVITE_LINK_LIMIT,
+    (req) => ipKeyGenerator(req.ip ?? ''),
+    'Too many tries. Wait a few minutes, then try again.',
+  );
+}
+
 /** "Send test event" makes a request to any URL an editor gives, so it is limited per user. */
 const WEBHOOK_TEST_LIMIT = 30;
 

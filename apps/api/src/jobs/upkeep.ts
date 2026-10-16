@@ -4,7 +4,10 @@ import type { Encryption } from '../lib/encryption.js';
 import type { EmailMessage, Mailer } from '../lib/mailer.js';
 import type { Database } from '../lib/prisma.js';
 import type { UploadStorage } from '../lib/upload-storage.js';
+import { createBillingService } from '../billing/billing-service.js';
 import { billingConfigured, createRazorpayClient } from '../billing/razorpay.js';
+import { createAccountDeletionService } from '../privacy/account-deletion.js';
+import { expireDataExports } from '../privacy/data-export.js';
 import { runBillingUpkeep } from '../billing/upkeep.js';
 import { resumePausedSubscriptions } from '../referrals/referrals.js';
 import { queueInactiveEmails } from '../lifecycle/lifecycle.js';
@@ -68,12 +71,31 @@ export function registerUpkeep({
       const pruned = await pruneExpired(deps);
       const billing = await runBillingUpkeep({ prisma, jobs, encryption, env, logger });
       const inactive = await queueInactiveEmails({ prisma, jobs });
+      // Data rights: exports past their week, and accounts whose week to undo is up.
+      const exportsExpired = await expireDataExports(prisma);
+      const accountsDeleted = await createAccountDeletionService({
+        prisma,
+        billing: createBillingService({ prisma, env, razorpay: createRazorpayClient(env) }),
+        mailer,
+        logger,
+        appUrl: env.APP_URL,
+      }).runDue();
       // Subscriptions a referral reward paused, back on once their free month is up.
       const resumed = billingConfigured(env)
         ? await resumePausedSubscriptions({ prisma, logger, razorpay: createRazorpayClient(env) })
         : 0;
       logger.info(
-        { digests, retention, pruned, billing, inactive, resumed, ms: Date.now() - started },
+        {
+          digests,
+          retention,
+          pruned,
+          billing,
+          inactive,
+          resumed,
+          exportsExpired,
+          accountsDeleted,
+          ms: Date.now() - started,
+        },
         'Hourly upkeep done',
       );
     } finally {

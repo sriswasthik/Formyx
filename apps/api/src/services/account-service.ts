@@ -3,7 +3,6 @@ import {
   type AccountPreferences,
   type ChangePasswordInput,
   type DeleteAccountInput,
-  type SoleOwnerDetails,
 } from '@formyx/shared';
 import { AppError } from '../lib/app-error.js';
 import type { PasswordHasher } from '../lib/password.js';
@@ -29,11 +28,10 @@ export interface AccountService {
    */
   setPassword(userId: string, newPassword: string): Promise<number>;
   /**
-   * Deletes the account and the workspaces only it belongs to, once the password confirms it
-   * (or, without a password, the account's email). 409 LAST_OWNER, listing them, if it is
-   * the only owner of workspaces others are in.
+   * Checks it is really them, before deleting the account: the password, or for an account
+   * without one, its email. Throws 400 WRONG_CODE otherwise.
    */
-  deleteAccount(userId: string, confirmation: DeleteAccountInput): Promise<void>;
+  confirm(userId: string, confirmation: DeleteAccountInput): Promise<void>;
 }
 
 function noPassword(): AppError {
@@ -130,49 +128,8 @@ export function createAccountService({
       return user.passwordVersion;
     },
 
-    async deleteAccount(userId, confirmation) {
+    async confirm(userId, confirmation) {
       await checkConfirmation(userId, confirmation);
-      const owned = await prisma.membership.findMany({
-        where: { userId, role: 'OWNER' },
-        select: {
-          workspace: {
-            select: {
-              id: true,
-              name: true,
-              memberships: { select: { userId: true, role: true } },
-            },
-          },
-        },
-      });
-      const blocking = owned
-        .map(({ workspace }) => workspace)
-        .filter(
-          (workspace) =>
-            workspace.memberships.some((member) => member.userId !== userId) &&
-            !workspace.memberships.some(
-              (member) => member.userId !== userId && member.role === 'OWNER',
-            ),
-        );
-      if (blocking.length > 0) {
-        const details: SoleOwnerDetails = {
-          workspaces: blocking.map(({ id, name }) => ({ id, name })),
-        };
-        throw new AppError(
-          409,
-          'LAST_OWNER',
-          'Make someone else an owner of your shared workspaces first, or delete them.',
-          { details },
-        );
-      }
-      const alone = owned
-        .map(({ workspace }) => workspace)
-        .filter((workspace) => workspace.memberships.every((member) => member.userId === userId));
-      await prisma.$transaction([
-        // Forms, responses and everything else in them go with them (cascades).
-        prisma.workspace.deleteMany({ where: { id: { in: alone.map(({ id }) => id) } } }),
-        // Memberships go with the account; forms it made in shared workspaces stay.
-        prisma.user.delete({ where: { id: userId } }),
-      ]);
     },
   };
 }

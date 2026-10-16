@@ -17,6 +17,7 @@ import { createFormsRouter } from './forms.js';
 import { createIntegrationsRouter } from './integrations.js';
 import { createHealthRouter } from './health.js';
 import { createNotificationsRouter } from './notifications.js';
+import { createPrivacyRouter } from './privacy.js';
 import { createPinCodesRouter } from './pin-codes.js';
 import { createPublicFormsRouter } from './public-forms.js';
 import { createRazorpayWebhookRouter } from './razorpay-webhook.js';
@@ -61,6 +62,7 @@ export function createApiRouter(deps: AppDependencies): Router {
   router.use(createNotificationsRouter(deps, guards));
   router.use(createWorkspacesRouter(deps, guards));
   router.use(createAccountRouter(deps, guards));
+  router.use(createPrivacyRouter(deps, guards));
   router.use(createBrandKitsRouter(deps, guards));
   router.use(createWebhooksRouter(deps, guards));
   router.use(createIntegrationsRouter(deps, guards));

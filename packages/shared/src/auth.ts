@@ -84,6 +84,8 @@ export const sessionUserSchema = z.object({
    * Left out otherwise.
    */
   mustVerifyEmail: z.boolean().optional(),
+  /** When the account is to be deleted, while it waits (see privacy/account-deletion.ts). */
+  deletionScheduledFor: z.iso.datetime().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

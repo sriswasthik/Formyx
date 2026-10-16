@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSession } from '@/features/auth/session-context';
 import { formatBillingDate } from '@/features/billing/billing-format';
+import { DataRequestsLog } from '@/features/privacy/data-requests-log';
 import { cn } from '@/lib/utils';
 import { searchWorkspaces } from './admin-api';
 import { ReviewQueue } from './review-queue';
@@ -73,15 +74,19 @@ export function AdminPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Admin"
-        description="Review held and reported forms, and look after workspaces’ plans."
+        description="Review held and reported forms, look after workspaces’ plans, and see requests about personal data."
       />
       <Tabs defaultValue="review" className="flex flex-col gap-6">
         <TabsList className="w-fit">
           <TabsTrigger value="review">Review</TabsTrigger>
           <TabsTrigger value="workspaces">Workspaces</TabsTrigger>
+          <TabsTrigger value="data-requests">Data requests</TabsTrigger>
         </TabsList>
         <TabsContent value="review">
           <ReviewQueue />
+        </TabsContent>
+        <TabsContent value="data-requests">
+          <DataRequestsLog />
         </TabsContent>
         <TabsContent value="workspaces" className="flex flex-col gap-6">
           <div className="flex max-w-md flex-col gap-1.5">
