@@ -25,6 +25,8 @@ export async function createTeam(prisma: Database): Promise<Team> {
         passwordHash: 'x',
         // Established accounts: new ones have limits (NEW_ACCOUNT_LIMITS) most tests aren't about.
         createdAt: new Date(Date.now() - ESTABLISHED_ACCOUNT_AGE_MS),
+        // And confirmed, as accounts from before email verification count.
+        emailVerifiedAt: new Date(Date.now() - ESTABLISHED_ACCOUNT_AGE_MS),
       },
     });
     await prisma.membership.create({

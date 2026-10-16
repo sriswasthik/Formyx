@@ -23,6 +23,7 @@ import type { SecretBox } from '../lib/webhook-signature.js';
 import type { WebhookTransport } from '../lib/webhook-transport.js';
 import { chatTestBody } from '../notifications/chat-message.js';
 import type { EntitlementService } from './entitlement-service.js';
+import { mayBeIndexed, VERIFIED_OWNER_SELECT } from '../trust/indexing.js';
 import { parsePublishedTheme } from './form-service.js';
 
 /*
@@ -41,6 +42,7 @@ const settingsSelect = {
   passwordHash: true,
   slackWebhookEncrypted: true,
   discordWebhookEncrypted: true,
+  workspace: { select: VERIFIED_OWNER_SELECT },
 } satisfies Prisma.FormSelect;
 
 type SettingsRecord = Prisma.FormGetPayload<{ select: typeof settingsSelect }>;
@@ -153,6 +155,7 @@ export function createFormSettingsService({
       slug: record.slug,
       hasPassword: record.passwordHash !== null,
       captchaAvailable,
+      indexingAvailable: mayBeIndexed(record.workspace),
       chat: {
         slack: chatView(record.slackWebhookEncrypted),
         discord: chatView(record.discordWebhookEncrypted),
@@ -178,6 +181,13 @@ export function createFormSettingsService({
         sharing: input.sharing ?? current.sharing,
         data: input.data ?? current.data,
       };
+      if (!settings.access.unlisted && current.access.unlisted && !mayBeIndexed(record.workspace)) {
+        throw new AppError(
+          403,
+          'EMAIL_NOT_VERIFIED',
+          'Search engines can list forms once an owner of this workspace confirms their email address.',
+        );
+      }
       // The draft is what editors are working on, so checks match what they see.
       const draft = storedFormSchemaSchema.parse(record.draftSchema);
       const issues = autoresponderIssues(settings, draft);

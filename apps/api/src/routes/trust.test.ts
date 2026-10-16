@@ -7,6 +7,7 @@ import {
   createEmptyForm,
   createField,
   formDetailSchema,
+  formSettingsViewSchema,
   meResponseSchema,
   NEW_ACCOUNT_LIMITS,
   publicFormResponseSchema,
@@ -499,5 +500,55 @@ describe('the Turnstile spam check', () => {
     const form = await publish(await draft(asking('Your name')));
     const page = await publicForm(form.slug);
     expect(page.status === 'open' && page.access.captchaSiteKey).toBeUndefined();
+  });
+});
+
+describe('search engines', () => {
+  async function unverifyOwners() {
+    await prisma.user.updateMany({
+      where: { memberships: { some: { workspaceId: team.workspaceId, role: 'OWNER' } } },
+      data: { emailVerifiedAt: null },
+    });
+  }
+  const settingsOf = async (formId: string) =>
+    formSettingsViewSchema.parse((await editor().get(`/api/forms/${formId}/settings`)).body);
+
+  it('may list forms of workspaces with a confirmed owner', async () => {
+    const form = await publish(await draft(asking('Your name')));
+    const { settings } = await settingsOf(form.id);
+
+    await editor()
+      .patch(`/api/forms/${form.id}/settings`, { access: { ...settings.access, unlisted: false } })
+      .expect(200);
+
+    const page = await publicForm(form.slug);
+    expect(page.status === 'open' && page.access.indexable).toBe(true);
+  });
+
+  it('never lists forms of a workspace whose owners have not confirmed their address', async () => {
+    const form = await publish(await draft(asking('Your name')));
+    const { settings } = await settingsOf(form.id);
+    await editor()
+      .patch(`/api/forms/${form.id}/settings`, { access: { ...settings.access, unlisted: false } })
+      .expect(200);
+    await unverifyOwners();
+
+    expect((await settingsOf(form.id)).indexingAvailable).toBe(false);
+    // Asked for before, but not allowed now: kept out of search results all the same.
+    const page = await publicForm(form.slug);
+    expect(page.status === 'open' && page.access.indexable).toBe(false);
+    const meta = await request(app).get(`/api/public/forms/${form.slug}/meta`).expect(200);
+    expect((meta.body as { indexable: boolean }).indexable).toBe(false);
+  });
+
+  it('refuses to switch listing on until an owner confirms their address', async () => {
+    const form = await publish(await draft(asking('Your name')));
+    await unverifyOwners();
+    const { settings } = await settingsOf(form.id);
+
+    const res = await editor()
+      .patch(`/api/forms/${form.id}/settings`, { access: { ...settings.access, unlisted: false } })
+      .expect(403);
+    expect(errorCode(res.body)).toBe('EMAIL_NOT_VERIFIED');
   });
 });

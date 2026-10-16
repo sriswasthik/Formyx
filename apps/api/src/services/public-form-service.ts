@@ -59,6 +59,7 @@ import type { Database } from '../lib/prisma.js';
 import { renderCodeEmail } from '../notifications/code-email.js';
 import { WORKSPACE_BILLING_SELECT } from './entitlement-service.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
+import { isIndexable, VERIFIED_OWNER_SELECT } from '../trust/indexing.js';
 import type { TurnstileVerifier } from '../trust/turnstile.js';
 import type { UploadChecks } from './upload-checks.js';
 
@@ -141,7 +142,9 @@ const publicSelect = {
   // Its creator's account: suspended accounts' forms are unavailable, new ones' take fewer
   // responses (NEW_ACCOUNT_LIMITS).
   createdBy: { select: { createdAt: true, suspendedAt: true } },
-  workspace: { select: { id: true, preferences: true, ...WORKSPACE_BILLING_SELECT } },
+  workspace: {
+    select: { id: true, preferences: true, ...WORKSPACE_BILLING_SELECT, ...VERIFIED_OWNER_SELECT },
+  },
   _count: { select: { submissions: true } },
 } satisfies Prisma.FormSelect;
 
@@ -587,7 +590,7 @@ export function createPublicFormService({
           emailStep: respondentEmailStep(access),
           oneResponsePerBrowser: access.oneResponsePer === 'browser',
           allowEdits: access.allowEdits,
-          indexable: !access.unlisted,
+          indexable: isIndexable(access, form.record.workspace),
           ...(access.captcha && captcha && { captchaSiteKey: captcha.siteKey }),
         },
       };

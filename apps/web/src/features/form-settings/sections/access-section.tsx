@@ -375,13 +375,18 @@ export function AccessSection({ form, view }: SectionProps) {
         <SettingRow
           id="unlisted"
           label="Search engines"
-          description="Forms are only found through their link. Turn this on to let search engines list it too."
+          description={
+            view.indexingAvailable
+              ? 'Forms are only found through their link. Turn this on to let search engines list it too.'
+              : 'Forms are only found through their link. Search engines can list them once an owner of this workspace confirms their email address.'
+          }
           controlId={ids.listed}
           compact
         >
           <Switch
             id={ids.listed}
-            checked={!access.unlisted}
+            checked={!access.unlisted && view.indexingAvailable}
+            disabled={!view.indexingAvailable}
             onCheckedChange={(listed) => {
               setAccess({ ...access, unlisted: !listed });
             }}
