@@ -49,8 +49,9 @@ const forms = [
 
 describe('countByStatus', () => {
   it('counts every form and each status', () => {
-    expect(countByStatus(forms)).toEqual({ ALL: 4, PUBLISHED: 2, DRAFT: 1, CLOSED: 1 });
-    expect(countByStatus([])).toEqual({ ALL: 0, PUBLISHED: 0, DRAFT: 0, CLOSED: 0 });
+    const none = { UNDER_REVIEW: 0, SUSPENDED: 0 };
+    expect(countByStatus(forms)).toEqual({ ALL: 4, PUBLISHED: 2, DRAFT: 1, CLOSED: 1, ...none });
+    expect(countByStatus([])).toEqual({ ALL: 0, PUBLISHED: 0, DRAFT: 0, CLOSED: 0, ...none });
   });
 });
 

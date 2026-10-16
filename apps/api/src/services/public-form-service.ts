@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt } from 'node:crypto';
 import {
   buildSubmissionValidator,
   CODE_ATTEMPTS,
@@ -6,6 +6,8 @@ import {
   fillsForm,
   FORM_MESSAGES,
   formAvailability,
+  isNewAccount,
+  NEW_ACCOUNT_LIMITS,
   formPages,
   isShownQuestionType,
   normalizeEmail,
@@ -16,6 +18,8 @@ import {
   sanitizeAnswers,
   storedAnswerSchema,
   submissionMetadataSchema,
+  submissionRecordSchema,
+  storedOutcomeSchema,
   themeForFeatures,
   toAnswerIssues,
   toPublicSchema,
@@ -55,6 +59,8 @@ import type { Database } from '../lib/prisma.js';
 import { renderCodeEmail } from '../notifications/code-email.js';
 import { WORKSPACE_BILLING_SELECT } from './entitlement-service.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
+import { isIndexable, VERIFIED_OWNER_SELECT } from '../trust/indexing.js';
+import type { TurnstileVerifier } from '../trust/turnstile.js';
 import type { UploadChecks } from './upload-checks.js';
 
 const USER_AGENT_MAX_LENGTH = 512;
@@ -132,7 +138,13 @@ const publicSelect = {
   liveSettings: true,
   passwordHash: true,
   passwordVersion: true,
-  workspace: { select: { id: true, preferences: true, ...WORKSPACE_BILLING_SELECT } },
+  createdById: true,
+  // Its creator's account: suspended accounts' forms are unavailable, new ones' take fewer
+  // responses (NEW_ACCOUNT_LIMITS).
+  createdBy: { select: { createdAt: true, suspendedAt: true } },
+  workspace: {
+    select: { id: true, preferences: true, ...WORKSPACE_BILLING_SELECT, ...VERIFIED_OWNER_SELECT },
+  },
   _count: { select: { submissions: true } },
 } satisfies Prisma.FormSelect;
 
@@ -153,6 +165,8 @@ export interface SubmissionContext {
   userAgent: string | undefined;
   /** The token from unlocking a form with a password (the `X-Form-Access` header). */
   accessToken: string | undefined;
+  /** The client's address, for the spam check. Never stored. */
+  ip?: string | undefined;
 }
 
 export interface PublicFormService {
@@ -220,6 +234,8 @@ export interface SavedSubmission {
   editToken: string | null;
   /** Whether this changed an earlier response rather than adding one. */
   edited: boolean;
+  /** Whether this is a retry of a response already stored, which is sent back unchanged. */
+  replayed?: boolean;
   respondentEmail: string | null;
 }
 
@@ -281,6 +297,11 @@ function closed(title: string): AppError {
   });
 }
 
+/** Held for review or taken offline: said without the title, which may be a phishing lure. */
+function unavailable(): AppError {
+  return new AppError(410, 'FORM_UNAVAILABLE', 'This form is unavailable.');
+}
+
 function locked(): AppError {
   return new AppError(403, 'FORM_LOCKED', 'This form needs its password.');
 }
@@ -305,7 +326,8 @@ function localeOf(form: LiveForm): PublicLocale {
 
 function availability(form: LiveForm, now = new Date()) {
   return formAvailability({
-    status: form.record.status,
+    // Everything a suspended account made is offline with it.
+    status: form.record.createdBy?.suspendedAt ? 'SUSPENDED' : form.record.status,
     access: form.settings.access,
     responseCount: form.record._count.submissions,
     now,
@@ -326,6 +348,10 @@ export interface PublicFormServiceOptions {
   entitlementsMode: EntitlementsMode;
   /** What happens once the workspace has had its plan's responses (see ENFORCEMENT_MODE). */
   enforcementMode: EnforcementMode;
+  /** Cloudflare Turnstile, for forms that switch the spam check on; null where it isn't set up. */
+  captcha?: { siteKey: string; verifier: TurnstileVerifier } | null;
+  /** New accounts' response allowance applies (NEW_ACCOUNT_LIMITS); off only for e2e tests. */
+  newAccountLimits?: boolean;
 }
 
 /** Shown, in `hard` enforcement, once a workspace has had its plan's responses this period. */
@@ -341,6 +367,8 @@ export function createPublicFormService({
   appUrl,
   entitlementsMode,
   enforcementMode,
+  captcha = null,
+  newAccountLimits = true,
 }: PublicFormServiceOptions): PublicFormService {
   /**
    * Whether new visitors are turned away for the response limit: only in `hard` enforcement,
@@ -355,6 +383,25 @@ export function createPublicFormService({
     const workspaceId = form.record.workspace.id;
     const period = await workspaceUsagePeriod(prisma, workspaceId);
     return (await countResponses(prisma, workspaceId, period)) >= limit;
+  }
+
+  /**
+   * Whether a new account's forms have had all the responses they may take together
+   * (`NEW_ACCOUNT_LIMITS.responses`). Older accounts, and forms whose creator left, have no cap.
+   */
+  async function overNewAccountLimit(
+    db: Pick<Database, 'submission'>,
+    form: LiveForm,
+  ): Promise<boolean> {
+    const creator = form.record.createdBy;
+    const creatorId = form.record.createdById;
+    if (!newAccountLimits || !creator || !creatorId || !isNewAccount(creator.createdAt)) {
+      return false;
+    }
+    const responses = await db.submission.count({
+      where: { form: { createdById: creatorId }, createdAt: { gte: creator.createdAt } },
+    });
+    return responses >= NEW_ACCOUNT_LIMITS.responses;
   }
 
   /** The form at `slug`, or at the address it had before its slug changed. */
@@ -379,13 +426,71 @@ export function createPublicFormService({
   /** Throws unless the form takes responses now and this browser may open it. */
   function assertCanRespond(form: LiveForm, accessToken: string | undefined): void {
     const state = availability(form);
-    if (state.state === 'closed') throw closed(form.title);
+    if (state.state === 'closed') {
+      throw state.reason === 'unavailable' ? unavailable() : closed(form.title);
+    }
     if (state.state === 'not_open') {
       throw new AppError(403, 'FORM_NOT_OPEN', 'This form is not open yet.', {
         details: { opensAt: state.opensAt },
       });
     }
     if (!isUnlocked(form, accessToken)) throw locked();
+  }
+
+  /**
+   * The private link's token for a response sent with `submissionKey`: derived from it, so a
+   * retry can be given the same link. Without the secret, the key alone does not give it.
+   */
+  function editTokenFor(formId: string, submissionKey: string): string {
+    return createHmac('sha256', secret)
+      .update(`edit-link:${formId}:${submissionKey}`)
+      .digest('base64url');
+  }
+
+  /** The response an earlier try with `submissionKey` stored, as its sender was told. */
+  async function replayOf(
+    db: Database | Transaction,
+    form: LiveForm,
+    submissionKey: string,
+  ): Promise<SavedSubmission | null> {
+    const existing = await db.submission.findUnique({
+      where: { formId_submissionKey: { formId: form.id, submissionKey } },
+      select: {
+        id: true,
+        createdAt: true,
+        completionTimeMs: true,
+        answers: true,
+        metadata: true,
+        outcome: true,
+        respondentEmail: true,
+        editTokenHash: true,
+      },
+    });
+    if (!existing) return null;
+    const answers = submissionRecordSchema.shape.answers.parse(existing.answers);
+    const metadata = submissionMetadataSchema.safeParse(existing.metadata);
+    const stored = storedOutcomeSchema.safeParse(existing.outcome);
+    // Responses sent with a key got a link derived from it (when the form allows edits).
+    const editToken = existing.editTokenHash ? editTokenFor(form.id, submissionKey) : null;
+    return {
+      formId: form.id,
+      formTitle: form.title,
+      schema: form.schema,
+      settings: form.settings,
+      submission: {
+        id: existing.id,
+        createdAt: existing.createdAt.toISOString(),
+        completionTimeMs: existing.completionTimeMs,
+        answers,
+        metadata: metadata.success ? metadata.data : NO_METADATA,
+        outcome: stored.success ? stored.data : null,
+      },
+      outcome: toRespondentOutcome(form.schema, computeOutcome(form.schema, answers)),
+      editToken,
+      edited: false,
+      replayed: true,
+      respondentEmail: existing.respondentEmail,
+    };
   }
 
   async function openForm(slug: string, accessToken: string | undefined): Promise<LiveForm> {
@@ -428,8 +533,14 @@ export function createPublicFormService({
       const form = await find(slug);
       const locale = localeOf(form);
       const state = availability(form);
+      if (state.state === 'closed' && state.reason === 'unavailable') {
+        return { status: 'unavailable', slug: form.slug, locale };
+      }
       const entitlements = resolveEntitlements(form.record.workspace, entitlementsMode);
-      if (state.state === 'open' && (await overResponseLimit(form, entitlements))) {
+      if (
+        state.state === 'open' &&
+        ((await overResponseLimit(form, entitlements)) || (await overNewAccountLimit(prisma, form)))
+      ) {
         return {
           status: 'closed',
           slug: form.slug,
@@ -479,7 +590,8 @@ export function createPublicFormService({
           emailStep: respondentEmailStep(access),
           oneResponsePerBrowser: access.oneResponsePer === 'browser',
           allowEdits: access.allowEdits,
-          indexable: !access.unlisted,
+          indexable: isIndexable(access, form.record.workspace),
+          ...(access.captcha && captcha && { captchaSiteKey: captcha.siteKey }),
         },
       };
     },
@@ -628,9 +740,26 @@ export function createPublicFormService({
     },
 
     async submit(slug, input, context) {
+      const { submissionKey } = input;
+      const newKey = input.editToken ? undefined : submissionKey;
+      // A retry of a response already stored gets it back, even if the form has closed since
+      // (the response may well be what filled it).
+      if (newKey) {
+        const replay = await replayOf(prisma, await find(slug), newKey);
+        if (replay) return replay;
+      }
       // Uploaded files are checked with storage first, outside the transaction, so no network
       // call ever holds the form's lock.
       const live = await openForm(slug, context.accessToken);
+      // The spam check, for new responses (an edit link proves someone already responded).
+      if (
+        !input.editToken &&
+        live.settings.access.captcha &&
+        captcha &&
+        !(await captcha.verifier.verify(input.captchaToken, context.ip))
+      ) {
+        throw new AppError(403, 'CAPTCHA_FAILED', 'Confirm you’re not a robot, then send again.');
+      }
       const checked = await uploads.verifyAnswers(live, input.answers);
 
       return prisma.$transaction(async (tx) => {
@@ -642,7 +771,18 @@ export function createPublicFormService({
         if (locked.length === 0) throw notFound();
 
         const form = toLiveForm(await findRecord(tx, live.slug));
+        // Two tries at once: the second waited for the lock, and finds the first's response.
+        if (newKey) {
+          const replay = await replayOf(tx, form, newKey);
+          if (replay) return replay;
+        }
         assertCanRespond(form, context.accessToken);
+        // Checked here too, not only when the page loads: bots skip the page.
+        if (!input.editToken && (await overNewAccountLimit(tx, form))) {
+          throw new AppError(410, 'FORM_CLOSED', RESPONSE_LIMIT_MESSAGE, {
+            details: { title: form.title } satisfies ClosedFormDetails,
+          });
+        }
 
         const messages = FORM_MESSAGES[form.schema.settings.language];
         const answers = sanitizeAnswers(form.schema, checked);
@@ -679,7 +819,9 @@ export function createPublicFormService({
 
         const respondent = respondentOf(form, input);
         const editToken = form.settings.access.allowEdits
-          ? randomBytes(32).toString('base64url')
+          ? newKey
+            ? editTokenFor(form.id, newKey)
+            : randomBytes(32).toString('base64url')
           : null;
         let created;
         try {
@@ -693,6 +835,7 @@ export function createPublicFormService({
               respondentEmail: respondent.email,
               respondentKey: respondent.key,
               editTokenHash: editToken && hashToken(editToken),
+              submissionKey: newKey ?? null,
             },
             select: { id: true, createdAt: true, completionTimeMs: true },
           });

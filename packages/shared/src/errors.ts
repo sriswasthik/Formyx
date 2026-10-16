@@ -45,6 +45,22 @@ export const ERROR_CODES = [
   'PAYMENT_PROVIDER_ERROR',
   /** Checkout's signature does not match: the payment can't be confirmed from it. */
   'INVALID_SIGNATURE',
+  /** The form is held for review or taken offline; the public page says only "unavailable". */
+  'FORM_UNAVAILABLE',
+  /** Formyx suspended the form: only an admin can bring it back. */
+  'FORM_SUSPENDED',
+  /** The account is suspended; it can't sign in. */
+  'ACCOUNT_SUSPENDED',
+  /** Publishing needs a confirmed email address (when REQUIRE_EMAIL_VERIFICATION is on). */
+  'EMAIL_NOT_VERIFIED',
+  /** Not yet for an account this new; `details.until` says when (`NEW_ACCOUNT_LIMITS`). */
+  'NEW_ACCOUNT_LIMIT',
+  /** An address is on a list of unsafe sites; `details.urls` lists them. */
+  'UNSAFE_LINK',
+  /** The form's spam check (Cloudflare Turnstile) did not pass. */
+  'CAPTCHA_FAILED',
+  /** A data export is no longer kept, or failed: ask for a new one. */
+  'EXPORT_EXPIRED',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

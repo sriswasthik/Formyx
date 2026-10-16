@@ -4,5 +4,6 @@ export * from './format.js';
 export * from './hi.js';
 export * from './languages.js';
 export * from './locale.js';
+export * from './scripts.js';
 export type * from './messages.js';
 export * from './te.js';

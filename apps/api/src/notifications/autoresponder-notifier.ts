@@ -1,4 +1,12 @@
-import { FORM_MESSAGES, formLocale, readLiveSettings, renderAutoresponder } from '@formyx/shared';
+import {
+  AUTORESPONDERS_PER_DAY,
+  FORM_MESSAGES,
+  formLocale,
+  isNewAccount,
+  NEW_ACCOUNT_LIMITS,
+  readLiveSettings,
+  renderAutoresponder,
+} from '@formyx/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { Env } from '../config/env.js';
@@ -18,8 +26,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const emailAddress = z.email().max(254);
 
+/** The text of `[label](url)` links, and bare addresses removed: for new accounts' emails. */
+export function withoutLinks(text: string): string {
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\bhttps?:\/\/\S+/gi, '')
+    .replace(/[ \t]{2,}/g, ' ');
+}
+
 interface AutoresponderDependencies {
-  env: Pick<Env, 'APP_URL' | 'ENTITLEMENTS_MODE'>;
+  env: Pick<Env, 'APP_URL' | 'ENTITLEMENTS_MODE' | 'NEW_ACCOUNT_LIMITS'>;
   logger: Logger;
   prisma: Database;
   jobs: JobQueue;
@@ -56,9 +72,18 @@ export function registerAutoresponder({
             publishedTheme: true,
             theme: true,
             liveSettings: true,
+            workspaceId: true,
+            createdBy: { select: { createdAt: true } },
           },
         });
         if (!form) return;
+        // A new account's forms send none yet, and then without links (NEW_ACCOUNT_LIMITS).
+        const newAccount =
+          env.NEW_ACCOUNT_LIMITS && form.createdBy ? isNewAccount(form.createdBy.createdAt) : false;
+        if (newAccount && !NEW_ACCOUNT_LIMITS.autoresponders) {
+          logger.info(context, 'Skipped an autoresponder email: the account is new');
+          return;
+        }
         const settings = readLiveSettings(form.liveSettings);
         const { autoresponder } = settings;
         if (!autoresponder.enabled) return;
@@ -81,6 +106,18 @@ export function registerAutoresponder({
           logger.warn(context, 'Skipped an autoresponder email: the address had enough today');
           return;
         }
+        // However many people respond, a workspace sends only so many a day.
+        const today = await prisma.autoresponderSend.count({
+          where: {
+            form: { workspaceId: form.workspaceId },
+            createdAt: { gt: new Date(Date.now() - DAY_MS) },
+          },
+        });
+        if (today >= AUTORESPONDERS_PER_DAY) {
+          logger.warn(context, 'Skipped an autoresponder email: the workspace had enough today');
+          return;
+        }
+        const links = !newAccount || NEW_ACCOUNT_LIMITS.autoresponderLinks;
 
         const schema = parsePublishedSchema(form.publishedSchema);
         const theme = parsePublishedTheme(form.publishedTheme ?? form.theme);
@@ -89,11 +126,13 @@ export function registerAutoresponder({
           formTitle: form.publishedTitle ?? form.title,
           schema,
           theme,
-          settings: autoresponder,
+          settings: links
+            ? autoresponder
+            : { ...autoresponder, body: withoutLinks(autoresponder.body) },
           answers: submission.answers,
           outcome: submission.outcome,
           editUrl:
-            editToken && settings.access.allowEdits
+            links && editToken && settings.access.allowEdits
               ? `${env.APP_URL}/f/${encodeURIComponent(form.slug)}#edit=${editToken}`
               : null,
           locale: formLocale(schema.settings, FORM_MESSAGES[schema.settings.language]),

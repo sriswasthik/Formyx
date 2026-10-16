@@ -20,6 +20,9 @@ export const en: FormMessages = {
     thankYou: 'Thank you.',
     madeWith: 'Made with Formyx',
     opensInNewTab: '(opens in a new tab)',
+    report: 'Report this form',
+    personalData: 'This form asks for personal details, which go to the person who made it.',
+    privacyPolicy: 'How Formyx handles them',
     loading: 'Loading the form',
   },
   marker: {
@@ -74,6 +77,8 @@ export const en: FormMessages = {
     fixAnswers: 'Some answers need your attention.',
     waitForUpload: 'Wait for the file to finish uploading',
     sendFailed: 'Your answers could not be sent. Check your connection and try again.',
+    retrying: 'The connection dropped. Trying again…',
+    captchaFailed: 'Confirm you’re not a robot, then send again.',
     saveFailed: 'Your answers could not be saved. Check your connection and try again.',
   },
   answer: {
@@ -115,6 +120,8 @@ export const en: FormMessages = {
     closedTitle: 'This form is closed',
     closedText: 'It is no longer accepting responses.',
     notOpenTitle: 'This form is not open yet',
+    unavailableTitle: 'This form is unavailable',
+    unavailableText: 'It can’t be opened right now.',
     opensAt: (when) => `It opens on ${when}.`,
     lockedTitle: 'This form needs a password',
     lockedText: 'Enter the password you were given to open it.',

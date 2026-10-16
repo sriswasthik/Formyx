@@ -1,14 +1,13 @@
 import { en, type FormLanguage, type FormMessages } from '@formyx/shared';
 
 /*
- * English comes with every form. Telugu and Hindi load only for forms in those languages,
- * together with fonts that have their scripts (most themes' fonts are Latin only, so the
- * browser would otherwise fall back to whatever the device has).
+ * English comes with every form. Telugu and Hindi load only for forms in those languages;
+ * the fonts for their scripts load with the form's text (theme/script-fonts.ts).
  */
 
 const loaded = new Map<FormLanguage, FormMessages>([['en', en]]);
 
-/** The catalog for `language`, loading it (and its script's font) the first time. */
+/** The catalog for `language`, loading it the first time. */
 export async function loadFormMessages(language: FormLanguage): Promise<FormMessages> {
   const known = loaded.get(language);
   if (known) return known;

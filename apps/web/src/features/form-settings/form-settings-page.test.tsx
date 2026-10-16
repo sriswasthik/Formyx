@@ -31,6 +31,8 @@ function serve({ form = makeFormDetail() }: { form?: FormDetail } = {}) {
     settings: createDefaultLiveSettings(),
     slug: form.slug,
     hasPassword: false,
+    captchaAvailable: false,
+    indexingAvailable: true,
     chat: { slack: null, discord: null },
   };
   const changes: Request[] = [];

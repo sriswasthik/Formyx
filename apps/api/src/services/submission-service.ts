@@ -1,5 +1,7 @@
 import {
   answerableFields,
+  retiredFieldsSchema,
+  type Field,
   storedAnswerSchema,
   storedOutcomeSchema,
   submissionMetadataSchema,
@@ -200,20 +202,26 @@ export interface SubmissionService {
   remove(formId: string, ids: readonly string[]): Promise<string[]>;
   /** Deletes every response to the form, and returns their ids. */
   removeAll(formId: string): Promise<string[]>;
-  /** The title respondents see and the published questions: what an export is made of. */
-  published(formId: string): Promise<{ title: string; schema: FormSchema | null }>;
+  /**
+   * The title respondents see, the published questions and the deleted ones that still have
+   * answers: what an export is made of.
+   */
+  published(
+    formId: string,
+  ): Promise<{ title: string; schema: FormSchema | null; retiredFields: Field[] }>;
 }
 
 export function createSubmissionService(prisma: Database): SubmissionService {
   async function published(formId: string) {
     const form = await prisma.form.findUnique({
       where: { id: formId },
-      select: { title: true, publishedTitle: true, publishedSchema: true },
+      select: { title: true, publishedTitle: true, publishedSchema: true, retiredFields: true },
     });
     if (!form) throw new AppError(404, 'NOT_FOUND', 'Form not found');
     return {
       title: form.publishedTitle ?? form.title,
       schema: parsePublishedSchema(form.publishedSchema),
+      retiredFields: retiredFieldsSchema.parse(form.retiredFields),
     };
   }
 

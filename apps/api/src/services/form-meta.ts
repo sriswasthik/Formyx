@@ -2,6 +2,7 @@ import { readLiveSettings, type EntitlementsMode, type FormMeta } from '@formyx/
 import { AppError } from '../lib/app-error.js';
 import type { Database } from '../lib/prisma.js';
 import { renderSocialImage } from '../lib/social-image.js';
+import { isIndexable, VERIFIED_OWNER_SELECT } from '../trust/indexing.js';
 import { formAllows } from './entitlement-service.js';
 import { parsePublishedSchema, parsePublishedTheme } from './form-service.js';
 
@@ -31,6 +32,9 @@ async function findBySlug(prisma: Database, slug: string) {
     theme: true,
     publishedAt: true,
     liveSettings: true,
+    status: true,
+    createdBy: { select: { suspendedAt: true } },
+    workspace: { select: VERIFIED_OWNER_SELECT },
   } as const;
   const current = await prisma.form.findUnique({ where: { slug }, select });
   if (current) return current;
@@ -48,7 +52,12 @@ export function createFormMetaService(
   async function load(slug: string) {
     const form = await findBySlug(prisma, slug);
     const schema = form && parsePublishedSchema(form.publishedSchema);
-    if (!form || !schema || !form.publishedAt) {
+    // Held for review or taken offline: no preview, so nothing of it travels with a link.
+    const offline =
+      form?.status === 'UNDER_REVIEW' ||
+      form?.status === 'SUSPENDED' ||
+      Boolean(form?.createdBy?.suspendedAt);
+    if (!form || !schema || !form.publishedAt || offline) {
       throw new AppError(404, 'NOT_FOUND', 'Form not found');
     }
     const settings = readLiveSettings(form.liveSettings);
@@ -85,7 +94,7 @@ export function createFormMetaService(
           sharing.socialImageUrl ??
           `${appUrl}/api/public/forms/${encodeURIComponent(form.slug)}/og.png?v=${version}`,
         ...(sharing.faviconUrl && { faviconUrl: sharing.faviconUrl }),
-        indexable: !access.unlisted,
+        indexable: isIndexable(access, form.workspace),
       };
     },
 

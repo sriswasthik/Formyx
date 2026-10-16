@@ -56,21 +56,25 @@ function originOf(url: string, name: string): URL {
  * allow inline `style` attributes, which animations set; images may come from any https host,
  * because form logos and covers are links people paste; audio from uploads; video players from
  * YouTube and Vimeo. `frameAncestors` decides who may embed the page. With `payments` (the
- * app's own pages, never public forms), Razorpay Checkout's script, window and API too.
+ * app's own pages, never public forms), Razorpay Checkout's script, window and API too. With
+ * `captcha` (public forms), Cloudflare Turnstile's, for forms that switch the spam check on.
  */
 export function contentSecurityPolicy({
   scriptHashes,
   realtimeUrl,
   frameAncestors,
   payments = false,
+  captcha = false,
 }: {
   scriptHashes: string[];
   realtimeUrl?: string | undefined;
   frameAncestors: string;
   payments?: boolean;
+  captcha?: boolean;
 }): string {
   const connect = ["'self'", 'https://api.cloudinary.com'];
   if (payments) connect.push(...RAZORPAY.connect);
+  if (captcha) connect.push(TURNSTILE);
   if (realtimeUrl) {
     const realtime = originOf(realtimeUrl, 'VITE_REALTIME_URL');
     const socket = realtime.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -78,11 +82,18 @@ export function contentSecurityPolicy({
   }
   return [
     "default-src 'self'",
-    ['script-src', "'self'", ...scriptHashes, ...(payments ? RAZORPAY.script : [])].join(' '),
+    [
+      'script-src',
+      "'self'",
+      ...scriptHashes,
+      ...(payments ? RAZORPAY.script : []),
+      ...(captcha ? [TURNSTILE] : []),
+    ].join(' '),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
-    // Voice notes: a respondent's own recording, and uploads played back in responses.
-    "media-src 'self' blob: https://res.cloudinary.com",
+    // Voice notes: a respondent's own recording, and uploads played back in responses (old
+    // public files from res.cloudinary.com, private ones by signed download links).
+    "media-src 'self' blob: https://res.cloudinary.com https://api.cloudinary.com",
     "font-src 'self'",
     `connect-src ${connect.join(' ')}`,
     // Video blocks: the privacy-friendly YouTube and Vimeo players only.
@@ -91,6 +102,7 @@ export function contentSecurityPolicy({
       'https://www.youtube-nocookie.com',
       'https://player.vimeo.com',
       ...(payments ? RAZORPAY.frame : []),
+      ...(captcha ? [TURNSTILE] : []),
     ].join(' '),
     "object-src 'none'",
     "base-uri 'self'",
@@ -98,6 +110,9 @@ export function contentSecurityPolicy({
     `frame-ancestors ${frameAncestors}`,
   ].join('; ');
 }
+
+/** Cloudflare Turnstile's script, widget and checks all come from here. */
+const TURNSTILE = 'https://challenges.cloudflare.com';
 
 /** What Razorpay Checkout loads, as Razorpay documents it. */
 const RAZORPAY = {
@@ -136,8 +151,8 @@ export function vercelRoutes({
   const scriptHashes = [
     ...new Set([...inlineScriptHashes(html), ...(homeHtml ? inlineScriptHashes(homeHtml) : [])]),
   ];
-  const policy = (frameAncestors: string, payments = false) =>
-    contentSecurityPolicy({ scriptHashes, realtimeUrl, frameAncestors, payments });
+  const policy = (frameAncestors: string, payments = false, captcha = false) =>
+    contentSecurityPolicy({ scriptHashes, realtimeUrl, frameAncestors, payments, captcha });
 
   return [
     {
@@ -152,7 +167,7 @@ export function vercelRoutes({
       headers: {
         ...COMMON_HEADERS,
         'Permissions-Policy': FORM_PERMISSIONS,
-        'Content-Security-Policy': policy('*'),
+        'Content-Security-Policy': policy('*', false, true),
       },
       continue: true,
     },

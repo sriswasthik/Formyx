@@ -54,10 +54,17 @@ describe('GET /api/uploads/signature for respondents', () => {
       allowedFormats: 'pdf',
       maxBytes: 2 * BYTES_PER_MB,
       uploadUrl: 'https://api.cloudinary.com/v1_1/formyx-test/auto/upload',
+      // Respondents' files are private: only the form's members can open them.
+      type: 'private',
     });
     expect(signed.signature).toBe(
       signCloudinaryParams(
-        { folder: signed.folder, allowed_formats: 'pdf', timestamp: signed.timestamp },
+        {
+          folder: signed.folder,
+          allowed_formats: 'pdf',
+          timestamp: signed.timestamp,
+          type: 'private',
+        },
         FAKE_API_SECRET,
       ),
     );
@@ -211,6 +218,38 @@ describe('uploaded files in responses', () => {
     await submit(form.slug, { [name.id]: 'Ada', [cv.id]: elsewhere }).expect(400);
   });
 
+  it('keeps a private file as a Formyx file link, the only way to it', async () => {
+    const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
+    const file = cloud.upload(folderOf(form.id), { name: 'cv.pdf', bytes: 100, private: true });
+
+    await submit(form.slug, { [name.id]: 'Ada', [cv.id]: file }).expect(201);
+
+    expect(await storedAnswer(form.id)).toEqual({
+      ...file,
+      url: `https://app.formyx.test/api/forms/${form.id}/files/raw/${encodeURIComponent(file.publicId)}`,
+    });
+  });
+
+  it.each([
+    ['a program named like a PDF', 'MZ', 'This file is a Windows program, which can’t be uploaded'],
+    ['text named like a PDF', 'Hello there', 'This file isn’t really a .pdf file'],
+  ])('refuses %s, by what it holds', async (_case, content, message) => {
+    const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
+    const file = cloud.upload(folderOf(form.id), {
+      name: 'cv.pdf',
+      bytes: 100,
+      private: true,
+      content: new TextEncoder().encode(content),
+    });
+
+    const res = await submit(form.slug, { [name.id]: 'Ada', [cv.id]: file }).expect(400);
+
+    expect(apiErrorSchema.parse(res.body).error.details).toEqual([
+      { path: `answers.${cv.id}`, message },
+    ]);
+    expect(await prisma.submission.count()).toBe(0);
+  });
+
   it('cannot take files while uploads are off', async () => {
     const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
     const file = cloud.upload(folderOf(form.id), { name: 'cv.pdf', bytes: 100 });
@@ -221,6 +260,51 @@ describe('uploaded files in responses', () => {
       appWithoutUploads,
     ).expect(503);
     expect(apiErrorSchema.parse(res.body).error.code).toBe('UPLOADS_UNAVAILABLE');
+  });
+});
+
+describe('GET /api/forms/:formId/files', () => {
+  const fileUrl = (formId: string, publicId: string) =>
+    `/api/forms/${formId}/files/raw/${encodeURIComponent(publicId)}`;
+
+  it('sends members on to a download link that soon stops working', async () => {
+    const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
+    const publicId = `formyx/forms/${form.id}/${cv.id}/abc_cv.pdf`;
+
+    const res = await requestAs(app, team.users.VIEWER).get(fileUrl(form.id, publicId)).expect(302);
+
+    const location = new URL(res.headers.location ?? '');
+    expect(location.origin + location.pathname).toBe(
+      'https://api.cloudinary.com/v1_1/formyx-test/raw/download',
+    );
+    expect(location.searchParams.get('public_id')).toBe(publicId);
+    expect(location.searchParams.get('type')).toBe('private');
+    const expiresAt = Number(location.searchParams.get('expires_at'));
+    expect(expiresAt - Number(location.searchParams.get('timestamp'))).toBe(300);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['referrer-policy']).toBe('no-referrer');
+  });
+
+  it('is for members of the form’s workspace only', async () => {
+    const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
+    const publicId = `formyx/forms/${form.id}/${cv.id}/abc_cv.pdf`;
+    const stranger = await prisma.user.create({
+      data: { name: 'Eve', email: 'eve@example.com', passwordHash: 'x' },
+    });
+
+    await request(app).get(fileUrl(form.id, publicId)).expect(401);
+    await requestAs(app, stranger.id).get(fileUrl(form.id, publicId)).expect(403);
+  });
+
+  it.each([
+    ['another form’s file', (formId: string) => fileUrl(formId, 'formyx/forms/form_other/f/x.pdf')],
+    ['a theme image', (formId: string) => fileUrl(formId, `formyx/themes/${formId}/logo`)],
+    ['a path that climbs out', (formId: string) => fileUrl(formId, `formyx/forms/${formId}/../x`)],
+    ['a made-up kind of file', (formId: string) => `/api/forms/${formId}/files/zip/x`],
+  ])('will not hand out %s', async (_case, url) => {
+    const form = await createPublishedForm(prisma, team.workspaceId, SCHEMA);
+
+    await requestAs(app, team.users.VIEWER).get(url(form.id)).expect(404);
   });
 });
 

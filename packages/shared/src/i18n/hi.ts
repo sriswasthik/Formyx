@@ -18,6 +18,9 @@ export const hi: FormMessages = {
     thankYou: 'धन्यवाद।',
     madeWith: 'Formyx से बनाया गया',
     opensInNewTab: '(नए टैब में खुलता है)',
+    report: 'इस फ़ॉर्म की शिकायत करें',
+    personalData: 'यह फ़ॉर्म निजी जानकारी माँगता है, जो इसे बनाने वाले व्यक्ति को जाती है।',
+    privacyPolicy: 'Formyx इसे कैसे संभालता है',
     loading: 'फ़ॉर्म लोड हो रहा है',
   },
   marker: {
@@ -72,6 +75,8 @@ export const hi: FormMessages = {
     fixAnswers: 'कुछ उत्तरों पर ध्यान देने की ज़रूरत है।',
     waitForUpload: 'फ़ाइल का अपलोड पूरा होने तक रुकें',
     sendFailed: 'आपके उत्तर भेजे नहीं जा सके। अपना कनेक्शन जाँचें और फिर से कोशिश करें।',
+    retrying: 'कनेक्शन टूट गया। फिर से भेज रहे हैं…',
+    captchaFailed: 'पुष्टि करें कि आप रोबोट नहीं हैं, फिर दोबारा भेजें।',
     saveFailed: 'आपके उत्तर सहेजे नहीं जा सके। अपना कनेक्शन जाँचें और फिर से कोशिश करें।',
   },
   answer: {
@@ -114,6 +119,8 @@ export const hi: FormMessages = {
     closedTitle: 'यह फ़ॉर्म बंद है',
     closedText: 'यह अब जवाब नहीं ले रहा है।',
     notOpenTitle: 'यह फ़ॉर्म अभी खुला नहीं है',
+    unavailableTitle: 'यह फ़ॉर्म उपलब्ध नहीं है',
+    unavailableText: 'इसे अभी खोला नहीं जा सकता।',
     opensAt: (when) => `यह ${when} को खुलेगा।`,
     lockedTitle: 'इस फ़ॉर्म के लिए पासवर्ड चाहिए',
     lockedText: 'इसे खोलने के लिए आपको दिया गया पासवर्ड लिखें।',

@@ -16,6 +16,7 @@ import { AppError } from '../lib/app-error.js';
 import type { PasswordHasher } from '../lib/password.js';
 import type { Database } from '../lib/prisma.js';
 import { referrerByCode } from '../referrals/referrals.js';
+import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from '../trust/disposable-email.js';
 import { SignInFlowError, type ProviderProfile } from '../sign-in/providers.js';
 
 /** Same message for unknown emails and wrong passwords, so it never confirms an account exists. */
@@ -35,6 +36,10 @@ const meSelect = {
   isAdmin: true,
   // Only to say whether there is one; never sent.
   passwordHash: true,
+  // Never sent either: for refusing suspended accounts and asking for a confirmed email.
+  suspendedAt: true,
+  emailVerifiedAt: true,
+  deletionScheduledFor: true,
   memberships: {
     orderBy: { createdAt: 'asc' },
     select: { role: true, workspace: { select: { id: true, name: true, slug: true } } },
@@ -43,7 +48,11 @@ const meSelect = {
 
 type MeRecord = Prisma.UserGetPayload<{ select: typeof meSelect }>;
 
-function toMeResponse(user: MeRecord): MeResponse {
+/** Shown when a suspended account tries to sign in, and only then. */
+export const SUSPENDED_MESSAGE =
+  'This account is suspended. Write to us if you think this is a mistake.';
+
+function toMeResponse(user: MeRecord, requireEmailVerification = false): MeResponse {
   return {
     user: {
       id: user.id,
@@ -53,6 +62,10 @@ function toMeResponse(user: MeRecord): MeResponse {
       isDemo: user.isDemo,
       ...(user.isAdmin && { isAdmin: true }),
       ...(user.passwordHash === null && { hasPassword: false }),
+      ...(requireEmailVerification && !user.emailVerifiedAt && { mustVerifyEmail: true }),
+      ...(user.deletionScheduledFor && {
+        deletionScheduledFor: user.deletionScheduledFor.toISOString(),
+      }),
     },
     workspaces: user.memberships.map(({ role, workspace }) => ({ ...workspace, role })),
   };
@@ -128,12 +141,17 @@ export function createAuthService({
   prisma,
   passwords,
   mode = 'all_unlocked',
+  requireEmailVerification = false,
 }: {
   prisma: Database;
   passwords: PasswordHasher;
   /** Where plans are enforced, the first workspace starts a free trial. */
   mode?: EntitlementsMode;
+  /** REQUIRE_EMAIL_VERIFICATION: the app asks unconfirmed accounts to confirm. */
+  requireEmailVerification?: boolean;
 }): AuthService {
+  const me = (user: MeRecord) => toMeResponse(user, requireEmailVerification);
+
   async function isEmailRegistered(email: string): Promise<boolean> {
     return (await prisma.user.count({ where: { email } })) > 0;
   }
@@ -150,6 +168,7 @@ export function createAuthService({
     referralCode,
     source,
     identity,
+    emailVerified = false,
   }: {
     name: string;
     email: string;
@@ -158,6 +177,8 @@ export function createAuthService({
     source?: RegisterInput['source'];
     /** The Google or Zoho account it is made through. */
     identity?: { provider: string; subject: string; email: string };
+    /** The address is confirmed already (by Google or Zoho). */
+    emailVerified?: boolean;
   }): Promise<MeResponse> {
     // A friend's code: a longer trial, and a reward for them later. An unknown code is ignored.
     const referrerId = referralCode ? await referrerByCode(prisma, referralCode) : null;
@@ -172,6 +193,7 @@ export function createAuthService({
             name,
             email,
             passwordHash,
+            ...(emailVerified && { emailVerifiedAt: now }),
             // New accounts get the welcome and the getting-started checklist.
             onboarding: { startedAt: now.toISOString() },
             signupSource: source ?? null,
@@ -194,7 +216,7 @@ export function createAuthService({
           },
           select: meSelect,
         });
-        return toMeResponse(user);
+        return me(user);
       } catch (error) {
         // Taken email: the caller decides. Otherwise the random workspace slug collided,
         // which is worth another try.
@@ -206,6 +228,11 @@ export function createAuthService({
 
   return {
     async register({ name, email, password, referralCode, source }) {
+      if (isDisposableEmail(email)) {
+        throw new AppError(400, 'VALIDATION_ERROR', DISPOSABLE_EMAIL_MESSAGE, {
+          details: [{ path: 'email', message: DISPOSABLE_EMAIL_MESSAGE }],
+        });
+      }
       if (await isEmailRegistered(email)) throw emailTaken();
       const passwordHash = await passwords.hash(password);
       try {
@@ -220,7 +247,7 @@ export function createAuthService({
     async logIn({ email, password }) {
       const user = await prisma.user.findUnique({
         where: { email },
-        select: { ...meSelect, passwordHash: true },
+        select: { ...meSelect, passwordHash: true, suspendedAt: true },
       });
 
       // The demo account has no password: it is only reachable through POST /auth/demo. Nor
@@ -232,7 +259,9 @@ export function createAuthService({
       if (!(await passwords.verify(password, user.passwordHash))) {
         throw invalidCredentials();
       }
-      return toMeResponse(user);
+      // Said only to whoever knows the password, so it never reveals that an account exists.
+      if (user.suspendedAt) throw new AppError(403, 'ACCOUNT_SUSPENDED', SUSPENDED_MESSAGE);
+      return me(user);
     },
 
     async signInWithProvider(profile, extras = {}) {
@@ -245,8 +274,14 @@ export function createAuthService({
           })
         )?.user;
 
+      /** A sign-in to an existing account, unless it is suspended. */
+      const signedIn = (user: MeRecord): ProviderSignIn => {
+        if (user.suspendedAt) throw new SignInFlowError('suspended');
+        return { me: me(user), created: false };
+      };
+
       const linked = await linkedUser();
-      if (linked) return { me: toMeResponse(linked), created: false };
+      if (linked) return signedIn(linked);
 
       const email = emailSchema.safeParse(profile.email);
       if (!email.success) throw new SignInFlowError('failed', `${provider} sent a bad email`);
@@ -266,29 +301,31 @@ export function createAuthService({
             data: { signInIdentities: { create: identity } },
             select: meSelect,
           });
-          return { me: toMeResponse(user), created: false };
+          return signedIn(user);
         }
+        if (isDisposableEmail(email.data)) throw new SignInFlowError('disposable_email');
         try {
-          const me = await createAccount({
+          const created = await createAccount({
             name: nameFromProfile(profile.name, email.data),
             email: email.data,
             passwordHash: null,
             identity,
+            emailVerified: profile.emailVerified,
             ...extras,
           });
-          return { me, created: true };
+          return { me: created, created: true };
         } catch (error) {
           // Made at the same moment (another tab, say): use it, or link to it on the next pass.
           if (!isUniqueViolation(error) || attempt >= 2) throw error;
           const raced = await linkedUser();
-          if (raced) return { me: toMeResponse(raced), created: false };
+          if (raced) return signedIn(raced);
         }
       }
     },
 
     async getMe(userId) {
       const user = await prisma.user.findUnique({ where: { id: userId }, select: meSelect });
-      return user ? toMeResponse(user) : null;
+      return user ? me(user) : null;
     },
   };
 }

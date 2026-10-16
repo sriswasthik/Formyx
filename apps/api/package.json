@@ -27,7 +27,9 @@
     "billing:start-trials": "node --env-file-if-exists=.env dist/scripts/start-trials.js",
     "db:start-trials": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/start-trials.ts",
     "admin:grant": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/grant-admin.ts",
-    "admin:grant:dist": "node --env-file-if-exists=.env dist/scripts/grant-admin.js"
+    "admin:grant:dist": "node --env-file-if-exists=.env dist/scripts/grant-admin.js",
+    "db:make-files-private": "tsx --conditions=@formyx/source --env-file-if-exists=.env src/scripts/make-files-private.ts",
+    "files:make-private": "node --env-file-if-exists=.env dist/scripts/make-files-private.js"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

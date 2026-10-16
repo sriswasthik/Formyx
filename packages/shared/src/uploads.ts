@@ -46,6 +46,11 @@ export const uploadSignatureSchema = z.object({
   allowedFormats: z.string(),
   /** The most bytes the API will accept once uploaded. */
   maxBytes: z.number().int().min(1),
+  /**
+   * `private` for respondents' files: stored where only Formyx can hand them out, through
+   * short-lived links after checking who asks. Part of the signature.
+   */
+  type: z.literal('private').optional(),
 });
 export type UploadSignature = z.infer<typeof uploadSignatureSchema>;
 

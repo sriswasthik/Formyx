@@ -256,6 +256,52 @@ export const envSchema = z.object({
   PINCODE_API_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
     .default('https://api.postalpincode.in/pincode'),
+  /**
+   * Publishing needs a confirmed email address. Off by default: switch it on once emails reach
+   * everyone (a domain verified in Resend). Google and Zoho accounts are confirmed already.
+   */
+  REQUIRE_EMAIL_VERIFICATION: z
+    .enum(['on', 'off'], { error: 'Use on or off' })
+    .default('off')
+    .transform((value) => value === 'on'),
+  /**
+   * New accounts' limits for their first days (NEW_ACCOUNT_LIMITS in packages/shared). Only
+   * switched off for end-to-end tests, whose accounts are always minutes old.
+   */
+  NEW_ACCOUNT_LIMITS: z
+    .enum(['on', 'off'], { error: 'Use on or off' })
+    .default('on')
+    .transform((value) => value === 'on'),
+  /**
+   * Google Safe Browsing API key: links in forms and webhook addresses are also looked up there.
+   * Empty: only the built-in blocklist (and BLOCKED_LINK_DOMAINS) is used.
+   */
+  GOOGLE_SAFE_BROWSING_KEY: optionalSecret,
+  /** Safe Browsing's API. Only changed for tests. */
+  SAFE_BROWSING_URL: serviceUrl('https://safebrowsing.googleapis.com'),
+  /** More domains to refuse in links and webhooks, comma-separated: `bad.example, worse.example`. */
+  BLOCKED_LINK_DOMAINS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((domain) =>
+          domain
+            .trim()
+            .toLowerCase()
+            .replace(/^\.+|\.+$/g, ''),
+        )
+        .filter(Boolean),
+    ),
+  /**
+   * Cloudflare Turnstile, the spam check forms may switch on. Empty outside production:
+   * Cloudflare's test keys, which always pass. Empty in production: the option is hidden.
+   */
+  TURNSTILE_SITE_KEY: optionalSecret,
+  TURNSTILE_SECRET_KEY: optionalSecret,
+  /** Turnstile's API. Only changed for tests. */
+  TURNSTILE_URL: serviceUrl('https://challenges.cloudflare.com'),
 });
 
 export type Env = z.infer<typeof envSchema>;

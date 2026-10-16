@@ -142,6 +142,15 @@ const ENDPOINTS: Endpoint[] = [
     call: (as, f) => as.get(`${forms(f)}/submissions/export`),
   },
   {
+    name: 'open a respondent’s file',
+    minRole: 'VIEWER',
+    ok: 302,
+    call: (as, f) =>
+      as.get(
+        `${forms(f)}/files/raw/${encodeURIComponent(`formyx/forms/${f.formId}/fld/x_cv.pdf`)}`,
+      ),
+  },
+  {
     name: 'read a response',
     minRole: 'VIEWER',
     ok: 200,
@@ -395,6 +404,19 @@ const ENDPOINTS: Endpoint[] = [
   },
   // Brand kits
   {
+    name: 'look up a respondent’s responses',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) => as.get(`${workspace(f)}/respondent-data?email=ada%40example.com`),
+  },
+  {
+    name: 'delete a respondent’s responses',
+    minRole: 'EDITOR',
+    ok: 200,
+    call: (as, f) =>
+      as.post(`${workspace(f)}/respondent-data/delete`, { email: 'ada@example.com' }),
+  },
+  {
     name: 'list brand kits',
     minRole: 'VIEWER',
     ok: 200,
@@ -647,6 +669,11 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/account/password'],
   ['POST', '/api/account/password/set'],
   ['POST', '/api/account/delete'],
+  ['GET', '/api/account/deletion'],
+  ['POST', '/api/account/restore'],
+  ['GET', '/api/account/exports'],
+  ['POST', '/api/account/exports'],
+  ['GET', '/api/account/exports/id/download'],
   ['POST', '/api/invites/token/accept'],
   ['POST', '/api/feedback'],
   ['GET', '/api/referrals'],
@@ -656,6 +683,12 @@ const SIGNED_IN: [method: string, url: string][] = [
   ['POST', '/api/admin/workspaces/id/complimentary'],
   ['DELETE', '/api/admin/workspaces/id/complimentary'],
   ['POST', '/api/admin/workspaces/id/extend-trial'],
+  ['GET', '/api/admin/review'],
+  ['GET', '/api/admin/review/id'],
+  ['POST', '/api/admin/review/id'],
+  ['POST', '/api/admin/users/id/suspension'],
+  ['GET', '/api/admin/data-requests'],
+  ['POST', '/api/auth/verify-email/resend'],
 ];
 
 /** Public endpoints, and why any of them may go without a limit of its own. */
@@ -666,6 +699,7 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['POST', '/api/auth/login'],
   ['POST', '/api/auth/demo'],
   ['POST', '/api/auth/logout', 'only clears a cookie'],
+  ['POST', '/api/auth/verify-email'],
   ['GET', '/api/auth/providers', 'lists the configured providers and touches nothing'],
   ['GET', '/api/auth/oauth/google'],
   ['GET', '/api/auth/oauth/google/callback'],
@@ -679,6 +713,8 @@ const PUBLIC: [method: string, url: string, unlimited?: string][] = [
   ['POST', '/api/public/unsubscribe'],
   ['POST', '/api/public/resubscribe'],
   ['GET', '/api/public/referrals/K7MQ2XPA'],
+  ['POST', '/api/public/forms/slug/report'],
+  ['POST', '/api/public/account/restore'],
   ['GET', '/api/integrations/google/callback'],
   ['GET', '/api/integrations/notion/callback'],
   [

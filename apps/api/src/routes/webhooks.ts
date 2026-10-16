@@ -14,15 +14,17 @@ import { webhookUrlProblem } from '../lib/webhook-transport.js';
 import { getAuth, type AuthGuards } from '../middleware/auth.js';
 import { createWebhookTestRateLimiter } from '../middleware/rate-limit.js';
 import { createWebhookService } from '../services/webhook-service.js';
+import { createLinkChecker } from '../trust/link-checker.js';
 import { testPayload } from '../webhooks/payload.js';
 
 /** A form's webhooks: adding, removing, the delivery log and test events. EDITOR and up. */
 export function createWebhooksRouter(
-  { prisma, env, webhooks: dispatcher }: AppDependencies,
+  { prisma, env, logger, webhooks: dispatcher }: AppDependencies,
   { requireAuth, requireRealAccount, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
   const webhooks = createWebhookService(prisma, encryptionFromEnv(env));
+  const links = createLinkChecker(env, logger);
   const limitTests = createWebhookTestRateLimiter();
   const guards = [requireAuth, requireFormRole('EDITOR')];
   // Webhooks send requests to any URL: not for the shared demo account.
@@ -39,6 +41,14 @@ export function createWebhooksRouter(
     if (problem) {
       throw new AppError(400, 'VALIDATION_ERROR', problem, {
         details: [{ path: 'url', message: problem }],
+      });
+    }
+    // Responses would go there: not to a known phishing or malware site, nor through a shortener.
+    const [unsafe] = await links.check([url], { allowIpAddresses: true });
+    if (unsafe) {
+      const message = `This address ${unsafe.reason}. Use another one.`;
+      throw new AppError(400, 'VALIDATION_ERROR', message, {
+        details: [{ path: 'url', message }],
       });
     }
     const body: CreatedWebhook = await webhooks.create(

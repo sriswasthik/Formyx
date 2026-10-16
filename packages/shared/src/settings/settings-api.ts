@@ -18,6 +18,13 @@ export const formSettingsViewSchema = z.object({
   settings: liveSettingsSchema,
   slug: z.string(),
   hasPassword: z.boolean(),
+  /** The server can run Cloudflare Turnstile, so the spam check can be switched on. */
+  captchaAvailable: z.boolean(),
+  /**
+   * Search engines may list the form: an owner of its workspace has confirmed their email
+   * address. Otherwise forms stay out of search results whatever the setting says.
+   */
+  indexingAvailable: z.boolean().default(true),
   chat: z.object({ slack: chatWebhookViewSchema, discord: chatWebhookViewSchema }),
 });
 export type FormSettingsView = z.infer<typeof formSettingsViewSchema>;

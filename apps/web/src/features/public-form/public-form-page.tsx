@@ -1,5 +1,6 @@
 import {
   answerErrorsFromIssues,
+  collectsPersonalData,
   DRAFT_TOKEN_PATTERN,
   formatDateTime,
   formLocale,
@@ -10,10 +11,10 @@ import {
   type FormLocale,
   type FormMessages,
   type PublicForm,
-  type SubmittedAnswers,
+  type SubmissionInput,
 } from '@formyx/shared';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, FileQuestion, Lock, WifiOff } from 'lucide-react';
+import { CalendarClock, CircleSlash, FileQuestion, Lock, WifiOff } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -24,12 +25,12 @@ import {
   type RefObject,
 } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { usePageTitle } from '@/app/page-title';
+import { useNoIndex, usePageTitle } from '@/app/page-title';
 import { buttonVariants } from '@/components/ui/button-variants';
 import {
   FormView,
   type ResponseProgress,
-  type SubmitOutcome,
+  type SubmitHandler,
 } from '@/features/form-renderer/form-view';
 import { preloadFormLayout } from '@/features/form-renderer/conversational/load-conversational';
 import { preloadFieldControls } from '@/features/form-renderer/controls/registry';
@@ -63,9 +64,13 @@ import {
 } from './public-form-api';
 import { MadeWithFormyx, PublicFormMessage, PublicFormSkeleton } from './public-form-states';
 import { createProgressReporter, recordViewOnce } from './record-view';
+import { newSubmissionKey, sendWithRetry } from './send-with-retry';
+import type { TurnstileHandle } from './turnstile';
 
 // The password, email and "already responded" screens: only for forms that need them.
 const accessScreens = lazyModule(() => import('./access-screens'));
+// Cloudflare Turnstile's widget: only for forms with the spam check on.
+const turnstile = lazyModule(() => import('./turnstile'));
 
 /**
  * The token of an emailed "continue later" link, from the page's fragment (where it never
@@ -87,20 +92,6 @@ function useClearFragment(token: string | null) {
       window.location.pathname + window.location.search,
     );
   }, [token]);
-}
-
-/** Keeps search engines away from forms not meant to be listed. */
-function useNoIndex(noIndex: boolean) {
-  useEffect(() => {
-    if (!noIndex) return;
-    const meta = document.createElement('meta');
-    meta.name = 'robots';
-    meta.content = 'noindex';
-    document.head.append(meta);
-    return () => {
-      meta.remove();
-    };
-  }, [noIndex]);
 }
 
 /** A missing form stays missing, so asking again would not help. */
@@ -189,6 +180,8 @@ function LiveForm({
   const variant = embedded ? 'embed' : 'page';
   const [openedAt] = useState(() => Date.now());
   const honeypot = useRef<HTMLInputElement>(null);
+  const captcha = useRef<TurnstileHandle | null>(null);
+  const submissionKey = useRef<string | null>(null);
   const uploadFile = useMemo(() => answerUploader(form.slug), [form.slug]);
   // One visit, counted once per browser session; its token carries the progress reports.
   const [visit] = useState(() => recordViewOnce(form.slug));
@@ -213,19 +206,35 @@ function LiveForm({
   const [editUrl, setEditUrl] = useState<string | null>(null);
   const needsScreens = responded || (access.emailStep !== 'none' && respondent === null);
   const screens = useLazyModule(accessScreens, needsScreens);
-  const footer = form.theme.branding.showFormyxBadge ? (
+  const captchaWidget = useLazyModule(
+    turnstile,
+    access.captchaSiteKey !== undefined && editing === null,
+  );
+  // The credit, which plans may hide, and the report link, which every form has.
+  const footer = (
     <MadeWithFormyx
       label={messages.nav.madeWith}
       slug={form.slug}
       newTab={embedded ? messages.nav.opensInNewTab : undefined}
+      badge={form.theme.branding.showFormyxBadge}
+      report={messages.nav.report}
+      opensInNewTab={messages.nav.opensInNewTab}
+      personalData={
+        collectsPersonalData(form.schema, access.emailStep !== 'none')
+          ? { notice: messages.nav.personalData, link: messages.nav.privacyPolicy }
+          : undefined
+      }
     />
-  ) : undefined;
+  );
   const frame = { title: form.title, theme: form.theme, locale, variant, footer } as const;
 
-  const submit = async (answers: SubmittedAnswers): Promise<SubmitOutcome> => {
+  const submit: SubmitHandler = async (answers, sending) => {
+    // The same key for every try at this response, so none of them can store it twice.
+    submissionKey.current ??= newSubmissionKey();
     try {
-      const sent = await submitResponse(form.slug, {
+      const input: SubmissionInput = {
         answers,
+        submissionKey: submissionKey.current,
         completionTimeMs: Math.max(0, Math.round(Date.now() - openedAt)),
         referrer: document.referrer || undefined,
         [HONEYPOT_FIELD]: honeypot.current?.value || undefined,
@@ -236,7 +245,17 @@ function LiveForm({
           ? { respondentEmail: respondent.email }
           : {}),
         ...(editing === null && respondent?.token ? { verificationToken: respondent.token } : {}),
+        // The spam check, for new responses.
+        ...(editing === null && access.captchaSiteKey
+          ? { captchaToken: await captcha.current?.token() }
+          : {}),
+      };
+      const sent = await sendWithRetry(() => submitResponse(form.slug, input), {
+        onRetry: () => {
+          sending.note(messages.check.retrying);
+        },
       });
+      submissionKey.current = null;
       if (hostOrigin !== null) postToHost({ type: 'submitted', slug: form.slug }, hostOrigin);
       if (access.oneResponsePerBrowser) markResponded(form.slug);
       // A confirmed address counts once: the next visit confirms again.
@@ -270,6 +289,10 @@ function LiveForm({
           fieldErrors: answerErrorsFromIssues(issues),
           message: messages.check.fixAnswers,
         };
+      }
+      if (error.code === 'CAPTCHA_FAILED') {
+        captcha.current?.reset();
+        return { ok: false, message: messages.check.captchaFailed };
       }
       if (error.code === 'RATE_LIMITED') return { ok: false, message: error.message };
       return { ok: false, message: messages.check.sendFailed };
@@ -347,7 +370,14 @@ function LiveForm({
       onProgress={onProgress}
       allowRedirect
       notice={notice}
-      hiddenFields={<Honeypot inputRef={honeypot} />}
+      hiddenFields={
+        <>
+          <Honeypot inputRef={honeypot} />
+          {access.captchaSiteKey && captchaWidget && (
+            <captchaWidget.Turnstile siteKey={access.captchaSiteKey} handleRef={captcha} />
+          )}
+        </>
+      }
       variant={variant}
       // Embedded, the form is a card on the host's page rather than a page of its own.
       footer={footer}
@@ -421,11 +451,18 @@ export function PublicFormPage() {
     refetchOnWindowFocus: false,
     retry: false,
   });
-  usePageTitle(query.data?.form.title ?? 'Form');
+  // A form held for review or taken offline: not even its title.
+  const formTitle =
+    query.data && query.data.form.status !== 'unavailable' ? query.data.form.title : undefined;
+  usePageTitle(
+    formTitle ??
+      (query.data ? query.data.locale.messages.access.unavailableTitle : undefined) ??
+      'Form',
+  );
   useReportHeight({
     enabled: embedded,
     slug,
-    title: query.data?.form.title,
+    title: formTitle,
     targetOrigin: hostOrigin ?? '*',
   });
   useNoIndex(query.data !== undefined && !(open?.access.indexable ?? false));
@@ -484,6 +521,17 @@ export function PublicFormPage() {
 
   const { form, locale } = query.data;
   const { messages } = locale;
+
+  if (form.status === 'unavailable') {
+    return (
+      <PublicFormMessage
+        icon={CircleSlash}
+        title={messages.access.unavailableTitle}
+        description={messages.access.unavailableText}
+        madeWith={messages.nav.madeWith}
+      />
+    );
+  }
 
   if (form.status === 'closed' || closedWhileOpen) {
     return (

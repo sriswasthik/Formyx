@@ -81,8 +81,18 @@ export function ClassicForm({
 }: ClassicFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const messages = useFormMessages();
-  const { answers, errors, formError, status, path, activeIds, handleChange, checkFields, submit } =
-    response;
+  const {
+    answers,
+    errors,
+    formError,
+    sendingNote,
+    status,
+    path,
+    activeIds,
+    handleChange,
+    checkFields,
+    submit,
+  } = response;
   const formRef = useRef<HTMLFormElement>(null);
   /** Where to put focus once a page has drawn: a field's control, or the page's start. */
   const focusPending = useRef<{ fieldId: string | null } | null>(null);
@@ -262,6 +272,11 @@ export function ClassicForm({
             </span>
           )}
         </div>
+        {busy && sendingNote && (
+          <p role="status" className="form-text-sm text-(--form-muted)">
+            {sendingNote}
+          </p>
+        )}
         <p role="alert" className="form-text-sm text-(--form-danger) empty:hidden">
           {formError ??
             (errorCount > 0 &&

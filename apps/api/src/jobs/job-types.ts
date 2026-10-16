@@ -59,6 +59,8 @@ export interface JobPayloads {
     periodKey: string;
     formId?: string | undefined;
   };
+  /** Someone's data export (privacy/data-export.ts), and its line in the data request log. */
+  'privacy.export': { exportId: string; requestId: string };
 }
 
 export type LifecycleKind = 'welcome' | 'first_form_published' | 'first_response' | 'inactive';
@@ -149,6 +151,15 @@ export const JOB_POLICIES: Record<JobName, JobPolicy> = {
     maxRetrySeconds: 3600,
     concurrency: 2,
     timeoutSeconds: 120,
+    alert: true,
+  },
+  // One at a time: an export holds a whole account's responses in memory while it is zipped.
+  'privacy.export': {
+    attempts: 4,
+    firstRetrySeconds: 60,
+    maxRetrySeconds: 1800,
+    concurrency: 1,
+    timeoutSeconds: 600,
     alert: true,
   },
 };

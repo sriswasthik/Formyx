@@ -167,6 +167,27 @@ describe('FormView with logic', () => {
     expect(localStorage.getItem('formyx:progress:pets-unload')).toContain('"Ada"');
   });
 
+  it('keeps the answers in the browser until the server has them', async () => {
+    const onSubmit = vi
+      .fn<() => Promise<SubmitOutcome>>()
+      .mockResolvedValueOnce({ ok: false, message: 'Your answers could not be sent.' })
+      .mockResolvedValue({ ok: true });
+    const { user } = renderForm({ saveProgressKey: 'pets-send', onSubmit });
+    await user.type(screen.getByRole('textbox', { name: /Your name/ }), 'Ada');
+    await user.click(screen.getByText('No'));
+    await waitFor(() => {
+      expect(localStorage.getItem('formyx:progress:pets-send')).toContain('"Ada"');
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('Your answers could not be sent.')).toBeInTheDocument();
+    expect(localStorage.getItem('formyx:progress:pets-send')).toContain('"Ada"');
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByRole('heading', { name: 'No pet, no problem' })).toBeInTheDocument();
+    expect(localStorage.getItem('formyx:progress:pets-send')).toBeNull();
+  });
+
   it('emails a link to finish later when the form offers it', async () => {
     const offering: FormSchema = {
       ...schema,

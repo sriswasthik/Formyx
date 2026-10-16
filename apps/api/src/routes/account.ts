@@ -1,7 +1,6 @@
 import {
   accountPreferencesSchema,
   changePasswordInputSchema,
-  deleteAccountInputSchema,
   setPasswordInputSchema,
   readWorkspacePreferences,
   updateOnboardingInputSchema,
@@ -13,7 +12,7 @@ import {
 import { Router } from 'express';
 import type { AppDependencies } from '../app.js';
 import { createPasswordHasher } from '../lib/password.js';
-import { clearSessionCookie, setSessionCookie } from '../lib/session.js';
+import { setSessionCookie } from '../lib/session.js';
 import { createAuthRateLimiters } from '../middleware/rate-limit.js';
 import { getAuth, getMembership, type AuthGuards } from '../middleware/auth.js';
 import { createAccountService } from '../services/account-service.js';
@@ -90,13 +89,6 @@ export function createAccountRouter(
       res.status(204).end();
     },
   );
-
-  router.post('/account/delete', requireAuth, requireRealAccount, limit.login, async (req, res) => {
-    const confirmation = deleteAccountInputSchema.parse(req.body);
-    await accounts.deleteAccount(getAuth(req).userId, confirmation);
-    clearSessionCookie(res, env);
-    res.status(204).end();
-  });
 
   router.get(
     '/workspaces/:workspaceId/preferences',

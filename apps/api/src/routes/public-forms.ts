@@ -4,6 +4,7 @@ import {
   FORM_ACCESS_HEADER,
   HONEYPOT_FIELD,
   progressInputSchema,
+  reportFormInputSchema,
   resumeDraftInputSchema,
   saveDraftInputSchema,
   submissionInputSchema,
@@ -27,6 +28,8 @@ import { createDraftService } from '../services/draft-service.js';
 import { createFormMetaService } from '../services/form-meta.js';
 import { createPublicFormService } from '../services/public-form-service.js';
 import { createUploadChecks } from '../services/upload-checks.js';
+import { createReportService } from '../trust/report-service.js';
+import { createTurnstileVerifier, turnstileKeys } from '../trust/turnstile.js';
 
 /** The token from unlocking a password-protected form, if the browser sent one. */
 export function accessTokenOf(req: Request): string | undefined {
@@ -47,15 +50,21 @@ export function createPublicFormsRouter({
   mailer,
 }: AppDependencies): Router {
   const router = Router();
+  const captchaKeys = turnstileKeys(env);
   const forms = createPublicFormService({
     prisma,
-    uploads: createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER }),
+    uploads: createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER, appUrl: env.APP_URL }),
     secret: env.JWT_SECRET,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mailer,
     appUrl: env.APP_URL,
     entitlementsMode: env.ENTITLEMENTS_MODE,
     enforcementMode: env.ENFORCEMENT_MODE,
+    newAccountLimits: env.NEW_ACCOUNT_LIMITS,
+    captcha: captchaKeys && {
+      siteKey: captchaKeys.siteKey,
+      verifier: createTurnstileVerifier({ keys: captchaKeys, baseUrl: env.TURNSTILE_URL, logger }),
+    },
   });
   const drafts = createDraftService({
     prisma,
@@ -65,6 +74,7 @@ export function createPublicFormsRouter({
   });
   const limit = createPublicRateLimiters(env);
   const meta = createFormMetaService(prisma, env.APP_URL, env.ENTITLEMENTS_MODE);
+  const reports = createReportService({ prisma, secret: env.JWT_SECRET });
 
   // Closing a form must take effect at once, so nothing may cache these responses.
   router.use((_req, res, next) => {
@@ -158,7 +168,17 @@ export function createPublicFormsRouter({
     res.json(body);
   });
 
-  router.post('/:slug/submissions', limit.submit, async (req, res) => {
+  // "Report this form": anyone, no account; see trust/report-service.ts.
+  router.post('/:slug/report', limit.report, async (req, res) => {
+    await reports.report(
+      routeParam(req, 'slug'),
+      reportFormInputSchema.parse(req.body),
+      req.ip ?? '',
+    );
+    res.status(204).end();
+  });
+
+  router.post('/:slug/submissions', limit.submit, limit.submitToForm, async (req, res) => {
     const input = submissionInputSchema.parse(req.body);
 
     // People never see the honeypot. Whoever filled it in gets the usual reply, so bots
@@ -178,12 +198,18 @@ export function createPublicFormsRouter({
     const saved = await forms.submit(routeParam(req, 'slug'), input, {
       userAgent: req.get('user-agent'),
       accessToken: accessTokenOf(req),
+      ip: req.ip,
     });
     const body: SubmissionResponse = {
       id: saved.submission.id,
       outcome: saved.outcome,
       ...(saved.editToken && { editToken: saved.editToken }),
     };
+    // A retry of a response already stored: the same reply, and nothing announced again.
+    if (saved.replayed) {
+      res.status(200).json(body);
+      return;
+    }
     res.status(saved.edited ? 200 : 201).json(body);
     // Committed and answered: now live dashboards and notification emails can follow.
     events.emit(saved.edited ? 'submission.updated' : 'submission.created', saved);

@@ -9,6 +9,7 @@ import { registerUsageWarnings } from './billing/usage-warnings.js';
 import { registerIntegrationJobs } from './integrations/sync.js';
 import { registerUpkeep } from './jobs/upkeep.js';
 import { registerLifecycle } from './lifecycle/lifecycle.js';
+import { registerDataExports } from './privacy/data-export.js';
 import { encryptionFromEnv } from './lib/encryption.js';
 import { createEventBus, type EventBus } from './lib/events.js';
 import type { Mailer } from './lib/mailer.js';
@@ -78,6 +79,7 @@ export function createServer(deps: ServerDependencies): FormyxServer {
   registerUsageWarnings(background);
   registerBillingEvents(background);
   registerLifecycle(background);
+  registerDataExports(background);
 
   return {
     app,

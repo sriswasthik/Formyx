@@ -19,7 +19,14 @@ export const FORM_SORT_LABELS: Record<FormSort, string> = {
 export type StatusCounts = Record<FormStatus | 'ALL', number>;
 
 export function countByStatus(forms: readonly FormListItem[]): StatusCounts {
-  const counts: StatusCounts = { ALL: forms.length, DRAFT: 0, PUBLISHED: 0, CLOSED: 0 };
+  const counts: StatusCounts = {
+    ALL: forms.length,
+    DRAFT: 0,
+    PUBLISHED: 0,
+    CLOSED: 0,
+    UNDER_REVIEW: 0,
+    SUSPENDED: 0,
+  };
   for (const form of forms) counts[form.status] += 1;
   return counts;
 }

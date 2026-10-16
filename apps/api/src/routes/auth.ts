@@ -1,6 +1,7 @@
 import {
   loginInputSchema,
   registerInputSchema,
+  verifyEmailInputSchema,
   TRIAL_PLAN,
   type MeResponse,
 } from '@formyx/shared';
@@ -14,6 +15,7 @@ import { clearSessionCookie, setSessionCookie } from '../lib/session.js';
 import { getAuth, type AuthGuards } from '../middleware/auth.js';
 import { createAuthRateLimiters } from '../middleware/rate-limit.js';
 import { createAuthService } from '../services/auth-service.js';
+import { readVerificationToken, sendVerificationEmail } from '../trust/email-verification.js';
 
 /**
  * What follows a new account, however it was made: the sign-up is counted, the welcome email
@@ -44,16 +46,14 @@ export async function setSessionFor(
   setSessionCookie(res, userId, env, user?.passwordVersion ?? 0);
 }
 
-export function createAuthRouter(
-  deps: AppDependencies,
-  { requireAuth }: AuthGuards,
-): Router {
+export function createAuthRouter(deps: AppDependencies, { requireAuth }: AuthGuards): Router {
   const { env, prisma } = deps;
   const router = Router();
   const auth = createAuthService({
     prisma,
     passwords: createPasswordHasher(env.BCRYPT_COST),
     mode: env.ENTITLEMENTS_MODE,
+    requireEmailVerification: env.REQUIRE_EMAIL_VERIFICATION,
   });
   const limit = createAuthRateLimiters(env);
   const demo = createDemoAccounts(prisma);
@@ -66,11 +66,61 @@ export function createAuthRouter(
     next();
   });
 
+  /** Emails the link that confirms `user`'s address; a failure is logged, not shown. */
+  async function sendVerification(user: { id: string; name: string; email: string }) {
+    try {
+      await sendVerificationEmail(
+        { mailer: deps.mailer, appUrl: env.APP_URL, secret: env.JWT_SECRET },
+        user,
+      );
+    } catch (error) {
+      deps.logger.error({ err: error, userId: user.id }, 'Could not send the verification email');
+    }
+  }
+
   router.post('/register', limit.register, async (req, res) => {
     const me = await auth.register(registerInputSchema.parse(req.body));
     await signIn(res, me.user.id);
     announceNewAccount(deps, me);
+    // Only while publishing waits for it (REQUIRE_EMAIL_VERIFICATION).
+    if (me.user.mustVerifyEmail) await sendVerification(me.user);
     res.status(201).json(me);
+  });
+
+  // The link in the email: no session needed, the token says who.
+  router.post('/verify-email', limit.login, async (req, res) => {
+    const { token } = verifyEmailInputSchema.parse(req.body);
+    const verified = readVerificationToken(token, env.JWT_SECRET);
+    const user =
+      verified &&
+      (await prisma.user.findUnique({
+        where: { id: verified.userId },
+        select: { email: true, emailVerifiedAt: true },
+      }));
+    // The address must still be the one the link was sent to.
+    if (!verified || user?.email !== verified.email) {
+      throw new AppError(
+        400,
+        'BAD_REQUEST',
+        'This link has expired or no longer matches your account. Send a new one from Formyx.',
+      );
+    }
+    if (!user.emailVerifiedAt) {
+      await prisma.user.update({
+        where: { id: verified.userId },
+        data: { emailVerifiedAt: new Date() },
+      });
+    }
+    res.status(204).end();
+  });
+
+  router.post('/verify-email/resend', requireAuth, limit.login, async (req, res) => {
+    const user = await prisma.user.findUnique({
+      where: { id: getAuth(req).userId },
+      select: { id: true, name: true, email: true, emailVerifiedAt: true },
+    });
+    if (user && !user.emailVerifiedAt) await sendVerification(user);
+    res.status(204).end();
   });
 
   router.post('/login', limit.login, async (req, res) => {

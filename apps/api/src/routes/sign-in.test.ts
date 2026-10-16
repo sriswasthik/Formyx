@@ -393,16 +393,17 @@ describe('an account without a password', () => {
       .expect(200);
   });
 
-  it('is deleted once its email is typed out', async () => {
+  it('is set to be deleted once its email is typed out', async () => {
     const { agent } = await signIn('google', ada);
     const wrong = await agent
       .post('/api/account/delete')
       .send({ email: 'someone@example.com' })
       .expect(400);
     expect(wrong.body).toMatchObject({ error: { code: 'WRONG_CODE' } });
-    await agent.post('/api/account/delete').send({ email: ' ADA@example.com ' }).expect(204);
-    expect(await prisma.user.count()).toBe(0);
-    expect(await prisma.signInIdentity.count()).toBe(0);
+    await agent.post('/api/account/delete').send({ email: ' ADA@example.com ' }).expect(202);
+    // Deleted a week later (see privacy.test.ts); until then it waits.
+    const user = await prisma.user.findFirstOrThrow();
+    expect(user.deletionScheduledFor).not.toBeNull();
   });
 
   it('needs the password, not the email, once there is one', async () => {

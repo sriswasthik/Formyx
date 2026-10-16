@@ -43,7 +43,7 @@ export default defineConfig({
     { name: 'warm-up', testMatch: /warm-up\.setup\.ts/, dependencies: ['setup'] },
     {
       name: 'desktop',
-      testIgnore: /visual\.spec\.ts/,
+      testIgnore: [/visual\.spec\.ts/, /safari-inputs\.spec\.ts/],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },
@@ -53,11 +53,22 @@ export default defineConfig({
     },
     {
       name: 'mobile',
-      testIgnore: /visual\.spec\.ts/,
+      testIgnore: [/visual\.spec\.ts/, /safari-inputs\.spec\.ts/],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 375, height: 812 },
         hasTouch: true,
+        storageState: AUTH_STATE_PATH,
+      },
+      dependencies: ['warm-up'],
+    },
+    // Safari's engine, for the inputs that differ most between browsers.
+    {
+      name: 'webkit',
+      testMatch: /safari-inputs\.spec\.ts/,
+      use: {
+        ...devices['Desktop Safari'],
+        viewport: { width: 1280, height: 800 },
         storageState: AUTH_STATE_PATH,
       },
       dependencies: ['warm-up'],
@@ -96,6 +107,8 @@ export default defineConfig({
       reuseExistingServer: !isCI,
       timeout: 60_000,
       env: {
+        // Every run's accounts are minutes old: new accounts' limits are tested in the API.
+        NEW_ACCOUNT_LIMITS: 'off',
         // Every run signs up new users and sends invites; keep the limits out of the way.
         AUTH_RATE_LIMIT_MAX: '1000',
         INVITE_RATE_LIMIT_MAX: '1000',

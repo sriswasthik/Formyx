@@ -30,6 +30,8 @@ export interface FakeServer {
    * the entitlements endpoint answers 404 and nothing is checked.
    */
   entitlements?: Entitlements;
+  /** Publishing holds the form for review, for these reasons, as the API's checks would. */
+  holdFor?: string[];
 }
 
 function bodyOf(init: RequestInit): Record<string, unknown> {
@@ -98,9 +100,11 @@ export function installFakeServer(
         );
       }
       if (action === 'publish') {
+        const held = server.holdFor !== undefined;
         server.form = {
           ...current,
-          status: current.status === 'CLOSED' ? 'CLOSED' : 'PUBLISHED',
+          status: held ? 'UNDER_REVIEW' : current.status === 'CLOSED' ? 'CLOSED' : 'PUBLISHED',
+          review: held ? { reasons: server.holdFor ?? [] } : null,
           publishedSchema: current.draftSchema,
           publishedTitle: current.title,
           publishedTheme: current.theme,

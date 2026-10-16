@@ -19,7 +19,10 @@ export const SOCIAL_TITLE_MAX_LENGTH = 70;
 export const SOCIAL_DESCRIPTION_MAX_LENGTH = 200;
 export const RETENTION_DAYS_MAX = 3650;
 
-const isoDateTime = z.iso.datetime({ offset: true, error: 'Use an ISO 8601 date and time' });
+/** A moment, written in any offset and always stored in UTC (`2026-10-01T04:00:00.000Z`). */
+const isoDateTime = z.iso
+  .datetime({ offset: true, error: 'Use an ISO 8601 date and time' })
+  .transform((value) => new Date(value).toISOString());
 const emailAddress = z.email('Enter an email address').max(254, 'Use a shorter address');
 
 /**
@@ -55,6 +58,11 @@ export const accessSettingsSchema = z
     allowEdits: z.boolean(),
     /** Kept out of search engines. Forms are only ever found through their link. */
     unlisted: z.boolean(),
+    /**
+     * Respondents pass Cloudflare Turnstile's spam check before sending. Defaulted, so access
+     * settings saved before it existed still read.
+     */
+    captcha: z.boolean().default(false),
   })
   .superRefine((access, ctx) => {
     if (
@@ -171,7 +179,13 @@ export function createDefaultLiveSettings(
   defaults: { frequency?: NotificationFrequency; emails?: string[] } = {},
 ): LiveSettings {
   return {
-    access: { oneResponsePer: 'off', requireEmail: false, allowEdits: false, unlisted: true },
+    access: {
+      oneResponsePer: 'off',
+      requireEmail: false,
+      allowEdits: false,
+      unlisted: true,
+      captcha: false,
+    },
     notifications: {
       emails: defaults.emails ?? [],
       frequency: defaults.frequency ?? 'instant',

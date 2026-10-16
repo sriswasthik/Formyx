@@ -181,7 +181,8 @@ describe('opening and closing times', () => {
     const res = await request(app).get(url(form.slug)).expect(200);
     expect(publicFormResponseSchema.parse(res.body)).toMatchObject({
       status: 'not_open',
-      opensAt: '2099-01-01T09:00:00+05:30',
+      // Stored, and sent, in UTC; shown in the workspace's time zone.
+      opensAt: '2099-01-01T03:30:00.000Z',
       timeZone: 'Asia/Kolkata',
     });
     expect(errorCode((await submit(form.slug, { answers: ANSWERS }).expect(403)).body)).toBe(

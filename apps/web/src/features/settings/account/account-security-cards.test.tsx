@@ -11,7 +11,7 @@ import {
   renderWithProviders,
   stubFetch,
 } from '@/test/session';
-import { DeleteAccountCard, PasswordCard } from './account-security-cards';
+import { PasswordCard } from './account-security-cards';
 
 function renderCards(handler: (path: string, body: unknown) => Response) {
   const requests: { path: string; body: unknown }[] = [];
@@ -28,12 +28,7 @@ function renderCards(handler: (path: string, body: unknown) => Response) {
         children: [
           {
             path: '/app/settings',
-            element: (
-              <>
-                <PasswordCard />
-                <DeleteAccountCard />
-              </>
-            ),
+            element: <PasswordCard />,
           },
           { path: '/login', element: <p>Log in</p> },
         ],
@@ -83,46 +78,5 @@ describe('PasswordCard', () => {
 
     expect(await screen.findByText('That password is not right')).toBeInTheDocument();
     expect(queryClient.getQueryData(meQueryKey)).toEqual(ADA);
-  });
-});
-
-describe('DeleteAccountCard', () => {
-  it('names the shared workspaces that need another owner first', async () => {
-    const { user } = renderCards(() =>
-      jsonResponse(
-        {
-          error: {
-            code: 'LAST_OWNER',
-            message: 'Make someone else an owner first.',
-            details: { workspaces: [{ id: 'ws_team', name: 'Analytical Engines' }] },
-          },
-        },
-        409,
-      ),
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Delete account' }));
-    await user.type(screen.getByLabelText('Your password'), 'my password');
-    await user.click(screen.getByRole('button', { name: 'Delete account' }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /only owner of this shared workspace/,
-    );
-    expect(screen.getByText('Analytical Engines')).toBeInTheDocument();
-  });
-
-  it('deletes the account and signs out', async () => {
-    const { requests, queryClient, user } = renderCards(() => new Response(null, { status: 204 }));
-
-    await user.click(screen.getByRole('button', { name: 'Delete account' }));
-    await user.type(screen.getByLabelText('Your password'), 'my password');
-    await user.click(screen.getByRole('button', { name: 'Delete account' }));
-
-    // Signing out re-renders the router, which takes a moment when the whole suite runs.
-    expect(
-      await screen.findByRole('heading', { name: 'Home' }, { timeout: 5000 }),
-    ).toBeInTheDocument();
-    expect(requests).toEqual([{ path: '/api/account/delete', body: { password: 'my password' } }]);
-    expect(queryClient.getQueryData(meQueryKey)).toBeNull();
   });
 });

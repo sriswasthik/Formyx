@@ -51,6 +51,13 @@ const UNLOCK_LIMIT = 10;
 const CODE_SEND_LIMIT = 5;
 const CODE_CHECK_LIMIT = 20;
 const EDIT_LOAD_LIMIT = 30;
+/**
+ * Responses to one form from everyone together: far above what a real form gets in a quarter
+ * hour, low enough that a botnet spread over many addresses can't flood it.
+ */
+const FORM_SUBMIT_LIMIT = 600;
+/** Reports from one address, across all forms. */
+const REPORT_LIMIT = 10;
 
 /** Each client IP counts separately for each form, so one busy form cannot block another. */
 function perFormKey(req: Request): string {
@@ -107,6 +114,17 @@ export function createPublicRateLimiters(env: Pick<Env, 'SUBMISSION_RATE_LIMIT_M
     /** Each code also allows only a few tries (CODE_ATTEMPTS). */
     checkCode: publicLimiter(CODE_CHECK_LIMIT, 'Too many tries. Wait a few minutes and try again.'),
     loadEdit: publicLimiter(EDIT_LOAD_LIMIT, 'Too many requests. Try again in a few minutes.'),
+    /** The per-form ceiling above, whoever sends them. */
+    submitToForm: limitedTo(
+      FORM_SUBMIT_LIMIT,
+      (req) => `form:${String(req.params.slug)}`,
+      'This form is getting a lot of responses right now. Try again in a few minutes.',
+    ),
+    report: limitedTo(
+      REPORT_LIMIT,
+      (req) => `report:${ipKeyGenerator(req.ip ?? '')}`,
+      'Too many reports. Try again later.',
+    ),
   };
 }
 
@@ -161,6 +179,15 @@ export function createInviteLinkRateLimiter() {
     INVITE_LINK_LIMIT,
     (req) => ipKeyGenerator(req.ip ?? ''),
     'Too many requests. Try again in a few minutes.',
+  );
+}
+
+/** Account undo links are long and random; this only slows down guessing them. */
+export function createRestoreLinkRateLimiter() {
+  return limitedTo(
+    INVITE_LINK_LIMIT,
+    (req) => ipKeyGenerator(req.ip ?? ''),
+    'Too many tries. Wait a few minutes, then try again.',
   );
 }
 

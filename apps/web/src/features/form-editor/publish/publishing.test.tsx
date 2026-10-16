@@ -64,6 +64,21 @@ describe('publishing from the editor', () => {
     });
   });
 
+  it('explains, calmly, when publishing holds the form for review', async () => {
+    const server = installFakeServer(makeFormDetail([named]));
+    server.holdFor = ['asks for a password', 'mentions net banking'];
+    const { user } = renderEditorPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Publish' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'We’re taking a quick look first' });
+    expect(dialog).toHaveTextContent('This form asks for a password and mentions net banking.');
+    expect(screen.queryByRole('dialog', { name: 'Your form is live' })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Got it' }));
+    // Nothing to close or reopen while it waits: the state, not a menu.
+    expect(await screen.findByText('In review')).toBeInTheDocument();
+  });
+
   it('offers code to embed the form in another site', async () => {
     installFakeServer(publishedForm());
     const { user } = renderEditorPage();

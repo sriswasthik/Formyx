@@ -126,9 +126,10 @@ export function createAuthGuards({
       session &&
       (await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { passwordVersion: true, lastActiveAt: true },
+        select: { passwordVersion: true, lastActiveAt: true, suspendedAt: true },
       }));
-    if (!session || user?.passwordVersion !== session.passwordVersion) {
+    // A suspended account is signed out at its next request (logging in explains why).
+    if (!session || user?.passwordVersion !== session.passwordVersion || user.suspendedAt) {
       // A signed but stale session: drop the cookie, so the browser stops sending it.
       if (session) clearSessionCookie(res, cookieEnv);
       next(unauthorized());

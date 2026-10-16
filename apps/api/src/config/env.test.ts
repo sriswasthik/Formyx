@@ -39,6 +39,11 @@ describe('parseEnv', () => {
       RAZORPAY_API_URL: 'https://api.razorpay.com',
       RAZORPAY_LIVE: false,
       ENFORCEMENT_MODE: 'soft',
+      REQUIRE_EMAIL_VERIFICATION: false,
+      NEW_ACCOUNT_LIMITS: true,
+      SAFE_BROWSING_URL: 'https://safebrowsing.googleapis.com',
+      BLOCKED_LINK_DOMAINS: [],
+      TURNSTILE_URL: 'https://challenges.cloudflare.com',
     });
     expect(parseEnv(REQUIRED).RESEND_API_KEY).toBeUndefined();
     expect(parseEnv(REQUIRED).ENCRYPTION_KEYS).toBeUndefined();

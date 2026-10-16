@@ -1,4 +1,4 @@
-import { answerableFields, type FormDetail } from '@formyx/shared';
+import { responseFields, type FormDetail } from '@formyx/shared';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { Inbox, RotateCw, Search, SearchX, Share2, Trash2, X } from 'lucide-react';
 import { AnimatePresence, m } from 'motion/react';
@@ -43,8 +43,9 @@ interface ResponsesTabProps {
 
 export function ResponsesTab({ form, canEdit, onShare }: ResponsesTabProps) {
   const fields = useMemo(
-    () => (form.publishedSchema ? answerableFields(form.publishedSchema) : []),
-    [form.publishedSchema],
+    // Deleted questions last, marked as deleted, for the responses that answered them.
+    () => (form.publishedSchema ? responseFields(form.publishedSchema, form.retiredFields) : []),
+    [form.publishedSchema, form.retiredFields],
   );
   const logic = form.publishedSchema?.logic;
   const filtersState = useResponseFilters();

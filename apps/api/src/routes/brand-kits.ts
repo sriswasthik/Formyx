@@ -28,7 +28,7 @@ export function createBrandKitsRouter(
     prisma,
     createEntitlementService(prisma, env.ENTITLEMENTS_MODE),
   );
-  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
+  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER, appUrl: env.APP_URL });
 
   /**
    * A kit's logo must be one uploaded for a form in this workspace, so a kit cannot carry

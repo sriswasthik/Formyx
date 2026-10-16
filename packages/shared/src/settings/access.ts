@@ -7,7 +7,12 @@ import type { AccessSettings } from './live-settings.js';
  * checks need the server's records, so the API makes those itself.
  */
 
-export type ClosedReason = 'unpublished' | 'closed' | 'response_limit' | 'close_date';
+/**
+ * `unavailable`: held for review, or taken offline by Formyx (the form or its creator). The
+ * public page says only that, without the form's title.
+ */
+export type ClosedReason =
+  'unpublished' | 'closed' | 'response_limit' | 'close_date' | 'unavailable';
 
 export type FormAvailability =
   | { state: 'open' }
@@ -32,6 +37,9 @@ export function formAvailability({
   responseCount,
   now = new Date(),
 }: AvailabilityInput): FormAvailability {
+  if (status === 'UNDER_REVIEW' || status === 'SUSPENDED') {
+    return { state: 'closed', reason: 'unavailable' };
+  }
   if (status === 'DRAFT') return { state: 'closed', reason: 'unpublished' };
   if (status === 'CLOSED') return { state: 'closed', reason: 'closed' };
   if (access.responseLimit !== undefined && responseCount >= access.responseLimit) {

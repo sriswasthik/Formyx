@@ -1,10 +1,11 @@
-import type { FormTheme } from '@formyx/shared';
+import type { FormTheme, Script } from '@formyx/shared';
 import type * as React from 'react';
 import { cx } from '@/lib/cx';
 import { FormCover, FormLogo } from '../branding';
 import { ThemeBackground } from './background';
 import { FormThemeContext } from './theme-context';
 import { useThemeFonts } from './fonts';
+import { useScriptFonts } from './script-fonts';
 import { themeStyle } from './theme-variables';
 
 /**
@@ -24,11 +25,16 @@ interface ThemeRendererProps {
   /** A progress bar along the top or bottom edge, as the theme places it. */
   progress?: React.ReactNode;
   className?: string;
-  /** A font for the form's script, when its language needs one (see `themeVariables`). */
-  scriptFont?: string | undefined;
+  /**
+   * Writing systems the form's text uses that need a font of their own (Telugu, Devanagari):
+   * their fonts load, and join every font stack (see `formScripts` in shared).
+   */
+  scripts?: readonly Script[] | undefined;
   /** The form's language, for screen readers and hyphenation. */
   lang?: string | undefined;
 }
+
+const NO_SCRIPTS: readonly Script[] = [];
 
 /** Space around the form when it has no container of its own. */
 const CONTENT_PADDING: Record<ThemeVariant, string> = {
@@ -146,10 +152,11 @@ export function ThemeRenderer({
   footer,
   progress,
   className,
-  scriptFont,
+  scripts = NO_SCRIPTS,
   lang,
 }: ThemeRendererProps) {
   useThemeFonts(theme);
+  const scriptFont = useScriptFonts(scripts);
   const layout = theme.layout.mode;
   const atTop = theme.layout.progress.position === 'top';
   const column = (

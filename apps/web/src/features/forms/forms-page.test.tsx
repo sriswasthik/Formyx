@@ -63,6 +63,8 @@ function toDetail({ responsesToday: _today, ...form }: FormListItem): FormDetail
     publishedTitle: null,
     theme: createDefaultTheme(),
     publishedTheme: null,
+    review: null,
+    retiredFields: [],
   };
 }
 

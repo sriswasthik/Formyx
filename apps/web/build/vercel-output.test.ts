@@ -40,10 +40,23 @@ describe('contentSecurityPolicy', () => {
 
   it('plays uploaded voice notes and embeds YouTube and Vimeo players only', () => {
     const policy = contentSecurityPolicy({ scriptHashes: [], frameAncestors: '*' });
-    expect(policy).toContain("media-src 'self' blob: https://res.cloudinary.com;");
+    expect(policy).toContain(
+      "media-src 'self' blob: https://res.cloudinary.com https://api.cloudinary.com;",
+    );
     expect(policy).toContain(
       'frame-src https://www.youtube-nocookie.com https://player.vimeo.com;',
     );
+  });
+
+  it('allows Cloudflare Turnstile only where asked (public forms)', () => {
+    const forms = contentSecurityPolicy({ scriptHashes: [], frameAncestors: '*', captcha: true });
+    expect(forms).toContain("script-src 'self' https://challenges.cloudflare.com;");
+    expect(forms).toContain('https://player.vimeo.com https://challenges.cloudflare.com;');
+    expect(forms).toContain(
+      "connect-src 'self' https://api.cloudinary.com https://challenges.cloudflare.com;",
+    );
+    const app = contentSecurityPolicy({ scriptHashes: [], frameAncestors: "'none'" });
+    expect(app).not.toContain('challenges.cloudflare.com');
   });
 
   it('only connects to this site when the socket is served here too', () => {

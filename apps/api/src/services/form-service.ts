@@ -1,6 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import {
   applyBrandKit,
+  capRetiredFields,
+  retiredFieldsSchema,
+  retireFields,
+  type Field,
   copyFormTitle,
   createDefaultLiveSettings,
   createDefaultTheme,
@@ -11,6 +15,10 @@ import {
   getFormTemplate,
   readAccountPreferences,
   readLiveSettings,
+  formRedirectUrls,
+  isNewAccount,
+  NEW_ACCOUNT_LIMITS,
+  newAccountEndsAt,
   readWorkspacePreferences,
   requiredFeatures,
   requiredLogicFeatures,
@@ -39,6 +47,8 @@ import { AppError } from '../lib/app-error.js';
 import { escapeLikePattern } from '../lib/like-pattern.js';
 import type { Database } from '../lib/prisma.js';
 import { countResponses, workspaceUsagePeriod } from '../billing/usage.js';
+import type { LinkChecker } from '../trust/link-checker.js';
+import { readModeration, reviewForPublish, reviewReasons } from '../trust/form-moderation.js';
 import { workspaceDefaultKit } from './brand-kit-service.js';
 import type { EntitlementService } from './entitlement-service.js';
 
@@ -66,6 +76,8 @@ const detailSelect = {
   publishedTitle: true,
   theme: true,
   publishedTheme: true,
+  moderation: true,
+  retiredFields: true,
 } satisfies Prisma.FormSelect;
 
 const listSelect = { ...summarySelect, theme: true } satisfies Prisma.FormSelect;
@@ -111,6 +123,27 @@ export function parsePublishedTheme(value: Prisma.JsonValue | null): FormTheme |
   return value === null ? null : parseStored(storedFormThemeSchema, value, 'publishedTheme');
 }
 
+/**
+ * The deleted questions to keep once `next` replaces `previous`: those kept before and not
+ * brought back, and the ones it deletes that have answers.
+ */
+async function retiredAfterPublish(
+  prisma: Database,
+  formId: string,
+  previous: FormSchema | null,
+  next: FormSchema,
+  retired: Field[],
+): Promise<Field[]> {
+  const { kept, added } = retireFields(previous, next, retired);
+  if (added.length === 0) return capRetiredFields(kept);
+  const answered = await prisma.$queryRaw<{ key: string }[]>`
+    SELECT DISTINCT answer.key FROM submissions, jsonb_object_keys(answers) AS answer(key)
+    WHERE form_id = ${formId} AND answer.key IN (${Prisma.join(added.map(({ id }) => id))})
+  `;
+  const withAnswers = new Set(answered.map(({ key }) => key));
+  return capRetiredFields([...kept, ...added.filter(({ id }) => withAnswers.has(id))]);
+}
+
 function toDetail(form: DetailRecord): FormDetail {
   return {
     ...toSummary(form),
@@ -119,6 +152,11 @@ function toDetail(form: DetailRecord): FormDetail {
     publishedTitle: form.publishedTitle,
     theme: parseStored(storedFormThemeSchema, form.theme, 'theme'),
     publishedTheme: parsePublishedTheme(form.publishedTheme),
+    review:
+      form.status === 'UNDER_REVIEW'
+        ? { reasons: reviewReasons(readModeration(form.moderation)) }
+        : null,
+    retiredFields: retiredFieldsSchema.parse(form.retiredFields),
   };
 }
 
@@ -199,11 +237,13 @@ export interface FormService {
   remove(formId: string): Promise<void>;
   /**
    * Snapshots the draft, title and theme as what respondents see. A draft form goes live; a
-   * closed one stays closed until reopened. Refused with 409 if the draft moved on from
-   * `version`, 422 if it is not complete, or 403 UPGRADE_REQUIRED if the theme uses features
-   * the workspace's plan lacks.
+   * closed one stays closed until reopened. A form that asks for passwords, bank details and
+   * the like, or links to unsafe sites, is held for review (UNDER_REVIEW) instead. Refused
+   * with 409 if the draft moved on from `version`, 422 if it is not complete, 403
+   * UPGRADE_REQUIRED if the theme uses features the workspace's plan lacks, 403
+   * FORM_SUSPENDED, EMAIL_NOT_VERIFIED or NEW_ACCOUNT_LIMIT for `publisherId`.
    */
-  publish(formId: string, input: PublishFormInput): Promise<FormDetail>;
+  publish(formId: string, input: PublishFormInput, publisherId: string): Promise<FormDetail>;
   /** Stops a published form taking responses. */
   close(formId: string): Promise<FormDetail>;
   /** Takes responses again, unless the response limit or closing time says no. */
@@ -225,10 +265,50 @@ async function templateTheme(
   return themeForFeatures(structuredClone(preset.theme), features).theme;
 }
 
+export interface FormTrustOptions {
+  /** Checks the links in forms being published. */
+  links: LinkChecker;
+  /** Publishing needs a confirmed email address (REQUIRE_EMAIL_VERIFICATION). */
+  requireEmailVerification: boolean;
+  /** New accounts' limits apply (NEW_ACCOUNT_LIMITS); off only for end-to-end tests. */
+  newAccountLimits: boolean;
+}
+
 export function createFormService(
   prisma: Database,
   entitlements: Pick<EntitlementService, 'assertFeatures' | 'forWorkspace'>,
+  trust: FormTrustOptions,
 ): FormService {
+  /** Throws unless `publisherId` may put a form with `draft` live. */
+  async function assertMayPublish(publisherId: string, draft: FormSchema): Promise<void> {
+    const publisher = await prisma.user.findUnique({
+      where: { id: publisherId },
+      select: { createdAt: true, emailVerifiedAt: true },
+    });
+    if (!publisher) throw new AppError(401, 'UNAUTHORIZED', 'Log in to continue');
+    if (trust.requireEmailVerification && !publisher.emailVerifiedAt) {
+      throw new AppError(
+        403,
+        'EMAIL_NOT_VERIFIED',
+        'Confirm your email address before publishing: we sent you a link.',
+      );
+    }
+    if (
+      trust.newAccountLimits &&
+      !NEW_ACCOUNT_LIMITS.redirects &&
+      isNewAccount(publisher.createdAt) &&
+      formRedirectUrls(draft).length > 0
+    ) {
+      const until = newAccountEndsAt(publisher.createdAt).toISOString();
+      throw new AppError(
+        403,
+        'NEW_ACCOUNT_LIMIT',
+        `Redirecting people to another site is available once your account is ${String(NEW_ACCOUNT_LIMITS.hours / 24)} days old. Remove the redirect to publish now.`,
+        { details: { until } },
+      );
+    }
+  }
+
   async function insert(form: NewForm): Promise<FormDetail> {
     for (let attempt = 1; ; attempt++) {
       try {
@@ -358,7 +438,7 @@ export function createFormService(
       if (count === 0) throw notFound();
     },
 
-    async publish(formId, { version }) {
+    async publish(formId, { version }, publisherId) {
       const form = await prisma.form.findUnique({
         where: { id: formId },
         select: {
@@ -367,10 +447,20 @@ export function createFormService(
           title: true,
           status: true,
           draftSchema: true,
+          publishedSchema: true,
+          retiredFields: true,
           theme: true,
+          moderation: true,
         },
       });
       if (!form) throw notFound();
+      if (form.status === 'SUSPENDED') {
+        throw new AppError(
+          403,
+          'FORM_SUSPENDED',
+          'Formyx took this form offline, so it can’t be published. Write to us if you think this is a mistake.',
+        );
+      }
       if (form.version !== version) throw versionConflict(form.version);
 
       const draft = parseStored(storedFormSchemaSchema, form.draftSchema, 'draftSchema');
@@ -386,16 +476,45 @@ export function createFormService(
         ...requiredFeatures(theme),
         ...requiredLogicFeatures(draft),
       ]);
+      await assertMayPublish(publisherId, draft);
+
+      // Phishing checks: a form asking for passwords or bank details, or linking to unsafe
+      // sites, waits for an admin. One held because of reports waits whatever it says now.
+      const previous = readModeration(form.moderation);
+      const review = await reviewForPublish({
+        schema: draft,
+        title: form.title,
+        previous,
+        links: trust.links,
+      });
+      const heldForReports = form.status === 'UNDER_REVIEW' && previous.heldFor === 'reports';
+      const status =
+        review.hold || heldForReports
+          ? 'UNDER_REVIEW'
+          : form.status === 'DRAFT' || form.status === 'UNDER_REVIEW'
+            ? 'PUBLISHED'
+            : form.status;
+
+      // Questions this publish deletes keep their answers, shown as deleted ones.
+      const retiredFields = await retiredAfterPublish(
+        prisma,
+        formId,
+        parsePublishedSchema(form.publishedSchema),
+        draft,
+        retiredFieldsSchema.parse(form.retiredFields),
+      );
 
       // Conditional on the version, so a draft saved in the meantime is never published unseen.
       const { count } = await prisma.form.updateMany({
         where: { id: formId, version },
         data: {
           publishedSchema: draft,
+          retiredFields,
           publishedTitle: form.title,
           publishedTheme: theme,
           publishedAt: new Date(),
-          ...(form.status === 'DRAFT' && { status: 'PUBLISHED' }),
+          status,
+          moderation: heldForReports ? { ...review.record, heldFor: 'reports' } : review.record,
         },
       });
       if (count === 0) {

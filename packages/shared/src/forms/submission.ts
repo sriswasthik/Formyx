@@ -488,6 +488,9 @@ export const submissionAnswersSchema = z
  * Body of `POST /api/public/forms/:slug/submissions`. Answers are checked separately; the
  * route, values, quiz score and end screen are always worked out again on the server.
  */
+/** A submission key: 16 to 64 URL-safe characters. */
+export const SUBMISSION_KEY_PATTERN = /^[\w-]{16,64}$/;
+
 export const submissionInputSchema = z.object({
   answers: submissionAnswersSchema,
   completionTimeMs: z
@@ -512,6 +515,13 @@ export const submissionInputSchema = z.object({
   verificationToken: z.string().max(2000).optional(),
   /** Changes the response this link belongs to, instead of adding one. */
   editToken: z.string().max(64).optional(),
+  /** Cloudflare Turnstile's token, when the form has the spam check on. */
+  captchaToken: z.string().max(4096).optional(),
+  /**
+   * Random, made by the browser once per response and sent with every try, so a retry after
+   * a lost reply gets the stored response back instead of adding another.
+   */
+  submissionKey: z.string().regex(SUBMISSION_KEY_PATTERN).optional(),
 });
 export type SubmissionInput = z.input<typeof submissionInputSchema>;
 

@@ -20,6 +20,7 @@ import { createBrandKitService } from '../services/brand-kit-service.js';
 import { createEntitlementService } from '../services/entitlement-service.js';
 import { createFormService } from '../services/form-service.js';
 import { createOnboardingService } from '../services/onboarding-service.js';
+import { createLinkChecker } from '../trust/link-checker.js';
 import { createUploadChecks } from '../services/upload-checks.js';
 
 /**
@@ -27,14 +28,18 @@ import { createUploadChecks } from '../services/upload-checks.js';
  * Routes are declared with full paths because they span two resources.
  */
 export function createFormsRouter(
-  { prisma, env, storage, analytics, events }: AppDependencies,
+  { prisma, env, logger, storage, analytics, events }: AppDependencies,
   { requireAuth, requireWorkspaceRole, requireFormRole }: AuthGuards,
 ): Router {
   const router = Router();
   const entitlements = createEntitlementService(prisma, env.ENTITLEMENTS_MODE);
-  const forms = createFormService(prisma, entitlements);
+  const forms = createFormService(prisma, entitlements, {
+    links: createLinkChecker(env, logger),
+    requireEmailVerification: env.REQUIRE_EMAIL_VERIFICATION,
+    newAccountLimits: env.NEW_ACCOUNT_LIMITS,
+  });
   const brandKits = createBrandKitService(prisma, entitlements);
-  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER });
+  const uploads = createUploadChecks({ storage, root: env.CLOUDINARY_FOLDER, appUrl: env.APP_URL });
   const onboarding = createOnboardingService(prisma);
 
   /**
@@ -148,8 +153,8 @@ export function createFormsRouter(
     requireFormRole('EDITOR'),
     async (req, res) => {
       const input = publishFormInputSchema.parse(req.body ?? {});
-      const form: FormDetail = await forms.publish(routeParam(req, 'formId'), input);
       const { userId } = getAuth(req);
+      const form: FormDetail = await forms.publish(routeParam(req, 'formId'), input, userId);
       for (const event of publishEvents(form)) {
         analytics.track(event, { userId, workspaceId: form.workspaceId });
       }

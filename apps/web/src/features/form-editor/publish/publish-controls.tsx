@@ -84,6 +84,15 @@ export function PublishControls({
   const closed = form.status === 'CLOSED';
   const busy = pending !== null;
   const menuProps = { form, closed, onClose, onReopen };
+  // Held for review or taken offline by Formyx: nothing to close or reopen, only to wait.
+  const offline =
+    form.status === 'UNDER_REVIEW' ? (
+      <Badge variant="accent">In review</Badge>
+    ) : form.status === 'SUSPENDED' ? (
+      <Badge variant="danger">Suspended</Badge>
+    ) : null;
+
+  if (offline && live && !changed) return offline;
 
   if (live && !changed) {
     // Nothing to publish: the button names the form's state and holds what can be done with it.
@@ -126,6 +135,7 @@ export function PublishControls({
 
   return (
     <div className="flex items-center gap-2">
+      {offline && <span className="hidden sm:inline-flex">{offline}</span>}
       {closed && (
         <Badge variant="outline" className="hidden sm:inline-flex">
           Closed
@@ -142,7 +152,7 @@ export function PublishControls({
         <Button
           ref={primaryRef}
           size="sm"
-          className={live ? 'relative rounded-r-none' : 'relative'}
+          className={live && !offline ? 'relative rounded-r-none' : 'relative'}
           aria-disabled={busy || undefined}
           onClick={() => {
             if (!busy) onPublish();
@@ -158,7 +168,7 @@ export function PublishControls({
             />
           )}
         </Button>
-        {live && (
+        {live && !offline && (
           <DropdownMenu
             open={menuOpen}
             onOpenChange={(open) => {

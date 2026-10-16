@@ -4,6 +4,7 @@ import {
   createField,
   createOption,
   deleteSubmissionsResponseSchema,
+  formDetailSchema,
   submissionPageSchema,
   submissionRecordSchema,
   type FormSchema,
@@ -368,6 +369,42 @@ describe('GET /api/forms/:formId/submissions/export', () => {
         '',
       ].join('\r\n'),
     );
+  });
+
+  it('keeps the answers to questions deleted since, marked as deleted', async () => {
+    const form = await createPublishedForm(prisma, team.workspaceId, SURVEY);
+    const answered = await createSubmission(prisma, form.id, {
+      answers: { [name.id]: 'Ada', [age.id]: 36 },
+      createdAt: at(1),
+    });
+    // Age has an answer and is kept; Comments never had one and is simply gone.
+    const without = SURVEY.fields.filter((field) => field.id !== age.id && field.id !== comment.id);
+    await editor()
+      .patch(`/api/forms/${form.id}`, { version: 1, draftSchema: { ...SURVEY, fields: without } })
+      .expect(200);
+    const published = await editor()
+      .post(`/api/forms/${form.id}/publish`, { version: 2 })
+      .expect(200);
+
+    expect(formDetailSchema.parse(published.body).retiredFields).toEqual([age]);
+    const res = await exportCsv(editor(), form.id).expect(200);
+    const [header, row] = (res.body as Buffer).toString('utf8').slice(1).split('\r\n');
+    expect(header).toBe(
+      'Response ID,Submitted at (UTC),Your name,Colour,Toppings,Age (deleted question),Time to complete (seconds)',
+    );
+    expect(row).toBe(`${answered.id},${at(1).toISOString()},Ada,,,36,`);
+
+    // Bringing the question back makes it an ordinary one again.
+    await editor()
+      .patch(`/api/forms/${form.id}`, {
+        version: 2,
+        draftSchema: { ...SURVEY, fields: [...without, age] },
+      })
+      .expect(200);
+    const restored = await editor()
+      .post(`/api/forms/${form.id}/publish`, { version: 3 })
+      .expect(200);
+    expect(formDetailSchema.parse(restored.body).retiredFields).toEqual([]);
   });
 
   it('includes every response when there are more than one batch', async () => {

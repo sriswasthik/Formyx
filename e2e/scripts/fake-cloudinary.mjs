@@ -1,6 +1,6 @@
 /* eslint-disable no-console -- a command-line server: printing is how it reports. */
 // A stand-in for the outside services the API calls, for end-to-end tests: Cloudinary's
-// upload and resource APIs (the API's CLOUDINARY_API_URL points here) and India Post's PIN
+// upload, resource and private download APIs (the API's CLOUDINARY_API_URL points here) and India Post's PIN
 // code look-up (PINCODE_API_URL), Google's sign-in and Sheets API (fake-google.mjs), and
 // Razorpay's API and Checkout (fake-razorpay.mjs). Files are kept in memory; their delivery URLs say
 // res.cloudinary.com, as real ones do, and tests route those to /delivery/ here.
@@ -72,12 +72,16 @@ async function upload(req, res, cloud) {
   const publicId = type === 'raw' ? `${id}.${extension}` : id;
   const path = type === 'raw' ? publicId : `${publicId}.${extension}`;
   const bytes = Buffer.from(await file.arrayBuffer());
+  // Respondents' files are private: reachable only through signed download links.
+  const delivery = form.get('type') === 'private' ? 'private' : 'upload';
+  const signed = delivery === 'private' ? 's--fake1234--/' : '';
   const resource = {
     public_id: publicId,
     bytes: bytes.length,
     ...(type !== 'raw' && { format: extension }),
     resource_type: type,
-    secure_url: `https://res.cloudinary.com/${cloud}/${type}/upload/v1/${path}`,
+    type: delivery,
+    secure_url: `https://res.cloudinary.com/${cloud}/${type}/${delivery}/${signed}v1/${path}`,
   };
   files.set(publicId, { resource, bytes, mime: file.type || 'application/octet-stream' });
   send(res, 200, resource);
@@ -99,10 +103,24 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // GET /v1_1/<cloud>/resources/<type>/upload/<public id>
+  // GET /v1_1/<cloud>/resources/<type>/<upload|private>/<public id>
   if (req.method === 'GET' && parts[0] === 'v1_1' && parts[2] === 'resources') {
     const stored = files.get(parts.slice(5).join('/'));
-    return stored ? send(res, 200, stored.resource) : send(res, 404, { error: 'Not found' });
+    return stored && stored.resource.type === parts[4]
+      ? send(res, 200, stored.resource)
+      : send(res, 404, { error: 'Not found' });
+  }
+
+  // GET /v1_1/<cloud>/<type>/download?public_id=…: a private file, by a signed link. The
+  // fake trusts the signature; it only checks the link has one and has not run out.
+  if (req.method === 'GET' && parts[0] === 'v1_1' && parts[3] === 'download') {
+    const stored = files.get(url.searchParams.get('public_id') ?? '');
+    const expiresAt = Number(url.searchParams.get('expires_at'));
+    if (!url.searchParams.get('signature') || !(expiresAt * 1000 > Date.now())) {
+      return send(res, 401, 'Link expired', { 'Content-Type': 'text/plain' });
+    }
+    if (!stored) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
+    return send(res, 200, stored.bytes, { 'Content-Type': stored.mime });
   }
 
   // GET /delivery/<cloud>/<type>/upload/v1/<path>: what res.cloudinary.com would serve.

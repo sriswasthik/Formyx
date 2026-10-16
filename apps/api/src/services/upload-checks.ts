@@ -11,7 +11,8 @@ import {
   type ValidationIssue,
 } from '@formyx/shared';
 import { AppError } from '../lib/app-error.js';
-import { answerFolder, themeFolder, type UploadStorage } from '../lib/upload-storage.js';
+import { answerFolder, fileLink, themeFolder, type UploadStorage } from '../lib/upload-storage.js';
+import { SNIFF_BYTES, sniffProblem } from '../trust/file-sniff.js';
 
 type Answers = SubmissionInput['answers'];
 
@@ -22,10 +23,11 @@ export function uploadsUnavailable(): AppError {
 export interface UploadChecks {
   /**
    * Checks every upload among `answers` (files, signatures, voice notes) against storage: it
-   * must have been uploaded for that form and question, and its real size and format must
-   * fit the question. Returns
-   * the answers with each file's URL and size as storage reports them. Throws 400 with an
-   * issue per bad file, or 503 if uploads are off.
+   * must have been uploaded for that form and question, its real size and format must fit
+   * the question, and what it contains must match its type (never a program or script).
+   * Returns the answers with each file's size as storage reports it, and its URL: a Formyx
+   * file link for private files (the only way to them), the delivery URL for older public
+   * ones. Throws 400 with an issue per bad file, or 503 if uploads are off.
    */
   verifyAnswers(form: { id: string; schema: FormSchema }, answers: Answers): Promise<Answers>;
   /** Checks a logo or cover image was uploaded for this form, as an image. */
@@ -38,19 +40,23 @@ interface CheckOptions {
   storage: UploadStorage | null;
   /** Top-level folder, `CLOUDINARY_FOLDER`. */
   root: string;
+  /** The site's address, for private files' Formyx links. */
+  appUrl: string;
 }
 
 function issue(fieldId: string, message: string): ValidationIssue {
   return { path: `answers.${fieldId}`, message };
 }
 
-export function createUploadChecks({ storage, root }: CheckOptions): UploadChecks {
+export function createUploadChecks({ storage, root, appUrl }: CheckOptions): UploadChecks {
   /** Why `answer` cannot be kept, or the file as storage has it. */
   async function check(
     storageImpl: UploadStorage,
     folder: string,
     answer: FileAnswer,
     limits: { maxBytes: number; formats: readonly string[] },
+    /** The form an answer belongs to, for its file link; none for theme images. */
+    formId?: string,
   ): Promise<{ problem: string } | { file: FileAnswer }> {
     const publicId = storageImpl.publicIdOf(answer.url);
     if (!publicId?.startsWith(`${folder}/`)) {
@@ -69,9 +75,17 @@ export function createUploadChecks({ storage, root }: CheckOptions): UploadCheck
     if (!limits.formats.includes(format.toLowerCase())) {
       return { problem: 'This type of file isn’t accepted here' };
     }
-    return {
-      file: { ...answer, url: stored.secureUrl, publicId: stored.publicId, size: stored.bytes },
-    };
+    // Cloudinary only took the extension's word for it: look at what the file holds.
+    if (stored.format === null) {
+      const head = await storageImpl.readHead(stored.location, SNIFF_BYTES);
+      const problem = sniffProblem(format, head ?? new Uint8Array());
+      if (problem) return { problem };
+    }
+    const url =
+      formId && stored.location.deliveryType === 'private'
+        ? fileLink(appUrl, formId, stored.location)
+        : stored.secureUrl;
+    return { file: { ...answer, url, publicId: stored.publicId, size: stored.bytes } };
   }
 
   return {
@@ -89,10 +103,13 @@ export function createUploadChecks({ storage, root }: CheckOptions): UploadCheck
         fileFields.map(async ({ field, rules }) => {
           const answer = answers[field.id];
           if (!isFileAnswer(answer)) return;
-          const result = await check(storage, answerFolder(root, form.id, field.id), answer, {
-            maxBytes: rules.maxSizeMb * BYTES_PER_MB,
-            formats: rules.extensions,
-          });
+          const result = await check(
+            storage,
+            answerFolder(root, form.id, field.id),
+            answer,
+            { maxBytes: rules.maxSizeMb * BYTES_PER_MB, formats: rules.extensions },
+            form.id,
+          );
           if ('problem' in result) issues.push(issue(field.id, result.problem));
           else verified[field.id] = result.file;
         }),
