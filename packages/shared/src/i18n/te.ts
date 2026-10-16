@@ -19,6 +19,8 @@ export const te: FormMessages = {
     madeWith: 'Formyxతో తయారు చేయబడింది',
     opensInNewTab: '(కొత్త ట్యాబ్‌లో తెరుచుకుంటుంది)',
     report: 'ఈ ఫారంపై ఫిర్యాదు చేయండి',
+    personalData: 'ఈ ఫారం వ్యక్తిగత వివరాలు అడుగుతుంది, అవి దీన్ని తయారు చేసిన వ్యక్తికి వెళ్తాయి.',
+    privacyPolicy: 'Formyx వాటిని ఎలా చూసుకుంటుంది',
     loading: 'ఫారం లోడ్ అవుతోంది',
   },
   marker: {

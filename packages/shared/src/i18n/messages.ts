@@ -27,6 +27,10 @@ export interface FormMessages {
     opensInNewTab: string;
     /** The link under every public form to report it to Formyx. */
     report: string;
+    /** Under forms that ask for personal details: who gets them. */
+    personalData: string;
+    /** After `personalData`: the link to Formyx's privacy policy. */
+    privacyPolicy: string;
     loading: string;
   };
   marker: {

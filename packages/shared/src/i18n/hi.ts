@@ -19,6 +19,8 @@ export const hi: FormMessages = {
     madeWith: 'Formyx से बनाया गया',
     opensInNewTab: '(नए टैब में खुलता है)',
     report: 'इस फ़ॉर्म की शिकायत करें',
+    personalData: 'यह फ़ॉर्म निजी जानकारी माँगता है, जो इसे बनाने वाले व्यक्ति को जाती है।',
+    privacyPolicy: 'Formyx इसे कैसे संभालता है',
     loading: 'फ़ॉर्म लोड हो रहा है',
   },
   marker: {

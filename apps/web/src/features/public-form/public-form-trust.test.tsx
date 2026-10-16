@@ -98,6 +98,32 @@ describe('the report link', () => {
   });
 });
 
+describe('the personal data notice', () => {
+  it('says who gets the answers, under forms that ask for personal details', async () => {
+    const email = { ...createField('email'), label: 'Email' };
+    serve({ ...FORM, schema: { ...FORM.schema, fields: [name, email] } });
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        /This form asks for personal details, which go to the person who made it\./,
+      ),
+    ).toBeInTheDocument();
+    const link = screen.getByRole('link', {
+      name: 'How Formyx handles them (opens in a new tab)',
+    });
+    expect(link).toHaveAttribute('href', `${window.location.origin}/privacy`);
+  });
+
+  it('is left out of forms that ask for none', async () => {
+    serve(FORM);
+    renderPage();
+
+    await screen.findByRole('link', { name: 'Report this form (opens in a new tab)' });
+    expect(screen.queryByText(/asks for personal details/)).not.toBeInTheDocument();
+  });
+});
+
 describe('the spam check', () => {
   /** Cloudflare's script, stubbed: hands out "token-1" when the widget is drawn. */
   function stubTurnstile() {

@@ -1,5 +1,6 @@
 import {
   answerErrorsFromIssues,
+  collectsPersonalData,
   DRAFT_TOKEN_PATTERN,
   formatDateTime,
   formLocale,
@@ -218,6 +219,11 @@ function LiveForm({
       badge={form.theme.branding.showFormyxBadge}
       report={messages.nav.report}
       opensInNewTab={messages.nav.opensInNewTab}
+      personalData={
+        collectsPersonalData(form.schema, access.emailStep !== 'none')
+          ? { notice: messages.nav.personalData, link: messages.nav.privacyPolicy }
+          : undefined
+      }
     />
   );
   const frame = { title: form.title, theme: form.theme, locale, variant, footer } as const;

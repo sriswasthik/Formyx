@@ -21,6 +21,8 @@ export const en: FormMessages = {
     madeWith: 'Made with Formyx',
     opensInNewTab: '(opens in a new tab)',
     report: 'Report this form',
+    personalData: 'This form asks for personal details, which go to the person who made it.',
+    privacyPolicy: 'How Formyx handles them',
     loading: 'Loading the form',
   },
   marker: {

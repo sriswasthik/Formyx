@@ -25,6 +25,7 @@ export function MadeWithFormyx({
   badge = true,
   report,
   opensInNewTab,
+  personalData,
 }: {
   label?: string | undefined;
   /** The form it sits under. */
@@ -40,6 +41,8 @@ export function MadeWithFormyx({
   report?: string | undefined;
   /** "(opens in a new tab)", for the report link, which always does. */
   opensInNewTab?: string | undefined;
+  /** For forms that ask for personal details: who gets them, and the privacy policy's link. */
+  personalData?: { notice: string; link: string } | undefined;
 }) {
   const content = (
     <>
@@ -75,9 +78,23 @@ export function MadeWithFormyx({
         {report}
       </a>
     ) : null;
-  if (!credit && !reportLink) return null;
+  if (!credit && !reportLink && !personalData) return null;
   return (
     <footer className="flex flex-col items-center gap-2 px-6 pb-8 text-center">
+      {personalData && (
+        <p className="max-w-md text-12 text-(--form-muted,var(--muted-foreground))">
+          {personalData.notice}{' '}
+          <a
+            href={`${window.location.origin}/privacy`}
+            target="_blank"
+            rel="noopener"
+            aria-label={opensInNewTab ? `${personalData.link} ${opensInNewTab}` : undefined}
+            className={badgeClass}
+          >
+            {personalData.link}
+          </a>
+        </p>
+      )}
       {credit}
       {reportLink}
     </footer>

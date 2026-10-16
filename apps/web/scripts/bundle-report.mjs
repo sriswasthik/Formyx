@@ -35,8 +35,11 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // Redesign 5 (the footer) took it to 214.4 KB. Sprint 21 (trust and safety) adds 0.9 KB: the
 // router table's report and verify-email pages (0.5 KB), and the form's "unavailable" state,
 // report link and spam check (0.3 KB), with Cloudflare Turnstile's widget loading only on
-// forms that switch it on: 215.3 KB, so the budget is 216 KB.
-const PUBLIC_FORM_BUDGET_KB = 216;
+// forms that switch it on: 215.3 KB, so the budget is 216 KB. Its data rights work adds
+// 0.3 KB more: the note under forms that ask for personal details (with its words in the
+// form's language) and the router table's "keep my account" page; exports, account deletion
+// and respondents' requests load only in the app: 216.1 KB, so the budget is 217 KB.
+const PUBLIC_FORM_BUDGET_KB = 217;
 
 const ROUTES = {
   'Public form (/f/:slug)': 'src/features/public-form/public-form-page.tsx',
