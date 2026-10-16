@@ -4,6 +4,7 @@ import {
   ENGLISH_LOCALE,
   FORM_LOCALES,
   formPages,
+  formScripts,
   isAnswered,
   linkAnswers,
   isShownQuestionType,
@@ -11,6 +12,8 @@ import {
   QUIZ_PERCENT_VARIABLE,
   QUIZ_SCORE_VARIABLE,
   resolvePiping,
+  SCRIPTS,
+  scriptsIn,
   type AnswerValue,
   type DraftState,
   type FormLocale,
@@ -102,12 +105,6 @@ interface FormViewProps {
   className?: string;
 }
 
-/** Fonts for scripts most theme fonts lack; loaded with their languages' catalogs. */
-const SCRIPT_FONTS: Partial<Record<FormLocale['format']['language'], string>> = {
-  te: "'Noto Sans Telugu'",
-  hi: "'Noto Sans Devanagari'",
-};
-
 /**
  * Animation code arrives after the form first renders: a form's first paint never waits for
  * it, and questions start out in place (AnimatePresence below skips their entrance).
@@ -194,6 +191,17 @@ export function FormView({
     locale,
   });
   const { answers, status, path, activeIds, fileUploads, outcome } = response;
+  // Telugu or Devanagari text needs a font of its own: in the form's language, in its own
+  // words, or typed by the respondent (into a form in another language, say).
+  const language = locale.format.language;
+  const contentScripts = useMemo(
+    () => formScripts(language, { title, schema }),
+    [language, title, schema],
+  );
+  const typedScripts = scriptsIn(JSON.stringify(answers));
+  const scripts = SCRIPTS.filter(
+    (script) => contentScripts.includes(script) || typedScripts.includes(script),
+  );
   const conversational = theme.layout.mode === 'conversational';
   // Only conversational forms download the one-question-at-a-time flow.
   const conversationalModule = useConversational(conversational);
@@ -447,7 +455,7 @@ export function FormView({
           footer={footer}
           progress={progress}
           className={className}
-          scriptFont={SCRIPT_FONTS[locale.format.language]}
+          scripts={scripts}
           lang={FORM_LOCALES[locale.format.language]}
         >
           <FileUploadsContext.Provider value={fileUploads}>{body}</FileUploadsContext.Provider>

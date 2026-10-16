@@ -38,7 +38,9 @@ const DIST = join(import.meta.dirname, '..', 'dist');
 // forms that switch it on: 215.3 KB, so the budget is 216 KB. Its data rights work adds
 // 0.3 KB more: the note under forms that ask for personal details (with its words in the
 // form's language) and the router table's "keep my account" page; exports, account deletion
-// and respondents' requests load only in the app: 216.1 KB, so the budget is 217 KB.
+// and respondents' requests load only in the app: 216.1 KB, so the budget is 217 KB. Finding
+// Telugu and Devanagari text in a form (to load Noto Sans for it, only then) and choosing a
+// voice note's format take it to 216.5 KB.
 const PUBLIC_FORM_BUDGET_KB = 217;
 
 const ROUTES = {

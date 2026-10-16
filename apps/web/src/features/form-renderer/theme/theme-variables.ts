@@ -234,11 +234,10 @@ function containerVariables(theme: FormTheme): CssVariables {
  * the editor shows is what respondents get.
  */
 /**
- * `scriptFont` is a font for a script the theme's fonts lack (Telugu, Devanagari), tried
- * after them for each character they cannot draw.
+ * `scriptFont` is the families for scripts the theme's fonts lack (Telugu, Devanagari), tried
+ * after them, before the generic families, for each character they cannot draw.
  */
 export function themeVariables(theme: FormTheme, scriptFont?: string): CssVariables {
-  const withScript = (stack: string) => (scriptFont ? `${stack}, ${scriptFont}` : stack);
   const { colors, typography, components } = theme;
   // What text, inputs and choices sit on: the container, or the background without one.
   const surface = colors.containerBackground;
@@ -260,8 +259,8 @@ export function themeVariables(theme: FormTheme, scriptFont?: string): CssVariab
     '--ring': colors.primary,
 
     '--form-text': `${typography.baseSize}px`,
-    '--form-body-font': withScript(fontStack(typography.bodyFont)),
-    '--form-heading-font': withScript(fontStack(typography.headingFont)),
+    '--form-body-font': fontStack(typography.bodyFont, scriptFont),
+    '--form-heading-font': fontStack(typography.headingFont, scriptFont),
     '--form-heading-weight': String(typography.headingWeight),
     '--form-letter-spacing': `${typography.letterSpacing}em`,
     // Headings stay a touch tighter than body text, as in the builder's type scale.

@@ -1,4 +1,4 @@
-import { FORM_LOCALES, type FormLocale, type FormTheme } from '@formyx/shared';
+import { FORM_LOCALES, formScripts, type FormLocale, type FormTheme } from '@formyx/shared';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { FormButton } from '@/features/form-renderer/form-button';
 import { FormLocaleContext } from '@/features/form-renderer/i18n/form-locale';
@@ -12,11 +12,6 @@ import { cx } from '@/lib/cx';
  * the respondent's email address (confirmed with a code for one response per person), and
  * "you have already responded". They load only for forms that need them.
  */
-
-const SCRIPT_FONTS: Partial<Record<FormLocale['format']['language'], string>> = {
-  te: "'Noto Sans Telugu'",
-  hi: "'Noto Sans Devanagari'",
-};
 
 interface FrameProps {
   title: string;
@@ -35,7 +30,7 @@ function Frame({ title, theme, locale, variant, footer, children }: FrameProps) 
         theme={theme}
         variant={variant}
         footer={footer}
-        scriptFont={SCRIPT_FONTS[locale.format.language]}
+        scripts={formScripts(locale.format.language, title)}
         lang={FORM_LOCALES[locale.format.language]}
         className={variant === 'embed' ? 'overflow-clip rounded-(--form-radius)' : undefined}
       >

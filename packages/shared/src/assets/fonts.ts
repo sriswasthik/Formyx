@@ -166,10 +166,18 @@ export function getFont(id: FontId): FontAsset<FontId> {
   return found;
 }
 
-/** The CSS `font-family` value for a font, with its fallbacks. */
-export function fontStack(id: FontId): string {
+/**
+ * The CSS `font-family` value for a font, with its fallbacks. `scriptFonts` (families for
+ * Telugu or Devanagari text) go after its own fallback and before the generic families, so
+ * characters the font lacks are drawn by them rather than whatever the device picks.
+ */
+export function fontStack(id: FontId, scriptFonts?: string): string {
   const { family, fallback } = getFont(id);
-  return `${family}, ${fallback}`;
+  if (!scriptFonts) return `${family}, ${fallback}`;
+  const split = fallback.indexOf(', ');
+  const metric = fallback.slice(0, split);
+  const generic = fallback.slice(split + 2);
+  return `${family}, ${metric}, ${scriptFonts}, ${generic}`;
 }
 
 /** The weight a font draws `weight` with: the nearest it has, the heavier one on a tie. */
