@@ -84,7 +84,7 @@ describe('FormView with page breaks', () => {
     await user.type(screen.getByRole('textbox', { name: /How was it/ }), 'Lovely');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(onSubmit).toHaveBeenCalledWith({
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({
       [source.id]: 'newsletter',
       [name.id]: 'Ada',
       [visit.id]: 'Lovely',
@@ -99,6 +99,6 @@ describe('FormView with page breaks', () => {
     await user.type(screen.getByRole('textbox', { name: /How was it/ }), 'Fine');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(onSubmit).toHaveBeenCalledWith({ [name.id]: 'Ada', [visit.id]: 'Fine' });
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({ [name.id]: 'Ada', [visit.id]: 'Fine' });
   });
 });

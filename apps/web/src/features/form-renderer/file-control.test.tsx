@@ -106,7 +106,7 @@ describe('FileControl', () => {
     expect(screen.getByRole('button', { name: 'Remove cv.pdf' })).toHaveFocus();
 
     await user.click(submitButton());
-    expect(onSubmit).toHaveBeenCalledWith({ [cv.id]: stored(file) });
+    expect(onSubmit).toHaveBeenCalledWith({ [cv.id]: stored(file) }, expect.anything());
   });
 
   it('turns away files that break the question’s limits, without uploading them', async () => {

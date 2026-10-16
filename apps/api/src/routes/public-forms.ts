@@ -205,6 +205,11 @@ export function createPublicFormsRouter({
       outcome: saved.outcome,
       ...(saved.editToken && { editToken: saved.editToken }),
     };
+    // A retry of a response already stored: the same reply, and nothing announced again.
+    if (saved.replayed) {
+      res.status(200).json(body);
+      return;
+    }
     res.status(saved.edited ? 200 : 201).json(body);
     // Committed and answered: now live dashboards and notification emails can follow.
     events.emit(saved.edited ? 'submission.updated' : 'submission.created', saved);

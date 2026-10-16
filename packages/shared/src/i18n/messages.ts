@@ -84,6 +84,8 @@ export interface FormMessages {
     fixAnswers: string;
     waitForUpload: string;
     sendFailed: string;
+    /** Shown while sending is tried again after the connection dropped. */
+    retrying: string;
     /** The spam check (Cloudflare Turnstile) did not pass. */
     captchaFailed: string;
     saveFailed: string;

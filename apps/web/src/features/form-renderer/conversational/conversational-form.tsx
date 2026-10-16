@@ -104,7 +104,8 @@ export function ConversationalForm({
 }: ConversationalFormProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const messages = useFormMessages();
-  const { answers, errors, formError, status, handleChange, checkField, submit } = response;
+  const { answers, errors, formError, sendingNote, status, handleChange, checkField, submit } =
+    response;
   const visibleIds = useMemo(
     () => stepVisibleIds(fields, response.activeIds),
     [fields, response.activeIds],
@@ -338,6 +339,11 @@ export function ConversationalForm({
             </span>
           )}
         </div>
+        {busy && sendingNote && (
+          <p role="status" className="form-text-sm text-(--form-muted)">
+            {sendingNote}
+          </p>
+        )}
         <p role="alert" className="form-text-sm text-(--form-danger) empty:hidden">
           {formError}
         </p>

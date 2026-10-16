@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt } from 'node:crypto';
 import {
   buildSubmissionValidator,
   CODE_ATTEMPTS,
@@ -18,6 +18,8 @@ import {
   sanitizeAnswers,
   storedAnswerSchema,
   submissionMetadataSchema,
+  submissionRecordSchema,
+  storedOutcomeSchema,
   themeForFeatures,
   toAnswerIssues,
   toPublicSchema,
@@ -229,6 +231,8 @@ export interface SavedSubmission {
   editToken: string | null;
   /** Whether this changed an earlier response rather than adding one. */
   edited: boolean;
+  /** Whether this is a retry of a response already stored, which is sent back unchanged. */
+  replayed?: boolean;
   respondentEmail: string | null;
 }
 
@@ -428,6 +432,62 @@ export function createPublicFormService({
       });
     }
     if (!isUnlocked(form, accessToken)) throw locked();
+  }
+
+  /**
+   * The private link's token for a response sent with `submissionKey`: derived from it, so a
+   * retry can be given the same link. Without the secret, the key alone does not give it.
+   */
+  function editTokenFor(formId: string, submissionKey: string): string {
+    return createHmac('sha256', secret)
+      .update(`edit-link:${formId}:${submissionKey}`)
+      .digest('base64url');
+  }
+
+  /** The response an earlier try with `submissionKey` stored, as its sender was told. */
+  async function replayOf(
+    db: Database | Transaction,
+    form: LiveForm,
+    submissionKey: string,
+  ): Promise<SavedSubmission | null> {
+    const existing = await db.submission.findUnique({
+      where: { formId_submissionKey: { formId: form.id, submissionKey } },
+      select: {
+        id: true,
+        createdAt: true,
+        completionTimeMs: true,
+        answers: true,
+        metadata: true,
+        outcome: true,
+        respondentEmail: true,
+        editTokenHash: true,
+      },
+    });
+    if (!existing) return null;
+    const answers = submissionRecordSchema.shape.answers.parse(existing.answers);
+    const metadata = submissionMetadataSchema.safeParse(existing.metadata);
+    const stored = storedOutcomeSchema.safeParse(existing.outcome);
+    // Responses sent with a key got a link derived from it (when the form allows edits).
+    const editToken = existing.editTokenHash ? editTokenFor(form.id, submissionKey) : null;
+    return {
+      formId: form.id,
+      formTitle: form.title,
+      schema: form.schema,
+      settings: form.settings,
+      submission: {
+        id: existing.id,
+        createdAt: existing.createdAt.toISOString(),
+        completionTimeMs: existing.completionTimeMs,
+        answers,
+        metadata: metadata.success ? metadata.data : NO_METADATA,
+        outcome: stored.success ? stored.data : null,
+      },
+      outcome: toRespondentOutcome(form.schema, computeOutcome(form.schema, answers)),
+      editToken,
+      edited: false,
+      replayed: true,
+      respondentEmail: existing.respondentEmail,
+    };
   }
 
   async function openForm(slug: string, accessToken: string | undefined): Promise<LiveForm> {
@@ -677,6 +737,14 @@ export function createPublicFormService({
     },
 
     async submit(slug, input, context) {
+      const { submissionKey } = input;
+      const newKey = input.editToken ? undefined : submissionKey;
+      // A retry of a response already stored gets it back, even if the form has closed since
+      // (the response may well be what filled it).
+      if (newKey) {
+        const replay = await replayOf(prisma, await find(slug), newKey);
+        if (replay) return replay;
+      }
       // Uploaded files are checked with storage first, outside the transaction, so no network
       // call ever holds the form's lock.
       const live = await openForm(slug, context.accessToken);
@@ -700,6 +768,11 @@ export function createPublicFormService({
         if (locked.length === 0) throw notFound();
 
         const form = toLiveForm(await findRecord(tx, live.slug));
+        // Two tries at once: the second waited for the lock, and finds the first's response.
+        if (newKey) {
+          const replay = await replayOf(tx, form, newKey);
+          if (replay) return replay;
+        }
         assertCanRespond(form, context.accessToken);
         // Checked here too, not only when the page loads: bots skip the page.
         if (!input.editToken && (await overNewAccountLimit(tx, form))) {
@@ -743,7 +816,9 @@ export function createPublicFormService({
 
         const respondent = respondentOf(form, input);
         const editToken = form.settings.access.allowEdits
-          ? randomBytes(32).toString('base64url')
+          ? newKey
+            ? editTokenFor(form.id, newKey)
+            : randomBytes(32).toString('base64url')
           : null;
         let created;
         try {
@@ -757,6 +832,7 @@ export function createPublicFormService({
               respondentEmail: respondent.email,
               respondentKey: respondent.key,
               editTokenHash: editToken && hashToken(editToken),
+              submissionKey: newKey ?? null,
             },
             select: { id: true, createdAt: true, completionTimeMs: true },
           });

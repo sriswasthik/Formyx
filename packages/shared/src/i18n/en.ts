@@ -75,6 +75,7 @@ export const en: FormMessages = {
     fixAnswers: 'Some answers need your attention.',
     waitForUpload: 'Wait for the file to finish uploading',
     sendFailed: 'Your answers could not be sent. Check your connection and try again.',
+    retrying: 'The connection dropped. Trying again…',
     captchaFailed: 'Confirm you’re not a robot, then send again.',
     saveFailed: 'Your answers could not be saved. Check your connection and try again.',
   },

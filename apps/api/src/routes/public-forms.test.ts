@@ -306,6 +306,77 @@ describe('POST /api/public/forms/:slug/submissions', () => {
     expect(await storedSubmissions(form.id)).toHaveLength(3);
   });
 
+  describe('retries, with a submission key', () => {
+    const KEY = 'try-3f9c2a7b41d84e0c';
+
+    it('stores a response once, however often it is sent', async () => {
+      const form = await publishForm();
+
+      const first = await submit(form.slug, { answers: VALID, submissionKey: KEY }).expect(201);
+      // The reply was lost, so the browser sends the same response again.
+      const again = await submit(form.slug, { answers: VALID, submissionKey: KEY }).expect(200);
+
+      expect(again.body).toEqual(first.body);
+      expect(await storedSubmissions(form.id)).toHaveLength(1);
+    });
+
+    it('stores one response when the tries arrive at once', async () => {
+      const form = await publishForm();
+
+      const results = await Promise.all(
+        Array.from({ length: 4 }, () => submit(form.slug, { answers: VALID, submissionKey: KEY })),
+      );
+
+      expect(results.map((res) => res.status).sort()).toEqual([200, 200, 200, 201]);
+      const ids = results.map((res) => submissionResponseSchema.parse(res.body).id);
+      expect(new Set(ids).size).toBe(1);
+      expect(await storedSubmissions(form.id)).toHaveLength(1);
+    });
+
+    it('answers a retry of the response that filled the form', async () => {
+      const form = await publishForm();
+      await setAccess(form.id, { responseLimit: 1 });
+
+      await submit(form.slug, { answers: VALID, submissionKey: KEY }).expect(201);
+
+      await submit(form.slug, { answers: VALID, submissionKey: KEY }).expect(200);
+      await submit(form.slug, { answers: VALID, submissionKey: `${KEY}-other` }).expect(410);
+    });
+
+    it('gives a retry the same private link to change the response', async () => {
+      const form = await publishForm();
+      await setAccess(form.id, { allowEdits: true });
+
+      const first = submissionResponseSchema.parse(
+        (await submit(form.slug, { answers: VALID, submissionKey: KEY }).expect(201)).body,
+      );
+      const again = submissionResponseSchema.parse(
+        (await submit(form.slug, { answers: VALID, submissionKey: KEY }).expect(200)).body,
+      );
+
+      expect(first.editToken).toEqual(expect.any(String));
+      expect(again.editToken).toBe(first.editToken);
+      await submit(form.slug, {
+        answers: { ...VALID, [name.id]: 'Grace' },
+        editToken: again.editToken,
+      }).expect(200);
+      const [stored] = await storedSubmissions(form.id);
+      expect(stored?.answers).toMatchObject({ [name.id]: 'Grace' });
+    });
+
+    it('keeps keys apart between forms, and refuses malformed ones', async () => {
+      const one = await publishForm();
+      const two = await publishForm();
+
+      await submit(one.slug, { answers: VALID, submissionKey: KEY }).expect(201);
+      await submit(two.slug, { answers: VALID, submissionKey: KEY }).expect(201);
+      await submit(one.slug, { answers: VALID, submissionKey: 'short' }).expect(400);
+      await submit(one.slug, { answers: VALID, submissionKey: 'has spaces in it, oh no' }).expect(
+        400,
+      );
+    });
+  });
+
   it('pretends to accept responses that filled in the honeypot, but stores nothing', async () => {
     const form = await publishForm();
 

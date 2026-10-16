@@ -29,6 +29,17 @@ export type SubmitOutcome =
 
 export type ResponseStatus = 'filling' | 'submitting' | 'done';
 
+/** What a submit handler can tell the respondent while it is still sending. */
+export interface SendingUpdates {
+  /** A line by the submit button while sending (such as that it is trying again); null clears it. */
+  note: (message: string | null) => void;
+}
+
+export type SubmitHandler = (
+  answers: SubmittedAnswers,
+  sending: SendingUpdates,
+) => Promise<SubmitOutcome> | SubmitOutcome;
+
 /**
  * The outcome worked out in the browser, for when the server does not say (the editor's
  * preview). Its module loads only then; if it cannot load, the first end screen shows.
@@ -55,7 +66,7 @@ export type SubmitResult = { ok: true } | { ok: false; problems: Record<string, 
 
 interface UseFormResponseOptions {
   schema: FormSchema;
-  onSubmit?: ((answers: SubmittedAnswers) => Promise<SubmitOutcome> | SubmitOutcome) | undefined;
+  onSubmit?: SubmitHandler | undefined;
   uploadFile?: FileUploader | undefined;
   /** Answers every response starts with, such as hidden fields filled from the link. */
   initialAnswers?: Readonly<Record<string, AnswerValue>> | undefined;
@@ -84,6 +95,7 @@ export function useFormResponse({
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [sendingNote, setSendingNote] = useState<string | null>(null);
   const [status, setStatus] = useState<ResponseStatus>('filling');
   /** Questions whose file is still on its way to storage. */
   const [uploading, setUploadingIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -178,7 +190,10 @@ export function useFormResponse({
     setFormError(null);
     try {
       const submitted = buildSubmissionValidator(schema, answers, messages).parse(answers);
-      const sent: SubmitOutcome = onSubmit ? await onSubmit(submitted) : { ok: true };
+      const sent: SubmitOutcome = onSubmit
+        ? await onSubmit(submitted, { note: setSendingNote })
+        : { ok: true };
+      setSendingNote(null);
       if (!sent.ok) {
         setStatus('filling');
         setFormError(sent.message ?? null);
@@ -191,6 +206,7 @@ export function useFormResponse({
       return { ok: true };
     } catch {
       setStatus('filling');
+      setSendingNote(null);
       setFormError(messages.check.sendFailed);
       return { ok: false, problems: {} };
     }
@@ -209,6 +225,7 @@ export function useFormResponse({
     answers,
     errors,
     formError,
+    sendingNote,
     status,
     path,
     activeIds,

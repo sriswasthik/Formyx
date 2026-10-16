@@ -286,11 +286,15 @@ model Submission {
   /// SHA-256 of the token in the private link that changes this response.
   editTokenHash      String?             @unique @map("edit_token_hash")
   editedAt           DateTime?           @map("edited_at")
+  /// Random, from the respondent's browser, the same for every try at sending one response:
+  /// a retry after a lost reply finds this response instead of adding another.
+  submissionKey      String?             @map("submission_key")
   createdAt          DateTime            @default(now()) @map("created_at")
   form               Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
   integrationRecords IntegrationRecord[]
 
   @@unique([formId, respondentKey])
+  @@unique([formId, submissionKey])
   // Responses are counted per form and listed newest first.
   @@index([formId, createdAt(sort: Desc)])
   @@map("submissions")

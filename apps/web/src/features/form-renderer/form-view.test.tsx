@@ -106,7 +106,10 @@ describe('FormView', () => {
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText('Thanks, we got it.')).toBeInTheDocument();
-    expect(onSubmit).toHaveBeenCalledWith({ [name.id]: 'Ada', [contact.id]: no?.id });
+    expect(onSubmit).toHaveBeenCalledWith(
+      { [name.id]: 'Ada', [contact.id]: no?.id },
+      expect.anything(),
+    );
 
     await user.click(screen.getByRole('button', { name: 'Submit another response' }));
     expect(screen.getByRole('textbox', { name: /Name/ })).toHaveValue('');

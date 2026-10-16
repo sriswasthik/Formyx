@@ -10,7 +10,7 @@ import {
   type FormLocale,
   type FormMessages,
   type PublicForm,
-  type SubmittedAnswers,
+  type SubmissionInput,
 } from '@formyx/shared';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarClock, CircleSlash, FileQuestion, Lock, WifiOff } from 'lucide-react';
@@ -29,7 +29,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import {
   FormView,
   type ResponseProgress,
-  type SubmitOutcome,
+  type SubmitHandler,
 } from '@/features/form-renderer/form-view';
 import { preloadFormLayout } from '@/features/form-renderer/conversational/load-conversational';
 import { preloadFieldControls } from '@/features/form-renderer/controls/registry';
@@ -63,6 +63,7 @@ import {
 } from './public-form-api';
 import { MadeWithFormyx, PublicFormMessage, PublicFormSkeleton } from './public-form-states';
 import { createProgressReporter, recordViewOnce } from './record-view';
+import { newSubmissionKey, sendWithRetry } from './send-with-retry';
 import type { TurnstileHandle } from './turnstile';
 
 // The password, email and "already responded" screens: only for forms that need them.
@@ -179,6 +180,7 @@ function LiveForm({
   const [openedAt] = useState(() => Date.now());
   const honeypot = useRef<HTMLInputElement>(null);
   const captcha = useRef<TurnstileHandle | null>(null);
+  const submissionKey = useRef<string | null>(null);
   const uploadFile = useMemo(() => answerUploader(form.slug), [form.slug]);
   // One visit, counted once per browser session; its token carries the progress reports.
   const [visit] = useState(() => recordViewOnce(form.slug));
@@ -220,10 +222,13 @@ function LiveForm({
   );
   const frame = { title: form.title, theme: form.theme, locale, variant, footer } as const;
 
-  const submit = async (answers: SubmittedAnswers): Promise<SubmitOutcome> => {
+  const submit: SubmitHandler = async (answers, sending) => {
+    // The same key for every try at this response, so none of them can store it twice.
+    submissionKey.current ??= newSubmissionKey();
     try {
-      const sent = await submitResponse(form.slug, {
+      const input: SubmissionInput = {
         answers,
+        submissionKey: submissionKey.current,
         completionTimeMs: Math.max(0, Math.round(Date.now() - openedAt)),
         referrer: document.referrer || undefined,
         [HONEYPOT_FIELD]: honeypot.current?.value || undefined,
@@ -238,7 +243,13 @@ function LiveForm({
         ...(editing === null && access.captchaSiteKey
           ? { captchaToken: await captcha.current?.token() }
           : {}),
+      };
+      const sent = await sendWithRetry(() => submitResponse(form.slug, input), {
+        onRetry: () => {
+          sending.note(messages.check.retrying);
+        },
       });
+      submissionKey.current = null;
       if (hostOrigin !== null) postToHost({ type: 'submitted', slug: form.slug }, hostOrigin);
       if (access.oneResponsePerBrowser) markResponded(form.slug);
       // A confirmed address counts once: the next visit confirms again.

@@ -17,7 +17,6 @@ import {
   type FormSchema,
   type FormTheme,
   type SubmissionOutcome,
-  type SubmittedAnswers,
 } from '@formyx/shared';
 import { LazyMotion } from 'motion/react';
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
@@ -33,9 +32,9 @@ import { questionNumbers } from './numbering';
 import { clearSavedProgress, readSavedProgress, useSavedProgress } from './saved-progress';
 import { secondaryButton } from './styles';
 import { ThemeRenderer, type ThemeVariant } from './theme/theme-renderer';
-import { useFormResponse, type SubmitOutcome } from './use-form-response';
+import { useFormResponse, type SubmitHandler } from './use-form-response';
 
-export type { SubmitOutcome } from './use-form-response';
+export type { SendingUpdates, SubmitHandler, SubmitOutcome } from './use-form-response';
 
 /** How far a respondent got: the page shown, the last question answered. */
 export interface ResponseProgress {
@@ -59,7 +58,7 @@ interface FormViewProps {
    * Receives the normalised answers once they are all valid. Its outcome (from the server)
    * picks the end screen; without one, it is worked out here.
    */
-  onSubmit?: (answers: SubmittedAnswers) => Promise<SubmitOutcome> | SubmitOutcome;
+  onSubmit?: SubmitHandler;
   /** Inputs respondents never see, such as a honeypot for bots. */
   hiddenFields?: ReactNode;
   /** Shown below the form and below the end screen. */

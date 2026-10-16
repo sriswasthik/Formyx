@@ -4,6 +4,7 @@ import {
   createEmptyForm,
   createField,
   createOption,
+  SUBMISSION_KEY_PATTERN,
   type PublicForm,
 } from '@formyx/shared';
 import { screen, waitFor } from '@testing-library/react';
@@ -175,6 +176,8 @@ describe('PublicFormPage', () => {
       completionTimeMs: expect.any(Number) as number,
       // Marks this visit finished, for drop-off.
       viewToken: VIEW_TOKEN,
+      // The same for every try at this response, so it is stored once.
+      submissionKey: expect.stringMatching(SUBMISSION_KEY_PATTERN) as string,
     });
     // How far the visit got went along the way, under the same anonymous token.
     const progress = requests.filter((request) => request.path.endsWith('/progress'));
@@ -182,6 +185,35 @@ describe('PublicFormPage', () => {
       token: VIEW_TOKEN,
       fieldId: guests.id,
     });
+  });
+
+  it('tries again when the connection drops, saying so, with the same key', async () => {
+    let tries = 0;
+    const requests = serve({
+      submit: () => {
+        tries += 1;
+        return tries === 1
+          ? (Promise.reject(new TypeError('Failed to fetch')) as unknown as Response)
+          : jsonResponse(
+              { id: 'sub_1', outcome: { endScreenId: 'end_default', values: {}, quiz: null } },
+              201,
+            );
+      },
+    });
+    const user = renderPage();
+    await screen.findByRole('heading', { name: 'Party RSVP' });
+
+    await user.type(screen.getByRole('textbox', { name: /Your name/ }), 'Ada');
+    await user.click(screen.getByRole('radio', { name: 'No' }));
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(await screen.findByText('The connection dropped. Trying again…')).toBeInTheDocument();
+    expect(await screen.findByText('See you there!', {}, { timeout: 3000 })).toBeInTheDocument();
+    const [first, second] = submissionsOf(requests).map(
+      (request) => (request.body as { submissionKey: string }).submissionKey,
+    );
+    expect(first).toMatch(SUBMISSION_KEY_PATTERN);
+    expect(second).toBe(first);
   });
 
   it('shows the problems the server found under their questions', async () => {
