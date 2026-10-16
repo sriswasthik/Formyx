@@ -19,7 +19,10 @@ export const SOCIAL_TITLE_MAX_LENGTH = 70;
 export const SOCIAL_DESCRIPTION_MAX_LENGTH = 200;
 export const RETENTION_DAYS_MAX = 3650;
 
-const isoDateTime = z.iso.datetime({ offset: true, error: 'Use an ISO 8601 date and time' });
+/** A moment, written in any offset and always stored in UTC (`2026-10-01T04:00:00.000Z`). */
+const isoDateTime = z.iso
+  .datetime({ offset: true, error: 'Use an ISO 8601 date and time' })
+  .transform((value) => new Date(value).toISOString());
 const emailAddress = z.email('Enter an email address').max(254, 'Use a shorter address');
 
 /**
