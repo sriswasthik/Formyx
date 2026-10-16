@@ -91,9 +91,21 @@ describe('AnswerDetail for newer question types', () => {
   });
 
   it('plays voice notes and offers them to download', () => {
-    const note = file('note.webm', 'audio/webm');
+    const note = file('note.m4a', 'audio/mp4');
     const { container } = render(<AnswerDetail field={createField('voice_note')} value={note} />);
     expect(container.querySelector('audio')).toHaveAttribute('src', note.url);
+    expect(screen.getByRole('link', { name: 'Download note.m4a, 2 KB' })).toHaveAttribute(
+      'href',
+      note.url,
+    );
+  });
+
+  it('offers a WebM voice note to download where the browser can’t play it', () => {
+    // jsdom, like Safari before 17.4, plays no WebM.
+    const note = file('note.webm', 'audio/webm');
+    const { container } = render(<AnswerDetail field={createField('voice_note')} value={note} />);
+    expect(container.querySelector('audio')).toBeNull();
+    expect(screen.getByText(/This browser can’t play this recording/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Download note.webm, 2 KB' })).toHaveAttribute(
       'href',
       note.url,

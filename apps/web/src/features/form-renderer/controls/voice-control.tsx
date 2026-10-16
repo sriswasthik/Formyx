@@ -7,20 +7,7 @@ import { useFormTheme } from '../theme/theme-context';
 import type { ControlProps } from '../types';
 import { useAnswerUpload } from './use-answer-upload';
 import { useFormMessages } from '../i18n/form-locale';
-
-/** Formats MediaRecorder may offer, best first: Chrome and Firefox take WebM or Ogg, Safari MP4. */
-const FORMATS = [
-  { mime: 'audio/webm;codecs=opus', extension: 'webm' },
-  { mime: 'audio/webm', extension: 'webm' },
-  { mime: 'audio/ogg;codecs=opus', extension: 'ogg' },
-  { mime: 'audio/mp4', extension: 'm4a' },
-  { mime: 'audio/aac', extension: 'aac' },
-] as const;
-
-function pickFormat() {
-  if (typeof MediaRecorder === 'undefined') return null;
-  return FORMATS.find((format) => MediaRecorder.isTypeSupported(format.mime)) ?? null;
-}
+import { pickRecordingFormat } from './voice-formats';
 
 /** "1:05" */
 function clock(seconds: number): string {
@@ -83,7 +70,7 @@ function VoiceControl({
   }, [phase]);
 
   const start = async () => {
-    const format = pickFormat();
+    const format = pickRecordingFormat();
     // Browsers leave out mediaDevices on insecure (http) pages.
     if (!format || !('mediaDevices' in navigator)) {
       setPhase({ name: 'error', message: messages.voice.unsupported });

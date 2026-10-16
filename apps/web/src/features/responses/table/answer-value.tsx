@@ -14,6 +14,8 @@ import {
   type FileAnswer,
 } from '@formyx/shared';
 import { Download, ExternalLink, Mic, Paperclip, Signature } from 'lucide-react';
+import { useState } from 'react';
+import { canPlayHere } from '@/features/form-renderer/controls/voice-formats';
 import { cn } from '@/lib/utils';
 import { formatCalendarDate, formatNumber } from '../format';
 import { answerText } from './answer-text';
@@ -172,19 +174,27 @@ function SignatureImage({ file }: { file: FileAnswer }) {
 }
 
 function VoiceNote({ file }: { file: FileAnswer }) {
+  // A WebM or Ogg recording (Chrome, Firefox) on a browser without them (older Safari).
+  const [playable] = useState(() => canPlayHere(file.type, file.name));
   return (
     <div className="flex flex-col gap-2">
-      {/* A respondent's own recording: there is no transcript to caption it with. */}
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio
-        controls
-        preload="none"
-        src={file.url}
-        aria-label="Voice note"
-        className="w-full max-w-sm"
-      >
-        <a href={file.url}>Download the voice note</a>
-      </audio>
+      {playable ? (
+        // A respondent's own recording: there is no transcript to caption it with.
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio
+          controls
+          preload="none"
+          src={file.url}
+          aria-label="Voice note"
+          className="w-full max-w-sm"
+        >
+          <a href={file.url}>Download the voice note</a>
+        </audio>
+      ) : (
+        <p className="text-13 text-muted-foreground">
+          This browser can’t play this recording. Download it to listen.
+        </p>
+      )}
       <a
         {...fileLinkProps(file)}
         href={file.url}
