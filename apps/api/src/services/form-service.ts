@@ -1,6 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import {
   applyBrandKit,
+  capRetiredFields,
+  retiredFieldsSchema,
+  retireFields,
+  type Field,
   copyFormTitle,
   createDefaultLiveSettings,
   createDefaultTheme,
@@ -73,6 +77,7 @@ const detailSelect = {
   theme: true,
   publishedTheme: true,
   moderation: true,
+  retiredFields: true,
 } satisfies Prisma.FormSelect;
 
 const listSelect = { ...summarySelect, theme: true } satisfies Prisma.FormSelect;
@@ -118,6 +123,27 @@ export function parsePublishedTheme(value: Prisma.JsonValue | null): FormTheme |
   return value === null ? null : parseStored(storedFormThemeSchema, value, 'publishedTheme');
 }
 
+/**
+ * The deleted questions to keep once `next` replaces `previous`: those kept before and not
+ * brought back, and the ones it deletes that have answers.
+ */
+async function retiredAfterPublish(
+  prisma: Database,
+  formId: string,
+  previous: FormSchema | null,
+  next: FormSchema,
+  retired: Field[],
+): Promise<Field[]> {
+  const { kept, added } = retireFields(previous, next, retired);
+  if (added.length === 0) return capRetiredFields(kept);
+  const answered = await prisma.$queryRaw<{ key: string }[]>`
+    SELECT DISTINCT answer.key FROM submissions, jsonb_object_keys(answers) AS answer(key)
+    WHERE form_id = ${formId} AND answer.key IN (${Prisma.join(added.map(({ id }) => id))})
+  `;
+  const withAnswers = new Set(answered.map(({ key }) => key));
+  return capRetiredFields([...kept, ...added.filter(({ id }) => withAnswers.has(id))]);
+}
+
 function toDetail(form: DetailRecord): FormDetail {
   return {
     ...toSummary(form),
@@ -130,6 +156,7 @@ function toDetail(form: DetailRecord): FormDetail {
       form.status === 'UNDER_REVIEW'
         ? { reasons: reviewReasons(readModeration(form.moderation)) }
         : null,
+    retiredFields: retiredFieldsSchema.parse(form.retiredFields),
   };
 }
 
@@ -420,6 +447,8 @@ export function createFormService(
           title: true,
           status: true,
           draftSchema: true,
+          publishedSchema: true,
+          retiredFields: true,
           theme: true,
           moderation: true,
         },
@@ -466,11 +495,21 @@ export function createFormService(
             ? 'PUBLISHED'
             : form.status;
 
+      // Questions this publish deletes keep their answers, shown as deleted ones.
+      const retiredFields = await retiredAfterPublish(
+        prisma,
+        formId,
+        parsePublishedSchema(form.publishedSchema),
+        draft,
+        retiredFieldsSchema.parse(form.retiredFields),
+      );
+
       // Conditional on the version, so a draft saved in the meantime is never published unseen.
       const { count } = await prisma.form.updateMany({
         where: { id: formId, version },
         data: {
           publishedSchema: draft,
+          retiredFields,
           publishedTitle: form.title,
           publishedTheme: theme,
           publishedAt: new Date(),

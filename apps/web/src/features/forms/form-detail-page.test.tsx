@@ -35,6 +35,7 @@ const FORM: FormDetail = {
   theme: createDefaultTheme(),
   publishedTheme: null,
   review: null,
+  retiredFields: [],
 };
 
 function Title() {

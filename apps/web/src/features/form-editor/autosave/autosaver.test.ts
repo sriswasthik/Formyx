@@ -28,6 +28,7 @@ function detail(input: UpdateFormInput, version: number): FormDetail {
     theme: createDefaultTheme(),
     publishedTheme: null,
     review: null,
+    retiredFields: [],
   };
 }
 

@@ -77,6 +77,7 @@ const FORM: FormDetail = {
   theme: createDefaultTheme(),
   publishedTheme: createDefaultTheme(),
   review: null,
+  retiredFields: [],
 };
 
 function response(id: string, createdAt: string, answers: SubmissionRecord['answers']) {

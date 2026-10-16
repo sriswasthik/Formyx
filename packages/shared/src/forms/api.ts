@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { validationIssueSchema } from '../errors.js';
 import { storedFormThemeSchema } from '../theme/migrate.js';
 import { formSchema } from './form-schema.js';
+import { fieldSchema } from './fields.js';
 import { formTemplateIdSchema } from './template-ids.js';
 
 /**
@@ -121,6 +122,8 @@ export const formDetailSchema = formSummarySchema.extend({
   publishedTheme: storedFormThemeSchema.nullable(),
   /** Why it is held for review ("asks for a password"), while it is; otherwise null. */
   review: z.object({ reasons: z.array(z.string()) }).nullable(),
+  /** Questions deleted since they were published that still have answers (see `responseFields`). */
+  retiredFields: z.array(fieldSchema).default([]),
 });
 export type FormDetail = z.infer<typeof formDetailSchema>;
 

@@ -10,6 +10,7 @@ import {
   slugify,
   type DeleteAllResponsesResponse,
   type DeleteSubmissionsResponse,
+  type Field,
   type FormSchema,
   type SubmissionPage,
   type SubmissionRecord,
@@ -56,11 +57,12 @@ async function extraColumns(prisma: Database, formId: string): Promise<ExtraColu
 function exportTable(
   prisma: Database,
   formId: string,
-  schema: FormSchema | null,
+  { schema, retiredFields }: { schema: FormSchema | null; retiredFields: Field[] },
   extra: ExtraColumns,
 ): ExportTable {
-  // A column per answer, or several for matrices, addresses and date ranges.
-  const columns = schema ? csvAnswerColumns(schema) : [];
+  // A column per answer, or several for matrices, addresses and date ranges; deleted
+  // questions' answers last, marked as deleted.
+  const columns = schema ? csvAnswerColumns(schema, retiredFields) : [];
   // Scores, values and the end screen, as the server worked them out.
   const outcomeColumns = schema ? csvOutcomeColumns(schema) : [];
   const header = [
@@ -148,8 +150,8 @@ export function createSubmissionsRouter(
     requireFormRole('VIEWER'),
     async (req, res) => {
       const formId = routeParam(req, 'formId');
-      const { title, schema } = await submissions.published(formId);
-      const table = exportTable(prisma, formId, schema, await extraColumns(prisma, formId));
+      const { title, ...published } = await submissions.published(formId);
+      const table = exportTable(prisma, formId, published, await extraColumns(prisma, formId));
       res.set({
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${exportName(title, 'csv')}"`,
@@ -169,8 +171,8 @@ export function createSubmissionsRouter(
     requireFeature('excel_export'),
     async (req, res) => {
       const formId = routeParam(req, 'formId');
-      const { title, schema } = await submissions.published(formId);
-      const table = exportTable(prisma, formId, schema, await extraColumns(prisma, formId));
+      const { title, ...published } = await submissions.published(formId);
+      const table = exportTable(prisma, formId, published, await extraColumns(prisma, formId));
       res.set({
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${exportName(title, 'xlsx')}"`,

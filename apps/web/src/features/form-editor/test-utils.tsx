@@ -36,6 +36,7 @@ export function makeFormDetail(
     theme: createDefaultTheme(),
     publishedTheme: null,
     review: null,
+    retiredFields: [],
     ...overrides,
   };
 }

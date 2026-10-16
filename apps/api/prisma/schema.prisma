@@ -222,6 +222,9 @@ model Form {
   theme                   Json
   /// What respondents see: a snapshot of `theme`, taken each time the form is published.
   publishedTheme          Json?                    @map("published_theme")
+  /// Questions deleted from the published form that still have answers, as last published,
+  /// so their answers can still be shown and exported (see retired-fields.ts in shared).
+  retiredFields           Json                     @default("[]") @map("retired_fields")
   /// Incremented on every draft update. Writers send the version they started from (optimistic concurrency).
   version                 Int                      @default(1)
   /// When the form was last published.

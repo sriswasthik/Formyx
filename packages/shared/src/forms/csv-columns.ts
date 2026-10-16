@@ -1,4 +1,4 @@
-import { formatAnswer, matrixCell, answerableFields } from './answer-format.js';
+import { formatAnswer, matrixCell } from './answer-format.js';
 import {
   ADDRESS_PARTS,
   ADDRESS_PART_LABELS,
@@ -10,6 +10,7 @@ import type { Field } from './fields.js';
 import { isFileAnswer } from './files.js';
 import type { FormSchema } from './form-schema.js';
 import type { StoredOutcome } from './responses.js';
+import { responseFields } from './retired-fields.js';
 
 /** A spreadsheet cell: text, a number or empty. */
 export type CsvCell = string | number | null;
@@ -116,9 +117,12 @@ export function csvColumnsFor(field: Field): CsvColumn[] {
   }
 }
 
-/** Every answer column of `schema`'s export, in form order. */
-export function csvAnswerColumns(schema: FormSchema): CsvColumn[] {
-  return answerableFields(schema).flatMap(csvColumnsFor);
+/**
+ * Every answer column of `schema`'s export, in form order, then the columns of questions
+ * deleted since that still have answers (`retired`), marked as deleted.
+ */
+export function csvAnswerColumns(schema: FormSchema, retired: readonly Field[] = []): CsvColumn[] {
+  return responseFields(schema, retired).flatMap(csvColumnsFor);
 }
 
 export interface CsvOutcomeColumn {

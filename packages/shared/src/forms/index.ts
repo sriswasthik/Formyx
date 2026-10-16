@@ -18,6 +18,7 @@ export * from './form-schema.js';
 export * from './ids.js';
 export * from './logic-factories.js';
 export * from './logic-integrity.js';
+export * from './retired-fields.js';
 export * from './logic-publish.js';
 export * from './logic-repair.js';
 export * from './logic-schema.js';
