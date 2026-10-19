@@ -24,7 +24,10 @@ test('theme choice persists across reloads', async ({ page }) => {
   await page.goto('/');
 
   // The footer's switch: one click.
-  await page.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', { name: 'Dark' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: 'Dark' })
+    .click();
   await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
   await page.reload();
