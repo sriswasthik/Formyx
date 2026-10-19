@@ -117,10 +117,12 @@ export const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   /**
-   * `all_unlocked` (the default, for development and the beta): every workspace gets every
-   * feature. `enforced`: each workspace gets what its plan includes.
+   * `all_unlocked` (default in development/test): every workspace gets every feature.
+   * `enforced` (default in production): each workspace gets what its plan includes.
    */
-  ENTITLEMENTS_MODE: entitlementsModeSchema.default('all_unlocked'),
+  ENTITLEMENTS_MODE: entitlementsModeSchema.default(
+    process.env.NODE_ENV === 'production' ? 'enforced' : 'all_unlocked',
+  ),
   /** Where the web app lives, for links in emails. */
   APP_URL: z
     .url({ protocol: /^https?$/, error: 'Must be an http(s) URL' })
