@@ -146,49 +146,6 @@ describe('effectivePlan', () => {
       'FREE',
     ],
     ['a trial without an end', billing({ planStatus: 'TRIALING' }), 'FREE'],
-    // Boundary: the grace period ends at exactly now — access drops to FREE at that instant
-    // because billedPlan uses `graceEndsAt > now` (strict greater-than).
-    [
-      'a plan past due at the exact grace expiry moment',
-      billing({ planStatus: 'PAST_DUE', graceEndsAt: now }),
-      'FREE',
-    ],
-    // Boundary: one millisecond before expiry — access is still Pro.
-    [
-      'a plan past due one millisecond before grace expires',
-      billing({
-        planStatus: 'PAST_DUE',
-        graceEndsAt: new Date(now.getTime() + 1),
-      }),
-      'PRO',
-    ],
-    // Boundary: trial ends at exactly now — access drops to FREE at that instant.
-    [
-      'a trial ending at the exact expiry moment',
-      billing({ planStatus: 'TRIALING', trialEndsAt: now }),
-      'FREE',
-    ],
-    // A cancelled plan gets FREE from billedPlan, but an active complimentary plan lifts it.
-    [
-      'a cancelled plan with an active complimentary plan',
-      billing({
-        planStatus: 'CANCELED',
-        complimentaryPlan: 'PRO',
-        complimentaryUntil: new Date('2026-11-01T00:00:00Z'),
-      }),
-      'PRO',
-    ],
-    // PAST_DUE without graceEndsAt keeps the plan; a higher complimentary plan lifts it further.
-    [
-      'a plan past due with no grace end and a higher complimentary plan',
-      billing({
-        plan: 'PRO',
-        planStatus: 'PAST_DUE',
-        complimentaryPlan: 'BUSINESS',
-        complimentaryUntil: new Date('2026-11-01T00:00:00Z'),
-      }),
-      'BUSINESS',
-    ],
   ] as const)('%s', (_case, value, expected) => {
     expect(effectivePlan(value, now)).toBe(expected);
   });

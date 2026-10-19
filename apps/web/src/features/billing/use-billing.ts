@@ -82,13 +82,15 @@ export function useDismissDowngrade(workspaceId: string) {
 const CONFIRM_POLL_MS = 1500;
 const CONFIRM_TRIES = 20;
 
-/** Waits for the workspace's effective plan to reflect the paid plan. */
-async function waitForConfirmation(workspaceId: string, subscriptionId: string, targetPlan: PaidPlan) {
+/** Waits for Razorpay's webhook to reach the server: the plan in force, or on its way. */
+async function waitForConfirmation(workspaceId: string, subscriptionId: string) {
   for (let attempt = 0; attempt < CONFIRM_TRIES; attempt += 1) {
     const summary = await getBilling(workspaceId);
     const subscription = summary.subscription;
-    // The webhook (or verifyCheckout fallback) should have updated the effective plan.
-    if (summary.effectivePlan === targetPlan && subscription?.id === subscriptionId) {
+    if (
+      subscription?.id === subscriptionId &&
+      ['active', 'authenticated'].includes(subscription.status)
+    ) {
       return { summary, confirmed: true };
     }
     await new Promise((resolve) => setTimeout(resolve, CONFIRM_POLL_MS));
@@ -124,7 +126,6 @@ export function useCheckout(workspaceId: string) {
       const { summary, confirmed } = await waitForConfirmation(
         workspaceId,
         checkout.subscriptionId,
-        checkout.plan,
       );
       refreshPlan(queryClient, workspaceId, summary);
       void queryClient.invalidateQueries({ queryKey: billingKeys.payments(workspaceId) });

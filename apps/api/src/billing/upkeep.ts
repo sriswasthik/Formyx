@@ -1,6 +1,5 @@
 import { TRIAL_REMINDER_DAYS } from '@formyx/shared';
 import type { Logger } from 'pino';
-import { activatePlan } from './plan-changes.js';
 import {
   renderPlanEndedEmail,
   renderTrialEndedEmail,
@@ -41,7 +40,7 @@ export function dueReminder(daysLeft: number): number | null {
 export async function runBillingUpkeep(deps: BillingUpkeepDependencies) {
   const { prisma } = deps;
   const now = deps.now?.() ?? new Date();
-  const counts = { reminders: 0, trialsEnded: 0, graceEnded: 0, complimentaryEnded: 0, reconciled: 0 };
+  const counts = { reminders: 0, trialsEnded: 0, graceEnded: 0, complimentaryEnded: 0 };
 
   // Reminders for trials ending within the week.
   const ending = await prisma.workspace.findMany({
@@ -134,26 +133,6 @@ export async function runBillingUpkeep(deps: BillingUpkeepDependencies) {
       periodKey: (workspace.complimentaryUntil ?? now).toISOString(),
       render: (context) => renderPlanEndedEmail(context, { plan: gift, reason: 'complimentary' }),
     });
-  }
-
-  // Reconciliation: subscriptions verified (payment completed) but workspace plan not activated.
-  // This catches cases where both the webhook and verifyCheckout failed to activate the plan.
-  const unverifiedSubscriptions = await prisma.subscription.findMany({
-    where: {
-      verifiedAt: { not: null },
-      status: { in: ['AUTHENTICATED', 'ACTIVE'] },
-      workspace: {
-        OR: [
-          { plan: 'FREE' },
-          { planStatus: { in: ['TRIALING', 'PAST_DUE', 'CANCELED'] } },
-        ],
-      },
-    },
-    select: { id: true, workspaceId: true, plan: true },
-  });
-  for (const subscription of unverifiedSubscriptions) {
-    await activatePlan(prisma, subscription.workspaceId, subscription.plan);
-    counts.reconciled += 1;
   }
 
   return counts;

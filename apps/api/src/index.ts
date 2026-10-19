@@ -33,12 +33,6 @@ if (env.NODE_ENV === 'production' && env.WEBHOOK_ALLOW_PRIVATE_URLS) {
 if (env.NODE_ENV === 'production' && !env.ENCRYPTION_KEYS) {
   logger.warn('ENCRYPTION_KEYS is not set: stored secrets are sealed with a key from JWT_SECRET');
 }
-if (env.NODE_ENV === 'production' && env.ENTITLEMENTS_MODE === 'all_unlocked') {
-  logger.warn(
-    'ENTITLEMENTS_MODE is all_unlocked in production: every workspace has every Pro feature ' +
-      'regardless of plan. Set ENTITLEMENTS_MODE=enforced to activate plan gating.',
-  );
-}
 const storage = createUploadStorage(env);
 if (!storage) logger.info('Cloudinary is not configured: file uploads are switched off');
 const jobs = createJobQueue({ env, prisma, logger });

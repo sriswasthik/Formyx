@@ -252,7 +252,7 @@ describe('subscribe', () => {
 });
 
 describe('verify', () => {
-  it('checks Checkout’s signature on the server and activates the plan as a fallback', async () => {
+  it('checks Checkout’s signature on the server, and leaves the plan to the webhook', async () => {
     const { subscriptionId } = checkoutSchema.parse(
       (await owner.post(`${billing()}/subscribe`, { plan: 'PRO', interval: 'monthly' })).body,
     );
@@ -264,10 +264,9 @@ describe('verify', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'confirming' });
     expect((await prisma.subscription.findFirstOrThrow()).verifiedAt).toBeInstanceOf(Date);
-    // The plan is activated immediately as a fallback; the webhook will confirm idempotently.
     expect(
       (await prisma.workspace.findUniqueOrThrow({ where: { id: team.workspaceId } })).plan,
-    ).toBe('PRO');
+    ).toBe('FREE');
   });
 
   it('refuses a signature that doesn’t match', async () => {
