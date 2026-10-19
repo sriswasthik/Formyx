@@ -307,6 +307,9 @@ export function createBillingService({
         where: { id: subscription.id },
         data: { verifiedAt: now() },
       });
+      // Fallback: activate the plan immediately. The webhook will confirm/idempotently update.
+      // If the first charge later fails, the payment.failed/pending/halted webhooks will revert.
+      await activatePlan(prisma, workspaceId, subscription.plan);
       return {
         status: ['ACTIVE', 'AUTHENTICATED'].includes(subscription.status) ? 'active' : 'confirming',
         plan: subscription.plan as PaidPlan,
